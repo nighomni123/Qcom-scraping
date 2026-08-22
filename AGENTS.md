@@ -37,6 +37,12 @@ Demand Radar phases, one on search-history/category analytics). Rules:
 - **Document as you go**: new CLI flags → README + the Commands list here;
   new modules/tables → Repo map; new behavioral invariants → the invariants
   section. Undocumented behavior will get broken by the next agent.
+- **The repo is git-managed** (branch `main`, baseline `b7f3502` = verified
+  merged state of all workstreams). `git status` must be clean when you start;
+  commit after every verified milestone with a descriptive message. Never
+  force-push or amend published history — the other agent builds on HEAD.
+  If the tree contains modifications you did NOT make, stop: run the verify
+  suite, `git diff` them, and read AGENTS.md/README changes before proceeding.
 - Don't run two long crawls (`--demand`, `--map-locality`, `--build-watchlist`,
   `live_sweep.py`) simultaneously against the same app — rate-limit bans hurt
   both workstreams. Coordinate timing instead.
