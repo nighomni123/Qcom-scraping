@@ -97,6 +97,30 @@
   .kv b { color: var(--dim); font-weight: 400; margin-right: 6px; }
   .chip { display: inline-block; background: #21262d; border-radius: 10px; padding: 0 8px;
           font-size: 11px; color: var(--dim); margin-left: 6px; }
+  /* demand radar */
+  .qcline { display: flex; gap: 14px; flex-wrap: wrap; padding: 9px 14px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .qcline b { font-weight: 700; }
+  .qcline .ok { color: var(--green); } .qcline .off { color: var(--dim); }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.grid th, table.grid td { padding: 4px 8px; border-bottom: 1px solid #21262d; text-align: left; }
+  table.grid th { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  table.grid td.num { text-align: right; }
+  .dpi { color: var(--red); font-weight: 700; }
+  .heatwrap { overflow-x: auto; }
+  table.heat { border-collapse: collapse; font-size: 10.5px; width: 100%; }
+  table.heat th { color: var(--dim); font-weight: 400; padding: 2px 3px; text-align: center; }
+  table.heat td.hname { max-width: 260px; white-space: nowrap; overflow: hidden;
+                        text-overflow: ellipsis; padding-right: 10px; color: var(--text); }
+  table.heat td.cell { width: 26px; height: 18px; text-align: center; color: transparent;
+                       border: 1px solid #21262d; cursor: default; }
+  table.heat td.cell.on { color: #fff; font-weight: 700; }
+  tr.peak td.hourmark { color: var(--amber); font-weight: 700; }
+  .etarow { display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 14px; }
+  .etacell { flex: 1 0 44px; text-align: center; background: #21262d; border-radius: 6px; padding: 5px 2px; font-size: 11px; }
+  .etacell b { display: block; font-size: 13px; }
+  .etacell.fast { background: rgba(63,185,80,.25); } .etacell.mid { background: rgba(210,153,34,.22); }
+  .etacell.slow { background: rgba(248,81,73,.22); }
+  .etacell.none { opacity: .45; }
   footer { color: var(--dim); font-size: 11px; margin-top: 8px; }
 </style>
 </head>
@@ -115,6 +139,7 @@
     <div class="card"><div class="k">Bot queries</div><div class="v" id="cQueries">—</div><div class="s" id="botName">@dshprice_bot</div></div>
     <div class="card"><div class="k">Glitch alerts</div><div class="v" id="cAlerts">—</div><div class="s">fired to desktop/log</div></div>
     <div class="card"><div class="k">Searches saved</div><div class="v" id="cSaved">—</div><div class="s">in deals.db</div></div>
+    <div class="card"><div class="k">Open OOS</div><div class="v" id="cOos">—</div><div class="s">demand radar · live stock-outs</div></div>
   </div>
 
   <div class="panel">
@@ -141,6 +166,27 @@
         <div id="hist"><div class="muted">no searches yet</div></div>
       </div>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>Demand Radar — platform health <span class="chip">DB-backed · run `--qc-status` for live probes</span></h2>
+    <div class="qcline" id="qcLine">loading…</div>
+    <div id="dStores" style="padding:10px 14px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Demand Pressure Index — top SKUs <span class="chip">DPI = Σ OOS-min × recency(half-life 3d) ÷ obs-days</span></h2>
+    <div id="dpiTop"><div class="muted">loading…</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Stock-out onset heatmap — hour × SKU <span class="chip">local time · when demand spikes</span></h2>
+    <div class="heatwrap" id="heatWrap"><div class="muted">loading…</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Delivery ETA by hour <span class="chip">per-store snapshot average</span></h2>
+    <div class="etarow" id="etaRow"><div class="muted">loading…</div></div>
   </div>
 
   <div class="modal hidden" id="modal" onclick="if(event.target===this)closeModal()">
@@ -311,10 +357,87 @@ async function shutdown(){
   document.querySelector('button.stop').textContent = 'STOPPED';
   document.querySelector('button.stop').disabled = true;
 }
+// ---------- demand radar (phase 4) ----------
+function storeCard(s){
+  return `<div class="card"><div class="k">${esc(s.app)}:${esc(String(s.store_id).slice(0,12))}</div>
+    <div class="v">${Number(s.obs).toLocaleString()}</div>
+    <div class="s">${s.skus_seen} SKUs seen · ${s.active_skus} active ·
+      <span style="color:var(${s.open_oos?'--red':'--green'})">${s.open_oos} open OOS</span>
+      ${s.vanished?` · <span style="color:var(--amber)">${s.vanished} vanished</span>`:''}
+      · eta ${s.eta_min??'—'}m</div></div>`;
+}
+async function loadDemand(){
+  try {
+    const r = await fetch('/demand'); const d = await r.json();
+    if (!d.summary) return;
+    const t = d.summary.totals;
+    document.getElementById('cOos').textContent = t.open_oos;
+    document.getElementById('dStores').innerHTML =
+      '<div class="cards" style="margin-bottom:0">' + d.summary.stores.map(storeCard).join('') + '</div>';
+    const rows = d.top || [], el = document.getElementById('dpiTop');
+    if (!rows.length){ el.innerHTML = '<div class="muted">no stock-outs recorded yet — DPI ranks SKUs once events accumulate</div>'; return; }
+    el.innerHTML = '<table class="grid"><tr><th>#</th><th>SKU</th><th>DPI</th><th>events</th>' +
+      '<th>OOS min</th><th>restock</th><th>last ₹</th></tr>' +
+      rows.map((r,i)=>`<tr><td>${i+1}</td><td title="${esc(r.sku_key)}">${esc(r.name)}${r.active?'':' <span class="chip">inactive</span>'}</td>` +
+        `<td class="dpi num">${r.dpi.toFixed(1)}</td><td class="num">${r.n_events}</td>` +
+        `<td class="num">${r.total_min.toFixed(0)}</td><td class="num">${r.mean_restock_min??'—'}</td>` +
+        `<td class="num">${rupee(r.last_price)}</td></tr>`).join('') + '</table>';
+  } catch(e){}
+}
+async function loadHeat(){
+  try {
+    const r = await fetch('/heatmap'); const d = await r.json();
+    const skus = (d.skus||[]).filter(s=>s.total>0);
+    const el = document.getElementById('heatWrap');
+    if (!skus.length){ el.innerHTML = '<div class="muted" style="padding:10px 14px">no onsets yet — cells light up as OOS events open</div>'; return; }
+    const max = Math.max(...skus.flatMap(s=>s.by_hour), 1);
+    let html = '<table class="heat"><tr><th style="text-align:left">SKU</th>' +
+      d.hours.map(h=>`<th${h===d.peak_hour?' class="hourmark"':''}>${String(h).padStart(2,'0')}</th>`).join('') + '</tr>';
+    for (const s of skus){
+      html += `<tr><td class="hname" title="${esc(s.name)}">${esc(s.name)}</td>` +
+        s.by_hour.map(v=>{
+          const a = v/max;
+          return `<td class="cell${v?' on':''}"${v?` style="background:rgba(248,81,73,${(0.15+0.85*a).toFixed(2)})"`:''}>${v||''}</td>`;
+        }).join('') + '</tr>';
+    }
+    el.innerHTML = html + '</table>' +
+      (d.peak_hour!==null&&d.peak_hour!==undefined ? `<div class="muted" style="padding:8px 14px">peak onset hour: <b style="color:var(--amber)">${String(d.peak_hour).padStart(2,'0')}:00</b> local</div>` : '');
+  } catch(e){}
+}
+async function loadEta(){
+  try {
+    const r = await fetch('/eta'); const d = await r.json();
+    const curve = (d.curve||[]).filter(c=>c.n);
+    const row = document.getElementById('etaRow');
+    if (!curve.length){ row.innerHTML = '<div class="muted" style="padding:4px 0">no ETA snapshots yet</div>'; return; }
+    row.innerHTML = curve.map(c=>{
+      const cls = c.avg<=10?'fast':(c.avg<=25?'mid':'slow');
+      return `<div class="etacell ${cls}" title="min ${c.min} / max ${c.max}"><b>${c.avg}m</b>${String(c.hour).padStart(2,'0')}:00 · n=${c.n}</div>`;
+    }).join('');
+  } catch(e){}
+}
+async function loadQc(){
+  try {
+    const r = await fetch('/qc'); const d = await r.json();
+    const apps = d.apps||[];
+    document.getElementById('qcLine').innerHTML = apps.map(a=>{
+      if (!a.enabled) return `<span class="off"><b>${a.app}</b> ○ disabled in config</span>`;
+      const live = a.obs_24h>0;
+      return `<span class="${live?'ok':'off'}"><b>${a.app}</b> ${live?'● live':'○ no probes yet'} — ` +
+             `${a.stores} stores · ${a.watch_active} watch SKUs · ${a.open_oos} open OOS</span>`;
+    }).join('');
+  } catch(e){}
+}
+
 refresh(); loadCats(); loadHist();
+loadDemand(); loadHeat(); loadEta(); loadQc();
 setInterval(refresh, 2000);
 setInterval(loadCats, 8000);
 setInterval(loadHist, 8000);
+setInterval(loadDemand, 15000);
+setInterval(loadHeat, 30000);
+setInterval(loadEta, 60000);
+setInterval(loadQc, 30000);
 </script>
 </body>
 </html>

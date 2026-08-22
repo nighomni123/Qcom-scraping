@@ -119,6 +119,35 @@ def main():
         qc_health(cfg, apps=_flag_list("--apps"))
         return
 
+    if "--demand-report" in sys.argv:
+        from src.store import Store as _Store  # aliased: Store is used above
+        from src import demand as D
+        db = _Store(cfg.get("db", "deals.db"))
+        store_filter = _flag_value("--store")
+        summ = D.demand_summary(db)
+        t = summ["totals"]
+        print(f"[demand-report] {t['obs']:,} stock_obs over {t['obs_days']}d · "
+              f"{t['open_oos']} open OOS · {t['vanished']} vanished")
+        for s in summ["stores"]:
+            print(f"  {s['app']}:{s['store_id']}  {s['label'] or '—'}  "
+                  f"obs={s['obs']} skus={s['skus_seen']} active={s['active_skus']} "
+                  f"oos={s['open_oos']} eta={s['eta_min']}")
+        rows = D.dpi_table(db, store_id=store_filter)
+        if rows:
+            print(f"\n  {'DPI':>7}  {'events':>6}  {'OOS min':>8}  {'restock':>8}  SKU")
+            for r in rows[:20]:
+                print(f"  {r['dpi']:>7.2f}  {r['n_events']:>6}  {r['total_min']:>8.1f}  "
+                      f"{str(r['mean_restock_min']):>8}  {r['name'][:48]}")
+        else:
+            print("\n  no OOS events yet — the prober loop is still filling history")
+        hm = D.heatmap(db, store_id=store_filter)
+        if hm["peak_hour"] is not None:
+            print(f"\n  peak stock-out onset hour: {hm['peak_hour']:02d}:00 local")
+        if "--csv" in sys.argv:
+            print("  export:", D.export_csv(db))
+        db.close()
+        return
+
     if "--search" in sys.argv:
         i = sys.argv.index("--search")
         query = " ".join(sys.argv[i + 1:]) or "amul milk"

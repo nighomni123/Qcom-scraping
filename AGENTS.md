@@ -65,6 +65,8 @@ src/
   locality.py           phase 1: anchor grid + darkstore discovery/clustering
   watchlist.py          phase 2: per-store SKU probe set builder
   prober.py             phase 3: stock_obs loop + debounced oos_events machine
+  demand.py             phase 4: DPI rollups, hour×SKU onset heatmap, ETA
+                        curves, CSV export (pure functions over sqlite)
   categories.py         keyword product-category classifier (ordered rules)
   store.py              sqlite schema + all persistence helpers
   geo.py                corridor anchors + store resolver (glitch monitor)
@@ -86,7 +88,12 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --build-watchlist [--apps …] [--store ID]
                                     [--max-per-store N] [--max-queries N]
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
+    python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
     python3 run.py --qc-status [--apps blinkit,zepto,instamart]
+
+Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
+/searches /search/<id>` (bot analytics) and `/demand /heatmap?store=
+/eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`).
 
 "Test suite" = `python3 -m py_compile` on touched files + `node --check
 tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
@@ -155,7 +162,9 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   returns `cards: []` until an address-confirm flow completes; direct
   `/api/instamart/search` 403s pre-onboarding. Next step: trace the
   confirm-location POST from a real browser session and replicate it.
-- Phase 4 (analysis/heatmap/dashboard) and phase 5 (hardening: proxy/IP
-  coherence, per-store anchor rotation) not yet built — see DEMAND_RADAR.md.
+- Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
+  dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
+  proxy/IP coherence, per-store anchor rotation) still pending — see
+  DEMAND_RADAR.md.
 - Demand numbers are a stock-out-intensity PROXY for demand, never order
   volumes. Keep volumes modest; research only; no fake accounts/orders.

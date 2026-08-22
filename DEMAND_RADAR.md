@@ -62,8 +62,16 @@ chronological demand-pressure heatmap from stock-out events.**
   storeId but serves `cards: []` until an address-confirm flow completes;
   direct search API 403s pre-onboarding. Needs a traced confirm-location POST
   from a real browser session. Prober/mapper degrade gracefully meanwhile.
-- Phases 4–5 (analysis/heatmap, hardening) — designed below, not yet
-  implemented. The analyst reads `stock_obs`/`oos_events` directly.
+- **Phase 4 (analysis) BUILT 08-22.** `src/demand.py` (pure sqlite rollups):
+  DPI = Σ OOS-minutes × recency (3-day half-life) ÷ observation-days;
+  hour×SKU onset heatmap; per-hour ETA curves; CSV export
+  (`exports/dpi_<date>.csv`). CLI: `--demand-report [--store] [--csv]`.
+  Dashboard (`--ui`): platform-health line, store cards, DPI table,
+  onset heatmap grid, ETA strip — endpoints `/demand /heatmap /eta /qc`
+  (DB-backed; live probing stays in `--qc-status`). Phase 5 (hardening)
+  remains the only unbuilt phase.
+- Phases 4–5 design notes below predate the phase-4 implementation — the
+  built surface is as described above.
 
 ---
 

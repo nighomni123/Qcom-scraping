@@ -23,7 +23,14 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
                     --max-per-store 100 --max-queries 10
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
+    python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
     python3 run.py --qc-status                       # per-app QC health board
+
+**Demand analysis (phase 4):** the dashboard's Demand Radar panels show a
+Demand Pressure Index per SKU (Σ OOS-minutes × recency ÷ observation-days),
+a hour×SKU stock-out onset heatmap (local time — when demand spikes), and
+per-hour delivery-ETA curves. `--demand-report` prints the same in the
+terminal; `--csv` exports `exports/dpi_<date>.csv`.
 
 **QC-first defaults** (since 08-22): amazon/flipkart tracking is disabled and
 the search bot compares quick-commerce platforms only — re-enable via

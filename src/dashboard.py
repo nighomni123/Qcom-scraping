@@ -90,6 +90,61 @@ class Dashboard:
                         st.close()
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "searches": []})
+                # ---- Demand Radar (phase 4) ----
+                elif self.path == "/demand":
+                    try:
+                        from .store import Store as S
+                        from . import demand as D
+                        st = S(dash.cfg.get("db", "deals.db"))
+                        self._json({"summary": D.demand_summary(st),
+                                    "top": D.dpi_table(st, limit=15)})
+                        st.close()
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]})
+                elif self.path.startswith("/heatmap"):
+                    try:
+                        from urllib.parse import urlparse, parse_qs
+                        qs = parse_qs(urlparse(self.path).query)
+                        sid = (qs.get("store") or [None])[0]
+                        from .store import Store as S
+                        from . import demand as D
+                        st = S(dash.cfg.get("db", "deals.db"))
+                        self._json(D.heatmap(st, store_id=sid))
+                        st.close()
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "skus": []})
+                elif self.path == "/eta":
+                    try:
+                        from .store import Store as S
+                        from . import demand as D
+                        st = S(dash.cfg.get("db", "deals.db"))
+                        self._json({"curve": D.eta_curve(st)})
+                        st.close()
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "curve": []})
+                elif self.path == "/qc":
+                    # DB-backed platform health (no live probing here — use
+                    # `run.py --qc-status` for that; it takes ~45 s/app).
+                    try:
+                        from .store import Store as S
+                        st = S(dash.cfg.get("db", "deals.db"))
+                        day_ago = time.time() - 86400
+                        apps = []
+                        for a in ("blinkit", "zepto", "instamart"):
+                            en = bool(dash.cfg.get("adapters", {}).get(a, {}).get("enabled", True))
+                            q = lambda sql, *p: st.conn.execute(sql, p).fetchone()[0]
+                            apps.append({
+                                "app": a, "enabled": en,
+                                "stores": q("SELECT COUNT(*) FROM darkstores WHERE app=?", a),
+                                "obs_24h": q("SELECT COUNT(*) FROM stock_obs WHERE ts>? AND app=?", day_ago, a),
+                                "open_oos": q("SELECT COUNT(*) FROM oos_events WHERE ended_at IS NULL "
+                                              "AND kind='oos' AND app=?", a),
+                                "watch_active": q("SELECT COUNT(*) FROM watchlist WHERE active=1 AND app=?", a),
+                            })
+                        self._json({"apps": apps})
+                        st.close()
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "apps": []})
                 elif self.path.startswith("/search/") and self.path.count("/") == 2:
                     try:
                         sid = int(self.path.rsplit("/", 1)[1])
