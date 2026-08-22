@@ -1,0 +1,51 @@
+# codes.yaml — discount / delivery-fee knowledge base for the price search.
+#
+# EDIT THIS to reflect the offers you actually have. Every offer carries a
+# `note` that is shown in search results so you can verify at checkout before
+# paying. Offers below are ILLUSTRATIVE placeholders — replace with live ones.
+
+delivery_fees:            # quick-commerce charges these below the free threshold
+  blinkit:   { free_above: 100, fee: 25 }
+  zepto:     { free_above: 190, fee: 25 }
+  instamart: { free_above: 99,  fee: 30 }
+  amazon:    { free_above: 499, fee: 40 }   # non-prime; prime members set fee: 0
+  flipkart:  { free_above: 499, fee: 40 }
+
+offers:
+  # ---- examples; verify each in-app before relying on it ----
+  - platform: blinkit
+    code: "WELCOME50"
+    type: flat             # flat ₹ off
+    value: 50
+    min_order: 199
+    note: "new-user code — check applicability"
+
+  - platform: zepto
+    code: "ZEPTO100"
+    type: flat
+    value: 100
+    min_order: 299
+    note: "first-order code — verify"
+
+  - platform: instamart
+    code: "SWIGGYIT60"
+    type: flat
+    value: 60
+    min_order: 149
+    note: "rotate — verify at checkout"
+
+  - platform: amazon
+    code: "ICICIAMZ 5%"
+    type: pct              # percent off, capped
+    value: 5
+    max_cap: 150
+    min_order: 0
+    note: "card offer rotates monthly — confirm on payment page"
+
+  - platform: flipkart
+    code: "AXISFK 10%"
+    type: pct
+    value: 10
+    max_cap: 200
+    min_order: 0
+    note: "bank offer — confirm on payment page"

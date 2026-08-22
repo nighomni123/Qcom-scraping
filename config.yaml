@@ -1,0 +1,117 @@
+# Moneymaker v2 config — tunables only. Secrets live in .env (never commit it).
+
+schedule:
+  # Base seconds between full cycles. Jittered +/- 30% at runtime.
+  cycle_seconds: 300
+  # Invert the bot pattern: crawl more in off-peak. Multiplier applied to
+  # cycle_seconds during quiet_hours (smaller = faster crawling).
+  offpeak_speedup: 0.4
+  quiet_hours:
+    start: "23:30"
+    end: "07:30"
+
+geo:
+  # Mumbai corridor we watch. Each point resolves to the nearest dark store.
+  corridor:
+    - { station: "Virar",      lat: 19.456, lon: 72.806 }
+    - { station: "Vasai Road", lat: 19.392, lon: 72.805 }
+    - { station: "Nalasopara", lat: 19.413, lon: 72.790 }
+    - { station: "Mira Road",  lat: 19.282, lon: 72.857 }
+    - { station: "Bhayandar",  lat: 19.231, lon: 72.851 }
+    - { station: "Borivali",   lat: 19.230, lon: 72.856 }
+    - { station: "Kandivali",  lat: 19.207, lon: 72.851 }
+    - { station: "Malad",      lat: 19.186, lon: 72.848 }
+    - { station: "Goregaon",   lat: 19.166, lon: 72.852 }
+    - { station: "Andheri",    lat: 19.119, lon: 72.846 }
+
+adapters:
+  # Browser-intercept adapters need Playwright + a chromium build.
+  # Set enabled:false if you only want the trackers + engine to run.
+  blinkit:   { enabled: true,  app: "blinkit" }
+  instamart: { enabled: true,  app: "instamart" }
+  zepto:     { enabled: true,  app: "zepto" }
+  trackers:  { enabled: true }   # amazon/flipkart price tracking
+
+anti_block:
+  # Rotate these per cycle to defeat simple rate fingerprints.
+  rotate_user_agent: true
+  rotate_install_id: true
+  # Pre-installed Playwright (Node) + Chromium used by the browser-intercept layer.
+  node_path: "/Users/Mitesh Gada/Documents/Projects/Do not delete folder/node_modules"
+  pw_browsers_path: "/Users/Mitesh Gada/Documents/Projects/Do not delete folder/.pw-browsers"
+  # Optional residential proxy pool (env: PROXY_URL or list here).
+  proxies: []
+  # Honey-pot basket: SKUs whose TRUE price we hardcode. Any deviation = glitch.
+  honey_pot:
+    - { app: "blinkit",   query: "amul milk 1l",    true_price: 66 }
+    - { app: "blinkit",   query: "lays 90g",        true_price: 20 }
+    - { app: "instamart", query: "maggi 12 pack",   true_price: 168 }
+    - { app: "zepto",     query: "amul gold 1l",    true_price: 72 }
+
+detect:
+  # Glitch scoring thresholds.
+  honey_deviation_pct: 25      # >25% off true price on a honey SKU => instant
+  stat_zscore: 2.5             # statistical outlier vs store baseline
+  min_margin_off_mrp: 40       # % off MRP to even consider
+  max_price: 5000              # ignore silly high prices
+
+alert:
+  desktop: true                # macOS notification
+  telegram:
+    enabled: false             # set true + fill .env to push to phone
+  log_file: "deals.log"
+  max_alerts_per_hour: 30
+
+db: "deals.db"
+
+# Cross-platform price search (Telegram bot / --search CLI)
+search:
+  station: "Andheri"          # dark-store anchor for qcomm searches
+  platforms: [blinkit, zepto, instamart, amazon, flipkart]
+  per_platform_limit: 3       # top matches kept per platform
+  min_match_score: 0.5        # fuzzy token-overlap threshold
+
+codes_file: "codes.yaml"      # delivery fees + offers knowledge base
+
+# Demand Radar (see DEMAND_RADAR.md): per-darkstore stock-out intelligence.
+demand:
+  enabled: true
+  locality:
+    name: "Andheri West"
+    bbox:
+      min_lat: 19.100
+      max_lat: 19.148
+      min_lon: 72.800
+      max_lon: 72.857
+    grid_step_m: 700
+    landmarks:
+      - "Andheri West station"
+      - "DN Nagar"
+      - "Four Bungalows"
+      - "Seven Bungalows"
+      - "Kokilaben Hospital"
+      - "Versova"
+      - "Yari Road"
+      - "Lokhandwala"
+      - "Infiniti Mall"
+      # explicit form for custom seeds:
+      # - { name: "My Building", lat: 19.125, lon: 72.835 }
+  # discovery sweep tuning
+  min_points_before_early_stop: 6   # probes before saturation-stop may trigger
+  saturation_stop: 4                # stop app sweep after N probes w/o new store
+  # watchlist builder (phase 2)
+  categories_per_store: 6           # DOM category pages visited per store
+  staple_queries: []                # empty = built-in high-velocity defaults
+  watchlist_max_per_store: 300
+  # stock prober (phase 3)
+  probe_interval_sec: 900           # per-store cycle target; jittered, off-peak faster
+  probe_terms_max: 20               # watchlist search terms re-probed per store/cycle
+  oos_debounce_snapshots: 2         # consecutive OOS reads before an event opens
+  vanished_cycles: 4                # missed successful sweeps before 'vanished'
+  stock_canary_queries: ["amul milk", "eggs"]   # must return in-stock items
+  suspect_flip_min: 10              # mass-flip soft-block guard: >= N flips...
+  suspect_flip_pct: 50              # ...>= % of previously-in-stock seen SKUs
+  # future phases (analysis/heatmap) will read these:
+
+ui:
+  port: 8787                  # live dashboard: http://127.0.0.1:8787

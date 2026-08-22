@@ -1,0 +1,95 @@
+{
+  "locality": "Andheri West",
+  "generated_ts": 1787386722.110276,
+  "anchor_count": 3,
+  "anchors": [
+    {
+      "label": "Andheri West station",
+      "lat": 19.1197,
+      "lon": 72.8446,
+      "kind": "landmark"
+    },
+    {
+      "label": "DN Nagar",
+      "lat": 19.12196,
+      "lon": 72.83086,
+      "kind": "landmark"
+    },
+    {
+      "label": "Four Bungalows",
+      "lat": 19.12879,
+      "lon": 72.82555,
+      "kind": "landmark"
+    }
+  ],
+  "apps": {
+    "blinkit": {
+      "stores": [
+        {
+          "store_id": "36517",
+          "label": "blinkit store 36517",
+          "points": [
+            {
+              "label": "Andheri West station",
+              "lat": 19.1197,
+              "lon": 72.8446
+            },
+            {
+              "label": "DN Nagar",
+              "lat": 19.12196,
+              "lon": 72.83086
+            }
+          ],
+          "eta_min": 10
+        },
+        {
+          "store_id": "47578",
+          "label": "blinkit store 47578",
+          "points": [
+            {
+              "label": "Four Bungalows",
+              "lat": 19.12879,
+              "lon": 72.82555
+            }
+          ],
+          "eta_min": 9
+        }
+      ],
+      "history": [
+        {
+          "label": "Andheri West station",
+          "lat": 19.1197,
+          "lon": 72.8446,
+          "kind": "landmark",
+          "resolved_store": "36517",
+          "eta_min": 10,
+          "products": 84,
+          "error": null,
+          "sec": 11.0
+        },
+        {
+          "label": "DN Nagar",
+          "lat": 19.12196,
+          "lon": 72.83086,
+          "kind": "landmark",
+          "resolved_store": "36517",
+          "eta_min": 10,
+          "products": 84,
+          "error": null,
+          "sec": 9.0
+        },
+        {
+          "label": "Four Bungalows",
+          "lat": 19.12879,
+          "lon": 72.82555,
+          "kind": "landmark",
+          "resolved_store": "47578",
+          "eta_min": 9,
+          "products": 84,
+          "error": null,
+          "sec": 12.7
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,144 @@
+# Moneymaker v2 — Glitch & Deal Monitor
+
+Two features in one tool:
+
+1. **Glitch monitor** — watches Blinkit/Instamart/Zepto across the Mumbai
+   corridor (Virar → Andheri) for pricing glitches, upstream of Telegram groups.
+2. **Price-search bot** — message a Telegram bot any product name and get the
+   cheapest offer across Blinkit, Zepto, Instamart, Amazon & Flipkart,
+   including delivery fees and applicable codes/offers. Both run simultaneously.
+3. **Demand Radar** (new) — maps the darkstores serving a locality (e.g. Andheri
+   West), then tracks per-store in/out-of-stock + delivery ETA over time to
+   build a chronological demand-pressure heatmap. See `DEMAND_RADAR.md`.
+
+See `ARCHITECTURE.md` for the design and the anti-block strategy.
+
+## Demand Radar (phases 0–3 live)
+
+    python3 run.py --map-locality                    # discover Andheri West darkstores
+    python3 run.py --map-locality --apps blinkit     # one app only
+    python3 run.py --map-locality --max-points 5     # quick partial sweep
+    python3 run.py --build-watchlist                 # per-store SKU probe set
+    python3 run.py --build-watchlist --apps blinkit --store 47578 \
+                    --max-per-store 100 --max-queries 10
+    python3 run.py --demand                          # continuous stock probing loop
+    python3 run.py --demand --once --apps blinkit --store 47578   # single round
+
+`--map-locality` resolves each app's distinct darkstores by probing a
+landmark+grid anchor set (config → `demand.locality`), enforcing our GPS on
+every intercepted API call (cached-location seeding + request rewrite).
+`--build-watchlist` deep-sweeps each store in ONE browser session — home feed,
+category click-throughs, staple searches — scoring every SKU (search hits >
+home presence) into the `watchlist` table. `--demand` then loops: each cycle
+re-sweeps a store's watchlist collections and writes `stock_obs`; debounced
+stock-outs become `oos_events` (restart-proof; vanished SKUs get their own
+event kind; canary/mass-flip guards freeze the machine on suspected
+soft-blocks instead of faking demand). Query it:
+
+    sqlite3 deals.db "SELECT sku_key, COUNT(*) FROM oos_events
+                      WHERE kind='oos' GROUP BY sku_key ORDER BY 2 DESC;"
+
+## Price-search bot
+
+    python3 run.py --bot            # telegram bot + monitor, simultaneously
+    python3 run.py --bot --no-monitor   # bot only
+    python3 run.py --search "amul milk" # CLI, no telegram needed
+
+Setup the bot once:
+1. Talk to [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token.
+2. Put it in `.env` as `TG_BOT_TOKEN=...`.
+3. Start `python3 run.py --bot`, open your bot in Telegram, send it a product name.
+
+Reply looks like:
+
+```
+🔎 “amul milk” — cheapest across platforms
+
+🥇 BLINKIT — Amul Taaza Toned Milk 500ml
+     ₹17 (MRP ₹17)
+     → ₹42 effective  (+₹25 delivery)
+🥈 FLIPKART — Amul A2 Buffalo Milk, 1 L
+     ₹70
+     → ₹103 effective  (code AXISFK 10% −₹7, +₹40 delivery)
+...
+```
+
+Offers/delivery fees live in `codes.yaml` — **edit it** to match the cards and
+codes you actually hold; every applied offer shows its note so you can verify
+at checkout before paying.
+
+## How it beats polling limits
+
+- **Browser-intercept, not web scraping.** Runs the *real* mobile web app in
+  headless Chromium. JS challenges that block `curl` are solved by the browser.
+- **The app is the API docs.** We intercept the app's own signed catalog calls
+  and replay them on a tight loop. When the app rotates paths/headers, the next
+  page load re-discovers them.
+- **Geo-anchored store walking.** Each Mumbai station coordinate resolves a
+  *different* dark store; glitches are local, so we watch the corridor and treat
+  each store as its own baseline.
+- **Rotated identity.** Fresh mobile UA + install-id + (optional) residential
+  proxy per cycle.
+- **Honey-pot canaries.** Hardcoded TRUE prices for a few high-velocity SKUs;
+  any large deviation is an instant glitch flag — no ML needed for the first pass.
+- **Off-peak speedup.** Crawls *faster* at night when server rate limits are
+  looser — inverts the usual bot-burst signature.
+
+## Setup
+
+    cd ~/Documents/Projects/Moneymaker
+    pip install pyyaml            # optional; a stdlib fallback parser is built in
+
+    # Browser layer uses the PRE-INSTALLED Playwright + Chromium (no install needed):
+    #   ../Do not delete folder/node_modules  +  ../Do not delete folder/.pw-browsers
+    #   (paths configured in config.yaml → anti_block.node_path / pw_browsers_path)
+
+    cp .env.example .env            # fill TG_BOT_TOKEN / TG_CHAT_ID for phone push
+    python3 run.py --check          # validate config + adapters
+    python3 run.py --demo           # end-to-end pipeline with an injected glitch
+    python3 scripts/live_sweep.py   # hunt REAL glitches across the corridor now
+    python3 run.py                  # continuous loop
+
+Without Node/Chromium available the QC adapters degrade gracefully (return no
+data) and the trackers + detection engine still run. Demo mode needs nothing
+external.
+
+## Config (`config.yaml`)
+
+- `geo.corridor` — Mumbai stations Virar→Andheri with lat/lon. Edit to widen.
+- `anti_block.honey_pot` — canary SKUs with `true_price`. Tune to your basket.
+- `detect.*` — glitch thresholds (deviation %, z-score, MRP margin).
+- `alert.*` — desktop notification, optional Telegram, log file, rate cap.
+- `demand.*` — Demand Radar: `locality` (name/bbox/landmarks/grid), watchlist
+  builder (`categories_per_store`, `staple_queries`, `watchlist_max_per_store`),
+  prober (`probe_interval_sec`, `probe_terms_max`, `oos_debounce_snapshots`,
+  `vanished_cycles`, `stock_canary_queries`, suspect-flip guards).
+
+## Secrets
+
+Never commit `.env`. The old repo accidentally had a Gmail app-password in
+`config.json` — this version keeps all secrets in `.env` (git-ignored).
+
+## Output
+
+- macOS notification + optional Telegram push.
+- `deals.log` — every alert.
+- `deals.db` — full price history + alerts + the complete search archive
+  (`searches` / `search_results` tables; every bot/UI/CLI search lands there,
+  tagged with `src/categories.py` product categories for future analysis),
+  plus Demand Radar tables (`darkstores`, `watchlist`, `stock_obs`,
+  `oos_events`).
+- `exports/locality_<name>.json` — darkstore map with per-store rotation
+  pools of anchor coordinates.
+
+## Live dashboard (`--ui`, http://127.0.0.1:8787)
+
+Real-time view of everything the process does, plus the exit switch:
+
+- **Live feed** — every crawl, cycle, alert, and Telegram query as it happens.
+  **Click any row** for details: full ranked results of a search (with codes,
+  delivery, links), sample products of a crawl, or an alert's reason/store.
+- **Product categories covered** — all crawled products grouped by category.
+- **Search history** — every archived search; click to reopen its stored
+  results from `deals.db` anytime.
+- **■ STOP ALL** — gracefully ends bot + monitor + dashboard.
