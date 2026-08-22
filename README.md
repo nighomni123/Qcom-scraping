@@ -23,6 +23,11 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
                     --max-per-store 100 --max-queries 10
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
+    python3 run.py --qc-status                       # per-app QC health board
+
+**QC-first defaults** (since 08-22): amazon/flipkart tracking is disabled and
+the search bot compares quick-commerce platforms only — re-enable via
+`adapters.trackers` / `search.platforms` in `config.yaml`.
 
 `--map-locality` resolves each app's distinct darkstores by probing a
 landmark+grid anchor set (config → `demand.locality`), enforcing our GPS on

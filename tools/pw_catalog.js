@@ -54,11 +54,18 @@ const CAT_WAIT = parseInt(arg('cat-wait-ms', '6500'), 10);
 let CURRENT_LABEL = 'home';
 
 // Search URL shapes per app (stable UI routes — mirrors src/adapters/*.py).
+// Zepto (08-22): migrated to www.zepto.com and the search route reads
+// ?query= — ?q= loads a home shell and NEVER fires the search API
+// (user-search-service/api/v3/search). Verified live.
 const SEARCH_URLS = {
   'blinkit':   t => `https://blinkit.com/s/?q=${encodeURIComponent(t)}`,
-  'zepto':     t => `https://www.zeptonow.com/search?q=${encodeURIComponent(t)}`,
+  'zepto':     t => `https://www.zepto.com/search?query=${encodeURIComponent(t)}`,
   'instamart': t => `https://www.swiggy.com/instamart/search?query=${encodeURIComponent(t)}`,
 };
+
+// Zepto prices arrive in paise (sellingPrice=1600 => ₹16); Blinkit/Instamart
+// use rupees. Normalized in collect() so downstream stays rupee-only.
+const PRICE_DIVISORS = { zepto: 100 };
 
 const UAS = [
   'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -77,9 +84,9 @@ const num = s => {
 // Verified live (Blinkit web feed, Aug 2025): inventory=<units>,
 // is_sold_out=bool, product_state; Zepto/Instamart use available-family keys.
 const STOCK_KEYS = ['in_stock', 'instock', 'is_available', 'available', 'availability',
-                    'out_of_stock', 'oos', 'stock', 'sold_out', 'stock_status',
-                    'inventory', 'is_sold_out', 'product_state'];
-const STOCK_INVERT = new Set(['out_of_stock', 'oos', 'sold_out', 'is_sold_out']);
+                    'out_of_stock', 'outofstock', 'oos', 'stock', 'sold_out',
+                    'stock_status', 'inventory', 'is_sold_out', 'product_state'];
+const STOCK_INVERT = new Set(['out_of_stock', 'outofstock', 'oos', 'sold_out', 'is_sold_out']);
 const BADGE_KEYS = ['only_few_left', 'few_left', 'fast_selling', 'selling_fast', 'low_stock'];
 
 function normBool(v) {
@@ -170,17 +177,25 @@ function collect(node, out, depth) {
   const keys = Object.keys(node);
   const lower = k => k.toLowerCase();
   const nameKey = keys.find(k => ['name', 'title', 'product_name', 'display_name'].includes(lower(k)));
-  const priceKey = keys.find(k => ['price', 'final_price', 'selling_price', 'discounted_price', 'offer_price'].includes(lower(k)));
+  // Zepto variant nodes carry price/stock but nest the human name on the
+  // parent product object — fall back to node.product.name.
+  const hasProductFallback = !nameKey && node.product && typeof node.product === 'object';
+  const priceKey = keys.find(k => ['selling_price', 'sellingprice', 'discounted_price',
+                                   'discountedsellingprice', 'final_price', 'offer_price',
+                                   'price'].includes(lower(k)));
   const mrpKey = keys.find(k => ['mrp', 'marked_price', 'original_price', 'list_price'].includes(lower(k)));
-  if (nameKey && priceKey) {
+  if ((nameKey || hasProductFallback) && priceKey) {
     // Blinkit feed nests name/mrp as styled objects ({text:"₹75", ...}) — unwrap.
-    let name = node[nameKey];
+    let name = nameKey ? node[nameKey]
+                       : (node.product.name ?? node.product.display_name ?? null);
     if (name && typeof name === 'object') name = name.text ?? name.display_name ?? null;
     let price = node[priceKey];
     if (price && typeof price === 'object') price = price.value ?? price.amount ?? null;
     price = num(price);
+    if (price !== null && PRICE_DIVISORS[APP]) price = price / PRICE_DIVISORS[APP];
     const mrpRaw = mrpKey ? node[mrpKey] : null;
-    const mrp = num(mrpRaw && typeof mrpRaw === 'object' ? (mrpRaw.text ?? mrpRaw.value) : mrpRaw);
+    let mrp = num(mrpRaw && typeof mrpRaw === 'object' ? (mrpRaw.text ?? mrpRaw.value) : mrpRaw);
+    if (mrp !== null && PRICE_DIVISORS[APP]) mrp = mrp / PRICE_DIVISORS[APP];
     if (name && typeof name === 'string' && Number.isFinite(price) && price > 0) {
       let stock = null;
       for (const k of keys) {
@@ -277,7 +292,7 @@ const DOM_EXTRACTORS = {
     }
     return rows;
   },
-  'www.zeptonow.com': () => {
+  'www.zepto.com': () => {
     const num = s => s === null || s === undefined ? null : (String(s).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/) ? Number(String(s).replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)[1]) : null);
     const rows = [];
     document.querySelectorAll('a[href*="/pn/"], a[href*="/product/"]').forEach(el => {
@@ -288,6 +303,8 @@ const DOM_EXTRACTORS = {
     return rows;
   },
 };
+// zeptonow.com now 301-redirects to zepto.com — same extractor for both hosts.
+DOM_EXTRACTORS['www.zeptonow.com'] = DOM_EXTRACTORS['www.zepto.com'];
 
 function domExtract(page) {
   const host = new URL(URL_).hostname.replace(/^www\./, '');

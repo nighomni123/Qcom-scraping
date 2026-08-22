@@ -114,6 +114,11 @@ def main():
         prober.loop(apps=_flag_list("--apps"), store_filter=_flag_value("--store"))
         return
 
+    if "--qc-status" in sys.argv:
+        from src.locality import qc_health
+        qc_health(cfg, apps=_flag_list("--apps"))
+        return
+
     if "--search" in sys.argv:
         i = sys.argv.index("--search")
         query = " ".join(sys.argv[i + 1:]) or "amul milk"

@@ -49,6 +49,19 @@ chronological demand-pressure heatmap from stock-out events.**
   queries must return in-stock items and mass OOS flips freeze the event
   machine for that cycle (observations still recorded).
   Live: 3 rounds · 669 obs · event #1 `[oos] sku 547190 started=14:20:46 OPEN`.
+- **QC reliability push (08-22) — Zepto FIXED.** Root causes found by network
+  tracing: domain migration (`zeptonow.com` 301s to `www.zepto.com`), wrong
+  search param (`?q=` loads a home shell and never fires the real
+  `user-search-service/api/v3/search`; must be `?query=`), prices in paise,
+  product name nested on each variant's `product` object, stock flag
+  `outOfStock`. Live: 24–30 products per sweep, all stock-stamped, store ids
+  resolve per variant, ETA ~11 min. New `--qc-status` health board:
+  blinkit OK (84 products/eta 10) · zepto OK (30 products/eta 11) ·
+  instamart EMPTY.
+- **Instamart — onboarding-gated (open).** `home/v2` resolves a numeric
+  storeId but serves `cards: []` until an address-confirm flow completes;
+  direct search API 403s pre-onboarding. Needs a traced confirm-location POST
+  from a real browser session. Prober/mapper degrade gracefully meanwhile.
 - Phases 4–5 (analysis/heatmap, hardening) — designed below, not yet
   implemented. The analyst reads `stock_obs`/`oos_events` directly.
 

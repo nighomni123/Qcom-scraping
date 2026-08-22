@@ -85,6 +85,17 @@ class Adapter:
         return []
 
     # ---- shared browser-intercept machinery ----
+    def health_probe(self, station, lat, lon):
+        """
+        One probe for --qc-status. Defaults to APP_URL; apps whose home page
+        serves no products (Zepto's home is layout-only — products need the
+        search route) override HEALTH_URL.
+        """
+        url = getattr(self, "HEALTH_URL", None) or getattr(self, "APP_URL", None)
+        if not url:
+            return [], {"error": f"{self.name}: no APP_URL defined"}
+        return self._browser_catalog_full(url, f"{self.name}::health", self.name, lat, lon)
+
     def probe_point(self, station, lat, lon):
         """
         One home-load probe at an anchor point (Demand Radar locality mapping).

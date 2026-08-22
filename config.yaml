@@ -30,7 +30,9 @@ adapters:
   blinkit:   { enabled: true,  app: "blinkit" }
   instamart: { enabled: true,  app: "instamart" }
   zepto:     { enabled: true,  app: "zepto" }
-  trackers:  { enabled: true }   # amazon/flipkart price tracking
+  # QC-first focus (08-22): amazon/flipkart tracking off by default.
+  # Flip back to true to resume e-commerce price tracking.
+  trackers:  { enabled: false }
 
 anti_block:
   # Rotate these per cycle to defeat simple rate fingerprints.
@@ -67,7 +69,10 @@ db: "deals.db"
 # Cross-platform price search (Telegram bot / --search CLI)
 search:
   station: "Andheri"          # dark-store anchor for qcomm searches
-  platforms: [blinkit, zepto, instamart, amazon, flipkart]
+  # QC-first focus (08-22): quick-commerce platforms only. To include
+  # e-commerce in price comparisons, use:
+  #   platforms: [blinkit, zepto, instamart, amazon, flipkart]
+  platforms: [blinkit, zepto, instamart]
   per_platform_limit: 3       # top matches kept per platform
   min_match_score: 0.5        # fuzzy token-overlap threshold
 

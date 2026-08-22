@@ -285,6 +285,51 @@ class LocalityMapper:
         print(f"[locality] darkstores table now holds {len(rows)} row(s)")
 
 
+def qc_health(cfg, apps=None):
+    """
+    One-probe-per-app QC readiness check (no DB writes). Probes each enabled
+    quick-commerce app at the locality's first anchor and reports whether we
+    get products, stock states, store identity and ETA. Run via
+    `python3 run.py --qc-status`.
+    """
+    loc_cfg = cfg.get("demand", {}).get("locality", {}) or {}
+    anchors = build_anchors(loc_cfg)
+    if not anchors:
+        anchors = [{"label": "fallback", "lat": 19.13129, "lon": 72.82463, "kind": "landmark"}]
+    pt = next((a for a in anchors if a["kind"] == "landmark"), anchors[0])
+    want = {a.strip().lower() for a in (apps or []) if a.strip()}
+    corridor = Corridor(cfg.get("geo", {}).get("corridor", []) or [])
+    rows = []
+    print(f"[qc-status] anchor: {pt['label']} ({pt['lat']:.4f},{pt['lon']:.4f})")
+    for app in QC_APPS:
+        ad = cfg.get("adapters", {}).get(app, {})
+        if not ad.get("enabled", True) or (want and app not in want):
+            continue
+        adapter = QC_APPS[app](cfg, corridor, [])
+        t0 = time.time()
+        try:
+            products, meta = adapter.health_probe(pt["label"], pt["lat"], pt["lon"])
+        except Exception as ex:
+            products, meta = [], {"error": str(ex)[:120]}
+        n = len(products)
+        stamped = sum(1 for p in products if p.get("in_stock") is not None)
+        pick = pick_store(meta.get("store_candidates"))
+        err = meta.get("error")
+        verdict = ("OK" if n and stamped else
+                   "PARTIAL (ids only)" if pick and not n else
+                   f"BLOCKED ({err[:40]})" if err else "EMPTY")
+        rows.append({
+            "app": app, "products": n, "stock_stamped": stamped,
+            "store_id": pick["store_id"] if pick else None,
+            "eta_min": meta.get("eta_min"), "sec": round(time.time() - t0, 1),
+            "verdict": verdict,
+        })
+        print(f"  {app:<10} {verdict:<26} products={n:<4} stock={stamped:<4} "
+              f"store={pick['store_id'] if pick else '—'} eta={meta.get('eta_min')} "
+              f"({rows[-1]['sec']}s)")
+    return {"anchor": pt, "apps": rows}
+
+
 if __name__ == "__main__":
     # tiny offline sanity check of the pure helpers (no network)
     demo_cfg = {
