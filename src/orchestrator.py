@@ -94,6 +94,19 @@ def run_cycle(cfg, store, alert, adapters, corridor, honey):
                     store.record_alert(ad.name, store_id, sku, reason, price, score)
                     alert.send(ad.name, store_label, p.get("name"), price, reason, score, p.get("url", ""))
 
+            # Proactive keyword watches: match this crawl batch against
+            # /watch registrations and push under alert.rate_cap. Best-effort:
+            # a watcher problem must never take down a monitoring cycle.
+            try:
+                from .tgbot import get_watcher
+                batch = [{"name": p.get("name"), "price": p.get("price"),
+                          "platform": ad.name, "url": p.get("url", "")}
+                         for p in (products or [])]
+                get_watcher(cfg, store).check_products(
+                    batch, source=f"{ad.name}@{station}")
+            except Exception as ex:
+                print(f"[warn] watch check failed: {str(ex)[:120]}")
+
 
 def loop(cfg):
     store = Store(cfg.get("db", "deals.db"))

@@ -63,6 +63,9 @@ alert:
     enabled: false             # set true + fill .env to push to phone
   log_file: "deals.log"
   max_alerts_per_hour: 30
+  # Keyword-watch pushes (/watch in the Telegram bot): max proactive watch
+  # alerts per hour across all chats. 0 turns proactive watch pushes off.
+  rate_cap: 10
 
 db: "deals.db"
 

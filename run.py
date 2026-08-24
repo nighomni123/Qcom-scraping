@@ -156,6 +156,15 @@ def main():
         print(f"[search] “{query}” — fanning out to all platforms simultaneously…\n")
         res = engine.search(query, source="cli")
         print(format_reply(res))
+        # Proactive keyword watches: a CLI search can satisfy other chats' /watch.
+        try:
+            from src.tgbot import get_watcher
+            n = get_watcher(cfg, store).check_products(res.get("results", []),
+                                                       source="search")
+            if n:
+                print(f"[watch] {n} watch alert(s) pushed")
+        except Exception as ex:
+            print(f"[warn] watch check skipped: {str(ex)[:120]}")
         return
 
     if "--bot" in sys.argv or "--ui" in sys.argv:
