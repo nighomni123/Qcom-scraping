@@ -1,0 +1,185 @@
+{
+  "locality": "current blinkit",
+  "generated_ts": 1787566143.542655,
+  "anchor_count": 10,
+  "anchors": [
+    {
+      "label": "current location",
+      "lat": 19.0728,
+      "lon": 72.8826,
+      "kind": "landmark"
+    },
+    {
+      "label": "grid r4c5",
+      "lat": 19.06651,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c5",
+      "lat": 19.07909,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c4",
+      "lat": 19.0728,
+      "lon": 72.87595,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c6",
+      "lat": 19.0728,
+      "lon": 72.88925,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c4",
+      "lat": 19.06651,
+      "lon": 72.87595,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c4",
+      "lat": 19.07909,
+      "lon": 72.87595,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c6",
+      "lat": 19.06651,
+      "lon": 72.88925,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c6",
+      "lat": 19.07909,
+      "lon": 72.88925,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c5",
+      "lat": 19.06022,
+      "lon": 72.8826,
+      "kind": "grid"
+    }
+  ],
+  "apps": {
+    "blinkit": {
+      "stores": [
+        {
+          "store_id": "41649",
+          "label": "blinkit store 41649",
+          "points": [
+            {
+              "label": "current location",
+              "lat": 19.0728,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r6c5",
+              "lat": 19.07909,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r5c4",
+              "lat": 19.0728,
+              "lon": 72.87595
+            },
+            {
+              "label": "grid r5c6",
+              "lat": 19.0728,
+              "lon": 72.88925
+            },
+            {
+              "label": "grid r4c4",
+              "lat": 19.06651,
+              "lon": 72.87595
+            }
+          ],
+          "eta_min": 9
+        },
+        {
+          "store_id": "35002",
+          "label": "blinkit store 35002",
+          "points": [
+            {
+              "label": "grid r4c5",
+              "lat": 19.06651,
+              "lon": 72.8826
+            }
+          ],
+          "eta_min": 10
+        }
+      ],
+      "history": [
+        {
+          "label": "current location",
+          "lat": 19.0728,
+          "lon": 72.8826,
+          "kind": "landmark",
+          "resolved_store": "41649",
+          "eta_min": 10,
+          "products": 210,
+          "error": null,
+          "sec": 37.9
+        },
+        {
+          "label": "grid r4c5",
+          "lat": 19.06651,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "35002",
+          "eta_min": 10,
+          "products": 202,
+          "error": null,
+          "sec": 36.7
+        },
+        {
+          "label": "grid r6c5",
+          "lat": 19.07909,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "41649",
+          "eta_min": 9,
+          "products": 210,
+          "error": null,
+          "sec": 35.4
+        },
+        {
+          "label": "grid r5c4",
+          "lat": 19.0728,
+          "lon": 72.87595,
+          "kind": "grid",
+          "resolved_store": "41649",
+          "eta_min": 10,
+          "products": 197,
+          "error": null,
+          "sec": 42.5
+        },
+        {
+          "label": "grid r5c6",
+          "lat": 19.0728,
+          "lon": 72.88925,
+          "kind": "grid",
+          "resolved_store": "41649",
+          "eta_min": 10,
+          "products": 210,
+          "error": null,
+          "sec": 35.5
+        },
+        {
+          "label": "grid r4c4",
+          "lat": 19.06651,
+          "lon": 72.87595,
+          "kind": "grid",
+          "resolved_store": "41649",
+          "eta_min": 10,
+          "products": 210,
+          "error": null,
+          "sec": 31.8
+        }
+      ]
+    }
+  }
+}
