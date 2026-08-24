@@ -118,6 +118,16 @@ CREATE TABLE IF NOT EXISTS search_results (
 );
 CREATE INDEX IF NOT EXISTS idx_sr ON search_results(search_id);
 CREATE INDEX IF NOT EXISTS idx_sr_cat ON search_results(category);
+CREATE TABLE IF NOT EXISTS keyword_watches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id TEXT,              -- telegram chat to push matches to
+    keyword TEXT,              -- lowercase watch phrase (token-overlap match)
+    created_ts REAL,
+    active INTEGER DEFAULT 1,  -- 0 after /unwatch; rows are never deleted
+    last_alerted_ts REAL,      -- last successful push (per-watch cooldown basis)
+    UNIQUE(chat_id, keyword)
+);
+CREATE INDEX IF NOT EXISTS idx_kww_active ON keyword_watches(active);
 """
 
 
@@ -446,6 +456,84 @@ class Store:
              "min_price": r[3], "max_price": r[4]}
             for r in rows
         ]
+
+    # ---- Telegram keyword watches (proactive alerts) ----
+    def add_watch(self, chat_id, keyword):
+        """Register a keyword watch for a chat. Returns True if newly added."""
+        kw = (keyword or "").strip().lower()
+        if not kw:
+            return False
+        cur = self.conn.execute(
+            "INSERT OR IGNORE INTO keyword_watches(chat_id,keyword,created_ts,active,"
+            "last_alerted_ts) VALUES(?,?,?,1,NULL)",
+            (str(chat_id), kw, time.time()),
+        )
+        # reactivate a previously /unwatched keyword
+        if cur.rowcount == 0:
+            cur = self.conn.execute(
+                "UPDATE keyword_watches SET active=1, last_alerted_ts=NULL "
+                "WHERE chat_id=? AND keyword=? AND active=0",
+                (str(chat_id), kw),
+            )
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def remove_watch(self, chat_id, keyword):
+        """Deactivate a watch (history preserved). Returns True if it was active."""
+        kw = (keyword or "").strip().lower()
+        cur = self.conn.execute(
+            "UPDATE keyword_watches SET active=0 WHERE chat_id=? AND keyword=? AND active=1",
+            (str(chat_id), kw),
+        )
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def watches_for_chat(self, chat_id):
+        """Active [(keyword, created_ts, last_alerted_ts)] for one chat, oldest first."""
+        return self.conn.execute(
+            "SELECT keyword, created_ts, last_alerted_ts FROM keyword_watches "
+            "WHERE chat_id=? AND active=1 ORDER BY created_ts, id",
+            (str(chat_id),),
+        ).fetchall()
+
+    def active_watches(self):
+        """All active watches: [(id, chat_id, keyword, last_alerted_ts)]."""
+        return self.conn.execute(
+            "SELECT id, chat_id, keyword, last_alerted_ts FROM keyword_watches "
+            "WHERE active=1 ORDER BY created_ts, id"
+        ).fetchall()
+
+    def mark_watch_alerted(self, watch_id, ts=None):
+        self.conn.execute(
+            "UPDATE keyword_watches SET last_alerted_ts=? WHERE id=?",
+            (ts if ts is not None else time.time(), watch_id),
+        )
+        self.conn.commit()
+
+    def today_cheapest_by_category(self, day_start, limit=8):
+        """
+        Cheapest effective find per category among searches archived since
+        `day_start` (epoch). Pure read over searches/search_results — no
+        crawling. Returns [{category, count, name, platform, effective}] with
+        the category that had the most finds first.
+        """
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT COALESCE(r.category,'Other') AS cat, r.name, r.platform, r.effective "
+                "FROM search_results r JOIN searches s ON s.id=r.search_id "
+                "WHERE s.ts>=? AND r.effective IS NOT NULL",
+                (day_start,),
+            ).fetchall()
+        best, counts = {}, {}
+        for cat, name, platform, eff in rows:
+            counts[cat] = counts.get(cat, 0) + 1
+            if cat not in best or eff < best[cat][2]:
+                best[cat] = (name, platform, eff)
+        out = [{"category": c, "count": counts[c],
+                "name": n, "platform": p, "effective": e}
+               for c, (n, p, e) in best.items()]
+        out.sort(key=lambda d: (-d["count"], d["category"]))
+        return out[:limit]
 
     def close(self):
         self.conn.close()
