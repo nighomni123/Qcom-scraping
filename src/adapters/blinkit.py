@@ -14,6 +14,9 @@ class BlinkitAdapter(Adapter):
     name = "blinkit"
 
     APP_URL = "https://blinkit.com/"
+    # Home feed serves dairy-first carousels; one-shot probes add non-dairy
+    # search terms in-session so indexing sees real catalog breadth.
+    PROBE_TERMS = ("chips", "shampoo", "atta")
 
     def search(self, query, lat=None, lon=None):
         url = "https://blinkit.com/s/?q=" + urllib.parse.quote_plus(query)

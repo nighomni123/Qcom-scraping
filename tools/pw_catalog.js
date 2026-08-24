@@ -85,7 +85,8 @@ const num = s => {
 // is_sold_out=bool, product_state; Zepto/Instamart use available-family keys.
 const STOCK_KEYS = ['in_stock', 'instock', 'is_available', 'available', 'availability',
                     'out_of_stock', 'outofstock', 'oos', 'stock', 'sold_out',
-                    'stock_status', 'inventory', 'is_sold_out', 'product_state'];
+                    'stock_status', 'inventory', 'is_sold_out', 'product_state',
+                    'isavail', 'issoldout'];
 const STOCK_INVERT = new Set(['out_of_stock', 'outofstock', 'oos', 'sold_out', 'is_sold_out']);
 const BADGE_KEYS = ['only_few_left', 'few_left', 'fast_selling', 'selling_fast', 'low_stock'];
 
@@ -103,7 +104,7 @@ function normBool(v) {
 /** stock-ish key/value -> true|false|null (null = unknown; never invent). */
 function stockState(key, v) {
   if (v && typeof v === 'object' && !Array.isArray(v)) {
-    v = v.status ?? v.in_stock ?? v.value ?? v.count ?? v.availability;
+    v = v.status ?? v.in_stock ?? v.inStock ?? v.value ?? v.count ?? v.availability;
     if (v === null || v === undefined || typeof v === 'object') return null;
   }
   const b = normBool(v);
@@ -115,7 +116,8 @@ function stockState(key, v) {
 const STORE_KEY_PRIORITY = ['store_id', 'storeid', 'dark_store_id', 'darkstoreid',
                             'merchant_id', 'merchantid',
                             'warehouse_id', 'warehouseid', 'wh_id', 'whid',
-                            'vendor_id', 'vendorid', 'dc_id', 'store', 'warehouse'];
+                            'vendor_id', 'vendorid', 'dc_id', 'store', 'warehouse',
+                            'pod_id', 'podid'];
 const ETA_KEY_RE = /(^|_)(eta|eta_minutes|eta_mins|delivery_time|deliverytime|delivery_eta|sla)(_|$)/i;
 
 const META = { stores: new Map(), etas: [] };
@@ -152,7 +154,9 @@ function addEtaCandidate(v) {
 }
 
 function extractMeta(node, depth) {
-  if (!node || typeof node !== 'object' || depth > 9) return;
+  // depth 16: Instamart nests store widgets ~13 levels deep
+  // (data.cards[].cardList.cards[].card.gridElements…items[].variations[]).
+  if (!node || typeof node !== 'object' || depth > 16) return;
   if (Array.isArray(node)) { for (const v of node) extractMeta(v, depth + 1); return; }
   for (const [k, v] of Object.entries(node)) {
     const lk = String(k).toLowerCase();
@@ -172,11 +176,13 @@ function extractMeta(node, depth) {
 
 // ---- generic product extraction from arbitrary catalog JSON ----
 function collect(node, out, depth) {
-  if (!node || typeof node !== 'object' || depth > 9) return;
+  if (!node || typeof node !== 'object' || depth > 16) return;
   if (Array.isArray(node)) { for (const v of node) collect(v, out, depth + 1); return; }
   const keys = Object.keys(node);
   const lower = k => k.toLowerCase();
-  const nameKey = keys.find(k => ['name', 'title', 'product_name', 'display_name'].includes(lower(k)));
+  // 'displayname' covers Instamart's camelCase displayName (items + variations).
+  const nameKey = keys.find(k => ['name', 'title', 'product_name', 'display_name',
+                                  'displayname', 'item_name'].includes(lower(k)));
   // Zepto variant nodes carry price/stock but nest the human name on the
   // parent product object — fall back to node.product.name.
   const hasProductFallback = !nameKey && node.product && typeof node.product === 'object';
@@ -190,11 +196,25 @@ function collect(node, out, depth) {
                        : (node.product.name ?? node.product.display_name ?? null);
     if (name && typeof name === 'object') name = name.text ?? name.display_name ?? null;
     let price = node[priceKey];
-    if (price && typeof price === 'object') price = price.value ?? price.amount ?? null;
+    if (price && typeof price === 'object') {
+      // Blinkit {text|value}, Instamart google-money style
+      // ({offerPrice:{units:"18"}}), or plain wrapper objects.
+      price = price.value ?? price.amount ?? price.offerPrice ?? price.sellingPrice ??
+              price.finalPrice ?? null;
+      if (price && typeof price === 'object') {
+        price = price.units ?? price.unitAmount ?? price.text ?? null;
+      }
+    }
     price = num(price);
     if (price !== null && PRICE_DIVISORS[APP]) price = price / PRICE_DIVISORS[APP];
     const mrpRaw = mrpKey ? node[mrpKey] : null;
-    let mrp = num(mrpRaw && typeof mrpRaw === 'object' ? (mrpRaw.text ?? mrpRaw.value) : mrpRaw);
+    let mrp = num(mrpRaw && typeof mrpRaw === 'object'
+                   ? (mrpRaw.text ?? mrpRaw.value ?? mrpRaw.units) : mrpRaw);
+    if (mrp === null && node[priceKey] && typeof node[priceKey] === 'object') {
+      // Instamart nests mrp inside the price object: price.mrp.{units}
+      const m2 = node[priceKey].mrp;
+      if (m2) mrp = num(typeof m2 === 'object' ? (m2.units ?? m2.value ?? m2.text) : m2);
+    }
     if (mrp !== null && PRICE_DIVISORS[APP]) mrp = mrp / PRICE_DIVISORS[APP];
     if (name && typeof name === 'string' && Number.isFinite(price) && price > 0) {
       let stock = null;
@@ -207,7 +227,7 @@ function collect(node, out, depth) {
       }
       const badges = keys.filter(k => BADGE_KEYS.includes(k.toLowerCase()) && node[k])
                          .map(k => k.toLowerCase());
-      const id = node.id ?? node.sku ?? node.product_id ?? name;
+      const id = node.id ?? node.sku ?? node.skuId ?? node.productId ?? node.product_id ?? name;
       const key = String(id).toLowerCase().replace(/\s+/g, '');
       const rec = {
         sku_key: key,
@@ -312,6 +332,42 @@ function domExtract(page) {
   const fn = DOM_EXTRACTORS[key];
   if (!fn) return [];
   return page.evaluate(fn).catch(() => []);
+}
+
+// ---- gated-session bootstrap ---------------------------------------------
+// Fresh Instamart sessions land behind an address/onboarding sheet: home AND
+// search serve cards:[] until it completes, and the direct search API 403s
+// pre-onboard (see AGENTS.md). Instead of guessing endpoints we drive the
+// app's OWN flow: click its location CTAs (the geolocation permission is our
+// real anchor coordinate), let the signed calls fire naturally, and only
+// when the session is stuck at zero products. Generic "continue/confirm"
+// texts are allowed for Instamart only to avoid dismissing unrelated sheets.
+const ONBOARD_STRONG = 'use (my )?(current )?location|detect( my)? location|current location|confirm location|select (this|my|a) (address|location)|set (my )?location|deliver(ing)? to';
+const ONBOARD_SOFT = '^continue$|^confirm$|^next$|^save$|^done$';
+async function clickThroughOnboarding(page) {
+  let clicks = 0;
+  for (let round = 0; round < 5 && clicks < 3; round++) {
+    const did = await page.evaluate(([strongSrc, softSrc, allowSoft]) => {
+      const strong = new RegExp(strongSrc, 'i');
+      const soft = new RegExp(softSrc, 'i');
+      const els = [...document.querySelectorAll('button, a, [role="button"]')];
+      const visible = e => { const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4; };
+      const text = e => (e.innerText || e.textContent || '').trim();
+      let el = els.find(e => visible(e) && text(e) && text(e).length <= 60 && strong.test(text(e)));
+      if (!el && allowSoft) {
+        el = els.find(e => visible(e) && text(e) && text(e).length <= 30 && soft.test(text(e)));
+      }
+      if (!el) return null;
+      const label = text(el).slice(0, 40);
+      el.click();
+      return label;
+    }, [ONBOARD_STRONG, ONBOARD_SOFT, APP === 'instamart']).catch(() => null);
+    if (!did) break;
+    clicks++;
+    console.error(`[onboarding] clicked "${did}" (${APP})`);
+    await page.waitForTimeout(4500);   // let the app fire + settle its calls
+  }
+  return clicks;
 }
 
 async function main() {
@@ -440,6 +496,18 @@ async function main() {
       await page.waitForTimeout(2000);
     }
     await page.waitForTimeout(1500);
+
+    // Stuck at zero products? Drive the app's own onboarding/location flow
+    // once (Instamart's consent sheet), then grant a fresh wait window.
+    if (products.size === 0) {
+      const clicks = await clickThroughOnboarding(page);
+      if (clicks > 0) {
+        const deadline2 = Date.now() + Math.min(WAIT, 15000);
+        while (Date.now() < deadline2 && products.size === 0) {
+          await page.waitForTimeout(1500);
+        }
+      }
+    }
 
     // DOM fallback for HTML-rendered results (amazon/flipkart).
     if (products.size === 0) {

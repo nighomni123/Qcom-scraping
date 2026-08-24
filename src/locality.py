@@ -63,7 +63,8 @@ PRESET_LANDMARKS = {
 _KEY_PRIORITY = ["store_id", "storeid", "dark_store_id", "darkstoreid",
                  "merchant_id", "merchantid",
                  "warehouse_id", "warehouseid", "wh_id", "whid",
-                 "vendor_id", "vendorid", "dc_id", "store", "warehouse"]
+                 "vendor_id", "vendorid", "dc_id", "store", "warehouse",
+                 "pod_id", "podid"]
 
 
 def pick_store(candidates):

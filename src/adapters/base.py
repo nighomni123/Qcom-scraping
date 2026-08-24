@@ -62,6 +62,15 @@ class Adapter:
     """Subclasses implement crawl() -> list of product dicts."""
 
     name = "base"
+    # Product-bearing URL for one-shot probes: apps whose HOME serves no
+    # products for fresh sessions (Zepto's home is layout-only) override this
+    # with their search route. Falls back to APP_URL.
+    PROBE_URL = None
+    # Small search-term set fired after the initial probe load, INSIDE the same
+    # browser session, so one-shot indexing sees more than the home feed's
+    # first carousels (Blinkit serves dairy-first). Deliberately NOT used by
+    # the continuous monitor loop (crawl()) to keep steady-state volume low.
+    PROBE_TERMS = ()
 
     def __init__(self, cfg, geo_corridor, honey=None):
         self.cfg = cfg
@@ -98,14 +107,18 @@ class Adapter:
 
     def probe_point(self, station, lat, lon):
         """
-        One home-load probe at an anchor point (Demand Radar locality mapping).
+        One PRODUCT-BEARING probe at an anchor point (Demand Radar locality
+        mapping + --store-inventory). Uses PROBE_URL when the app's home page
+        serves no products (Zepto), then fires PROBE_TERMS in the same browser
+        session for catalog breadth beyond the home feed's carousels.
         Returns (products, meta). meta carries darkstore-identity candidates +
         delivery ETA extracted from the intercepted API traffic.
         """
-        url = getattr(self, "APP_URL", None)
+        url = getattr(self, "PROBE_URL", None) or getattr(self, "APP_URL", None)
         if not url:
             return [], {"error": f"{self.name}: no APP_URL defined"}
-        return self._browser_catalog_full(url, f"{self.name}::{station}", self.name, lat, lon)
+        return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
+                                          lat, lon, terms=tuple(self.PROBE_TERMS))
 
     def deep_sweep(self, station, lat, lon, categories=0, terms=None):
         """

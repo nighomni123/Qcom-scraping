@@ -13,6 +13,11 @@ class InstamartAdapter(Adapter):
     name = "instamart"
 
     APP_URL = "https://www.swiggy.com/instamart"
+    # Fresh sessions sit behind the address/onboarding sheet (cards:[] until
+    # confirmed; search API 403s pre-onboard). pw_catalog.js drives the app's
+    # OWN location CTAs when a session is stuck at zero products. Terms add
+    # breadth once the session is through the gate.
+    PROBE_TERMS = ("bread", "chips")
 
     def search(self, query, lat=None, lon=None):
         url = "https://www.swiggy.com/instamart/search?query=" + urllib.parse.quote_plus(query)

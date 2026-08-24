@@ -18,6 +18,9 @@ class ZeptoAdapter(Adapter):
     # Home is layout-only (no product widgets for fresh sessions) — health
     # checks and any product probing go through the search route.
     HEALTH_URL = "https://www.zepto.com/search?query=milk"
+    PROBE_URL = HEALTH_URL
+    # Breadth beyond the first search: staples + non-food, same browser session.
+    PROBE_TERMS = ("atta", "shampoo")
 
     def search(self, query, lat=None, lon=None):
         url = "https://www.zepto.com/search?query=" + urllib.parse.quote_plus(query)
