@@ -154,7 +154,10 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
 - **Field-name discovery**: set `DSH_BODY_DIR=/tmp/bodies` when running the
   helper directly to dump every intercepted JSON body. QC apps rotate their
   payload field names; when stock/ETA/store extraction degrades, re-discover
-  from dumps instead of guessing.
+  from dumps instead of guessing. For gate/onboarding debugging set
+  `DSH_DEBUG_DIR=/tmp/imdebug`: a run stuck at zero products dumps
+  stuck.png + clickable elements + API status log there, and onboarding
+  rounds record every CTA they considered.
 - **Location is enforced, not assumed**: QC apps cache their serving location
   client-side and will silently serve a DIFFERENT CITY's store (Blinkit
   defaulted to Gurugram). `pw_catalog.js` seeds `localStorage.location`,
@@ -202,12 +205,23 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   app) make `probe_point()` product-bearing — Zepto probes its search route,
   Blinkit/Instamart fire a few staple terms in-session beyond the dairy-first
   home carousels. Deliberately NOT wired into the continuous crawl loop.
-- Instamart: onboarding-gated. `home/v2` resolves a numeric storeId but
-  returns `cards: []` until an address-confirm flow completes; direct
-  `/api/instamart/search` 403s pre-onboarding. pw_catalog.js now drives the
-  app's OWN location CTAs (`clickThroughOnboarding`) when a session is stuck
-  at zero products — no endpoint guessing; if it still yields nothing, trace
-  the confirm-location POST from a real browser session next.
+- Instamart: onboarding + LOGIN gated (traced live 08-24). The guest location
+  flow is fully mapped and driven by pw_catalog.js: the stuck-session
+  fallback types the app's own reverse-geocoded locality (from the
+  `address-widgets/v2` response) into its address search, taps the
+  suggestion, then "Confirm Location" (POST `home/select-location/v2` with
+  the full address); geolocation-button CTAs (`clickThroughOnboarding`)
+  remain as fallback. BUT since ~16:00 08-24 our crawl-heavy exit IP gets a
+  LOGIN WALL ("Log in with phone number"): `isOnboarded` stays false,
+  `home/v2` cards carry `items: []`, `/api/instamart/search/v2` returns 403 —
+  even for zero-interference sessions and after location is auto-confirmed.
+  Store + ETA still resolve, so `--store-inventory` keeps capturing
+  instamart STORES (darkstores rows) while products stay empty until the IP
+  cools down or a different network is used. We do NOT log in (no fake
+  accounts). Re-check the gate anytime:
+  `DSH_DEBUG_DIR=/tmp/imdebug node tools/pw_catalog.js --app instamart
+  --url https://www.swiggy.com/instamart --lat <lat> --lon <lon>` then look
+  for items>0 vs the login banner in /tmp/imdebug/stuck.png.
 - Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see

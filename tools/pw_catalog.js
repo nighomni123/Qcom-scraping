@@ -32,6 +32,12 @@ function dumpBody(url, text) {
   } catch (_) {}
 }
 
+// Optional stuck-session diagnostics (e.g. Instamart's onboarding gate): when
+// a run sits at zero products after the onboarding attempt, dump screenshot +
+// clickable elements + API status log so the gate can be traced, not guessed:
+//   DSH_DEBUG_DIR=/tmp/imdebug node pw_catalog.js ...
+const DEBUG_DIR = process.env.DSH_DEBUG_DIR || null;
+
 function arg(name, def) {
   const i = process.argv.indexOf('--' + name);
   return i > -1 ? process.argv[i + 1] : def;
@@ -342,37 +348,136 @@ function domExtract(page) {
 // real anchor coordinate), let the signed calls fire naturally, and only
 // when the session is stuck at zero products. Generic "continue/confirm"
 // texts are allowed for Instamart only to avoid dismissing unrelated sheets.
-const ONBOARD_STRONG = 'use (my )?(current )?location|detect( my)? location|current location|confirm location|select (this|my|a) (address|location)|set (my )?location|deliver(ing)? to';
+// NB: 'deliver(ing)? to' was REMOVED from strong — it matched the sheet's
+// "We deliver to" label (not a CTA) and burned every click round on it.
+const ONBOARD_STRONG = 'use (my )?(current )?location|detect( my)? location|current location|confirm location|select (this|my|a) (address|location)|set (my )?location|save (this )?address|confirm (this )?address|use this address|deliver here|proceed';
 const ONBOARD_SOFT = '^continue$|^confirm$|^next$|^save$|^done$';
 async function clickThroughOnboarding(page) {
   let clicks = 0;
-  for (let round = 0; round < 5 && clicks < 3; round++) {
-    const did = await page.evaluate(([strongSrc, softSrc, allowSoft]) => {
+  let lastLabel = null;
+  for (let round = 0; round < 6 && clicks < 5; round++) {
+    const did = await page.evaluate(([strongSrc, softSrc, allowSoft, lastLabel]) => {
       const strong = new RegExp(strongSrc, 'i');
       const soft = new RegExp(softSrc, 'i');
-      const els = [...document.querySelectorAll('button, a, [role="button"]')];
       const visible = e => { const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4; };
-      const text = e => (e.innerText || e.textContent || '').trim();
-      let el = els.find(e => visible(e) && text(e) && text(e).length <= 60 && strong.test(text(e)));
-      if (!el && allowSoft) {
-        el = els.find(e => visible(e) && text(e) && text(e).length <= 30 && soft.test(text(e)));
+      const text = e => (e.innerText || e.textContent || '').trim().replace(/\s+/g, ' ');
+      const leafish = e => e.children.length <= 3;
+      const matchIn = list => {
+        let el = list.find(e => visible(e) && leafish(e) && text(e) && text(e).length <= 60
+                                && text(e) !== lastLabel && strong.test(text(e)));
+        if (!el && allowSoft) {
+          el = list.find(e => visible(e) && leafish(e) && text(e) && text(e).length <= 30
+                              && text(e) !== lastLabel && soft.test(text(e)));
+        }
+        return el || null;
+      };
+      // Semantic controls first (proven to hit Instamart's real "Use current
+      // location" button); div/span only as fallback for React div-CTAs.
+      // Never re-click last round's label (no-progress guard).
+      let el = matchIn([...document.querySelectorAll('button, a, [role="button"]')]);
+      if (!el) el = matchIn([...document.querySelectorAll('div, span')]);
+      if (!el) {
+        // Diagnostics: what WAS clickable this round (traced, not guessed).
+        if (window.__DSH_DEBUG_ONBOARD) {
+          try {
+            const all = [...document.querySelectorAll('button, a, [role="button"], div, span')];
+            const opts = all.filter(e => visible(e) && text(e) && text(e).length <= 40)
+                            .slice(0, 200)
+                            .map(e => ({ tag: e.tagName.toLowerCase(), text: text(e) }));
+            window.__DSH_DEBUG_ONBOARD.push({ options: opts });
+          } catch (_) {}
+        }
+        return null;
       }
-      if (!el) return null;
       const label = text(el).slice(0, 40);
       el.click();
       return label;
-    }, [ONBOARD_STRONG, ONBOARD_SOFT, APP === 'instamart']).catch(() => null);
+    }, [ONBOARD_STRONG, ONBOARD_SOFT, APP === 'instamart', lastLabel]).catch(() => null);
     if (!did) break;
+    lastLabel = did;
     clicks++;
     console.error(`[onboarding] clicked "${did}" (${APP})`);
-    await page.waitForTimeout(4500);   // let the app fire + settle its calls
+    // Reverse-geocode + sheet transitions can take a while (observed: the
+    // address-confirm step appears 5-8s after "Use current location").
+    await page.waitForTimeout(7000);
   }
   return clicks;
+}
+
+// Instamart's more reliable guest location flow (traced live 08-24): the
+// "Use current location" button resolves a store but never shows a confirm
+// step, while the address-search path ends in an explicit "Confirm Location"
+// POST (select-location/v2 with the full address string). Steps, all the
+// app's own UI: open "Search for an area or address" -> type the locality
+// (reverse-geocoded by the app itself) -> tap the first suggestion -> tap
+// "Confirm Location". NOTE 08-24: after heavy crawling our exit IP hit a
+// LOGIN WALL ("Log in with phone number") — catalog + search 403 until a
+// phone login, which we do not do. This flow still completes location
+// onboarding for guest-friendly IPs/networks.
+async function instamartAddressFlow(page, term) {
+  const clickLeaf = (src, exact) => page.evaluate(([s, ex]) => {
+    const rx = new RegExp(s, 'i');
+    const els = [...document.querySelectorAll('button, a, [role="button"], div, span, p')];
+    const cands = els.filter(e => {
+      const t = (e.innerText || '').trim().replace(/\s+/g, ' ');
+      if (!t || e.children.length > 3) return false;
+      const r = e.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return false;
+      return ex ? rx.test(t) && t.length <= 40 : rx.test(t) && t.length <= 60;
+    });
+    if (!cands.length) return null;
+    cands.sort((a, b) => {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      return (ra.width * ra.height) - (rb.width * rb.height);
+    });
+    const label = cands[0].innerText.trim().replace(/\s+/g, ' ').slice(0, 50);
+    cands[0].click();
+    return label;
+  }, [src, exact]).catch(() => null);
+
+  let opened = await clickLeaf('^search for an area or address$', true);
+  if (!opened) {
+    // Sheet not open (e.g. a prior "Use current location" click closed it):
+    // reopen via the location bar, then retry.
+    await clickLeaf('we deliver to|change your location|add your location', false);
+    await page.waitForTimeout(2500);
+    opened = await clickLeaf('^search for an area or address$', true);
+  }
+  if (!opened) return 0;
+  console.error(`[onboarding] instamart: opened address search (term="${term}")`);
+  await page.waitForTimeout(3000);
+
+  const typed = await page.evaluate(t => {
+    const inp = [...document.querySelectorAll('input')].find(i => {
+      const r = i.getBoundingClientRect();
+      return r.width > 4 && r.height > 4;
+    });
+    if (!inp) return false;
+    inp.focus();
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(inp, t);
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  }, term).catch(() => false);
+  if (!typed) return 0;
+  await page.waitForTimeout(4000);
+
+  const firstWord = term.split(/\s+/)[0];
+  const picked = await clickLeaf(firstWord, false);
+  if (!picked) return 0;
+  console.error(`[onboarding] instamart: picked suggestion "${picked}"`);
+  await page.waitForTimeout(5000);
+
+  const confirmed = await clickLeaf('^confirm location$', true);
+  if (confirmed) console.error('[onboarding] instamart: confirmed location');
+  return confirmed ? 1 : 0;
 }
 
 async function main() {
   const products = new Map();
   const apiHits = [];
+  const apiLog = [];      // {url, status} of API-ish responses (stuck diagnostics)
+  let imLocality = null;  // Instamart: reverse-geocoded locality from address-widgets
   let biggest = { url: '', len: 0, head: '' };
   let browser;
   try {
@@ -463,6 +568,11 @@ async function main() {
     });
     page.on('response', async res => {
       try {
+        const ru = res.url();
+        if (/api|search|listing|home|category|store|location|serviceability/i.test(ru)
+            && !/\.(js|css|png|jpg|svg|woff)/i.test(ru) && apiLog.length < 300) {
+          apiLog.push({ url: ru.slice(0, 170), status: res.status() });
+        }
         const body = await res.text();
         if (!body || body.length < 50 || body.length > 3_000_000) return;
         if (DUMP && body.length > biggest.len) biggest = { url: res.url(), len: body.length, head: body.slice(0, 700) };
@@ -472,6 +582,16 @@ async function main() {
           dumpBody(res.url(), body);
           extractMeta(j, 0);
           collect(j, products, 0);
+          // Instamart onboarding: the app reverse-geocodes our anchor via
+          // address-widgets; remember the locality name so the stuck-session
+          // fallback can type it into the app's own address search box.
+          if (!imLocality && /address-widgets/i.test(res.url())) {
+            try {
+              const md = (j && j.data && j.data.address && j.data.address.metadata) || {};
+              const nm = [md.sublocality || md.locality, md.city].filter(Boolean).join(' ');
+              if (nm) imLocality = nm;
+            } catch (_) {}
+          }
           return;
         }
         const m = body.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
@@ -500,13 +620,76 @@ async function main() {
     // Stuck at zero products? Drive the app's own onboarding/location flow
     // once (Instamart's consent sheet), then grant a fresh wait window.
     if (products.size === 0) {
-      const clicks = await clickThroughOnboarding(page);
-      if (clicks > 0) {
-        const deadline2 = Date.now() + Math.min(WAIT, 15000);
-        while (Date.now() < deadline2 && products.size === 0) {
+      if (DEBUG_DIR) {
+        await page.evaluate(() => { window.__DSH_DEBUG_ONBOARD = []; }).catch(() => {});
+      }
+      // Instamart FIRST choice (traced live 08-24): address-search ->
+      // suggestion -> "Confirm Location" completes location setup with an
+      // explicit confirm POST. The geolocation button closes the sheet
+      // without a confirm step — which would also hide the "Search for an
+      // area or address" entry this flow needs — so it runs second.
+      let flowOk = 0;
+      if (APP === 'instamart' && imLocality) {
+        flowOk = await instamartAddressFlow(page, imLocality);
+      }
+      if (flowOk) {
+        const deadline3 = Date.now() + Math.min(WAIT, 15000);
+        while (Date.now() < deadline3 && products.size === 0) {
           await page.waitForTimeout(1500);
         }
       }
+      if (products.size === 0) {
+        const clicks = await clickThroughOnboarding(page);
+        if (DEBUG_DIR) {
+          const rounds = await page.evaluate(() => window.__DSH_DEBUG_ONBOARD || []).catch(() => []);
+          try {
+            fs.mkdirSync(DEBUG_DIR, { recursive: true });
+            fs.writeFileSync(`${DEBUG_DIR}/onboard_rounds.json`, JSON.stringify(rounds, null, 1));
+          } catch (_) {}
+        }
+        if (clicks > 0) {
+          const deadline2 = Date.now() + Math.min(WAIT, 15000);
+          while (Date.now() < deadline2 && products.size === 0) {
+            await page.waitForTimeout(1500);
+          }
+        }
+      }
+    }
+
+    // Stuck-session diagnostics: capture what the gate actually shows before
+    // the visit queue runs (screenshot + leaf-ish clickable texts + API log).
+    if (products.size === 0 && DEBUG_DIR) {
+      try {
+        fs.mkdirSync(DEBUG_DIR, { recursive: true });
+        await page.screenshot({ path: `${DEBUG_DIR}/stuck.png` }).catch(() => {});
+        const clickables = await page.evaluate(() => {
+          const out = [];
+          const els = document.querySelectorAll('button, a, [role="button"], [onclick], div, span, input');
+          for (const e of els) {
+            const tag = e.tagName.toLowerCase();
+            const t = (e.innerText || e.value || '').trim().replace(/\s+/g, ' ');
+            const r = e.getBoundingClientRect();
+            if (r.width < 4 || r.height < 4) continue;
+            if (tag === 'input') {
+              out.push({ tag, type: e.type || '', placeholder: e.placeholder || '' });
+              if (out.length >= 400) break;
+              continue;
+            }
+            if (!t || t.length > 40 || e.children.length > 3) continue;
+            out.push({ tag, role: e.getAttribute('role') || '', text: t });
+            if (out.length >= 400) break;
+          }
+          return out;
+        }).catch(() => []);
+        fs.writeFileSync(`${DEBUG_DIR}/stuck_clickables.json`, JSON.stringify({
+          url: page.url(), title: await page.title().catch(() => ''), clickables,
+        }, null, 1));
+        fs.writeFileSync(`${DEBUG_DIR}/stuck_api.json`, JSON.stringify(apiLog, null, 1));
+        const html = await page.content().catch(() => '');
+        fs.writeFileSync(`${DEBUG_DIR}/stuck.html`, html.slice(0, 500000));
+        console.error(`[debug] stuck at 0 products — dump -> ${DEBUG_DIR} `
+                      + `(${apiLog.length} api responses, ${clickables.length} elements)`);
+      } catch (_) {}
     }
 
     // DOM fallback for HTML-rendered results (amazon/flipkart).
