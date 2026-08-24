@@ -48,8 +48,11 @@ Demand Radar phases, one on search-history/category analytics). Rules:
   If the tree contains modifications you did NOT make, stop: run the verify
   suite, `git diff` them, and read AGENTS.md/README changes before proceeding.
 - Don't run two long crawls (`--demand`, `--map-locality`, `--build-watchlist`,
-  `live_sweep.py`) simultaneously against the same app — rate-limit bans hurt
-  both workstreams. Coordinate timing instead.
+  `--store-inventory`, `live_sweep.py`) simultaneously against the same app —
+  rate-limit bans hurt both workstreams. Coordinate timing instead. Observed
+  08-24: an inventory sweep started while `--demand` was running got its
+  fresh sessions throttled into empty probes (stores resolved, products=0),
+  while the same sweep run alone captured 200+ products per probe.
 
 ## Repo map
 
@@ -74,7 +77,10 @@ src/
   categories.py         keyword product-category classifier (ordered rules)
   inventory.py          per-app darkstore inventories near the machine's real
                         location (public-IP derived, no spoofing) into separate
-                        inventory_<app>.db files (--store-inventory)
+                        inventory_<app>.db files (--store-inventory); runs
+                        LocalityMapper in capture_products mode so each DB
+                        also holds the probes' products (stock_obs source=
+                        'inventory' + categorized price_obs)
   store.py              sqlite schema + all persistence helpers
   geo.py                corridor anchors + store resolver (glitch monitor)
   adapters/             blinkit / zepto / instamart / amazon / flipkart /
@@ -102,7 +108,10 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                     [--radius-m N] [--max-points N]
                                     # per-app darkstore inventories around the
                                     # machine's REAL approximate location (public
-                                    # IP; no spoofing) -> inventory_<app>.db
+                                    # IP; no spoofing) -> inventory_<app>.db,
+                                    # incl. captured products (stock_obs
+                                    # source='inventory' + price_obs). Run
+                                    # ALONE — no concurrent crawls (see rules).
 
 Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics), `/demand /heatmap?store=

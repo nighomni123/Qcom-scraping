@@ -34,11 +34,19 @@ approximate location from its public IP (honest — no GPS spoofing; override
 with `--lat/--lon`), builds a small anchor grid around it, and maps each app's
 darkstores into SEPARATE databases: `inventory_blinkit.db`,
 `inventory_instamart.db`, `inventory_zepto.db` (each a full Store schema; the
-`darkstores` table holds that app's stores with label/coords/ETA). One-shot
-probes are product-bearing: Zepto probes its search route, Blinkit/Instamart
-fire a few staple searches in-session so you get more than the dairy-first
-home carousels, and Instamart's location-consent gate is driven through the
-app's own UI buttons when a session is stuck at zero products.
+`darkstores` table holds that app's stores with label/coords/ETA). Every probe
+is product-bearing and CAPTURED: each store-attributed product lands in that
+app's DB as `stock_obs` (stock/price/mrp/eta, `source='inventory'`) +
+`price_obs` (name/price/url, auto-categorized) — so the SQL databases panel in
+the dashboard shows what each nearby store actually stocks. One-shot probes
+use the probe routes: Zepto probes its search route, Blinkit/Instamart fire a
+few staple searches in-session so you get more than the dairy-first home
+carousels, and Instamart's location-consent gate is driven through the app's
+own UI buttons when a session is stuck at zero products. **Run it alone:**
+starting it while `--demand` / `--map-locality` / `--build-watchlist` is also
+crawling the same apps gets the fresh sessions rate-limited into empty probes
+(stores resolve, products = 0). Stop other crawls first (Features panel),
+then start the inventory.
 
 **Demand analysis (phase 4):** the dashboard's Demand Radar panels show a
 Demand Pressure Index per SKU (Σ OOS-minutes × recency ÷ observation-days),
