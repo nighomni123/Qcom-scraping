@@ -5,15 +5,25 @@ Stdlib only (http.server). Endpoints:
     GET  /          the single-page UI (tools/dashboard.html)
     GET  /status    JSON snapshot (counters + live event stream)
     POST /search    {"query": "..."} — run a cross-platform search now
-    POST /shutdown  gracefully exit the whole process
+    GET  /db        all sqlite databases (deals.db + inventory_*.db):
+                    per-table row counts
+    GET  /db/<db>/<table>?limit=N   recent rows of one table (read-only)
+    GET  /features                  feature catalog + running state
+    GET  /features/<id>/log         captured output of a managed feature
+    POST /features/<id>/start       spawn a feature as a managed subprocess
+    POST /features/<id>/stop        terminate it (SIGTERM, then SIGKILL)
+    POST /shutdown  gracefully exit the whole process (+ stops all features)
 
 Binds 127.0.0.1 only. Default port 8787 (config.yaml → ui.port).
 """
 from __future__ import annotations
 
+import collections
 import json
 import os
-import signal
+import sqlite3
+import subprocess
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,6 +33,216 @@ from .search import SearchEngine, format_reply
 
 _HTML_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                           "tools", "dashboard.html")
+_ROOT = os.path.dirname(os.path.dirname(_HTML_PATH))   # repo root: deals.db lives here
+
+# Every capability of this repo, as startable dashboard actions. Services run
+# until stopped; tasks are one-shot runs. Commands are plain `run.py` flag
+# vectors so the panel always mirrors the real CLI.
+FEATURE_CATALOG = [
+    {"id": "monitor", "label": "Glitch monitor", "service": True,
+     "desc": "continuous corridor crawl → detector → alerts",
+     "cmd": [sys.executable, "-u", "run.py"]},
+    {"id": "bot", "label": "Telegram bot", "service": True,
+     "desc": "price-search bot + /watch //digest proactive alerts",
+     "cmd": [sys.executable, "-u", "run.py", "--bot", "--no-monitor"]},
+    {"id": "demand", "label": "Demand prober", "service": True,
+     "desc": "--demand stock_obs loop + debounced oos_events machine",
+     "cmd": [sys.executable, "-u", "run.py", "--demand"]},
+    {"id": "demo", "label": "Demo pipeline", "service": False,
+     "desc": "--demo offline end-to-end test with an injected glitch",
+     "cmd": [sys.executable, "-u", "run.py", "--demo"]},
+    {"id": "qc_status", "label": "QC health probe", "service": False,
+     "desc": "--qc-status one live probe per app (~45 s/app)",
+     "cmd": [sys.executable, "-u", "run.py", "--qc-status"]},
+    {"id": "demand_once", "label": "Demand round", "service": False,
+     "desc": "--demand --once --max-terms 5 single sweep (~70 s)",
+     "cmd": [sys.executable, "-u", "run.py", "--demand", "--once", "--max-terms", "5"]},
+    {"id": "store_inventory", "label": "Store inventory", "service": False,
+     "desc": "--store-inventory per-app store DBs near current location",
+     "cmd": [sys.executable, "-u", "run.py", "--store-inventory"]},
+    {"id": "map_locality", "label": "Map locality", "service": False,
+     "desc": "--map-locality Andheri West darkstore discovery (~2 min+)",
+     "cmd": [sys.executable, "-u", "run.py", "--map-locality"]},
+    {"id": "build_watchlist", "label": "Build watchlist", "service": False,
+     "desc": "--build-watchlist per-store SKU probe sets",
+     "cmd": [sys.executable, "-u", "run.py", "--build-watchlist"]},
+    {"id": "demand_report", "label": "Demand report", "service": False,
+     "desc": "--demand-report DPI table + heatmap summary (prints)",
+     "cmd": [sys.executable, "-u", "run.py", "--demand-report"]},
+]
+
+
+class FeatureManager:
+    """Start/stop repo features as child processes; capture their output.
+
+    Each feature gets a ring buffer of stdout+stderr lines (children launch
+    unbuffered via -u), a pid and exit code. Everything still running is
+    terminated when the dashboard shuts down — never orphan crawlers.
+    """
+
+    LOG_LINES = 400
+
+    def __init__(self, catalog=None, cwd=_ROOT):
+        self.catalog = {f["id"]: dict(f) for f in (catalog or FEATURE_CATALOG)}
+        self.cwd = cwd
+        self._lock = threading.Lock()
+        self.procs = {}   # fid -> {proc, log: deque, started_ts, returncode}
+
+    # -- queries ----------------------------------------------------------
+    def status(self):
+        out = []
+        with self._lock:
+            for fid, f in self.catalog.items():
+                st = self.procs.get(fid)
+                running = bool(st and st["proc"].poll() is None)
+                out.append({
+                    "id": fid, "label": f["label"], "desc": f["desc"],
+                    "service": f["service"],
+                    "running": running,
+                    "pid": st["proc"].pid if running else None,
+                    "started_ts": st["started_ts"] if st else None,
+                    "uptime_sec": round(time.time() - st["started_ts"]) if running else None,
+                    "returncode": (st["returncode"] if st and not running
+                                   else None),
+                    "finished_ok": (st["returncode"] == 0) if st and not running else None,
+                })
+        return {"features": out}
+
+    def log_tail(self, fid, limit=120):
+        with self._lock:
+            st = self.procs.get(fid)
+            lines = list(st["log"]) if st else []
+        running = bool(st and st["proc"].poll() is None)
+        return {"id": fid, "running": running,
+                "lines": lines[-max(1, min(limit, self.LOG_LINES)):],
+                "returncode": st["returncode"] if st and not running else None}
+
+    # -- control ----------------------------------------------------------
+    def start(self, fid):
+        f = self.catalog.get(fid)
+        if not f:
+            return {"error": f"unknown feature '{fid}'"}, 404
+        with self._lock:
+            st = self.procs.get(fid)
+            if st and st["proc"].poll() is None:
+                return {"error": f"'{fid}' is already running (pid {st['proc'].pid})"}, 409
+            try:
+                proc = subprocess.Popen(
+                    f["cmd"], cwd=self.cwd,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    text=True, bufsize=1,
+                )
+            except Exception as ex:
+                return {"error": f"spawn failed: {str(ex)[:160]}"}, 500
+            self.procs[fid] = {
+                "proc": proc, "started_ts": time.time(), "returncode": None,
+                "log": collections.deque(maxlen=self.LOG_LINES),
+            }
+            threading.Thread(target=self._pump, args=(fid, proc),
+                             daemon=True).start()
+        events.emit("system", f"▶️ started {f['label']} (pid {proc.pid})")
+        return {"ok": True, "pid": proc.pid}, 200
+
+    def stop(self, fid):
+        with self._lock:
+            st = self.procs.get(fid)
+            if not st or st["proc"].poll() is not None:
+                return {"error": f"'{fid}' is not running"}, 409
+            proc = st["proc"]
+        events.emit("system", f"⏹ stopping {self.catalog.get(fid, {}).get('label', fid)} "
+                              f"(pid {proc.pid})")
+        try:
+            proc.terminate()                      # SIGTERM
+            try:
+                proc.wait(timeout=6)
+            except subprocess.TimeoutExpired:
+                proc.kill()                       # SIGKILL fallback
+                proc.wait(timeout=5)
+        except Exception:
+            pass
+        return {"ok": True}, 200
+
+    def stop_all(self):
+        for fid in list(self.procs):
+            self.stop(fid)
+
+    # -- internals --------------------------------------------------------
+    def _pump(self, fid, proc):
+        st = self.procs.get(fid)
+        log = st["log"] if st else collections.deque(maxlen=self.LOG_LINES)
+        try:
+            for line in iter(proc.stdout.readline, ""):
+                if line:
+                    log.append(line.rstrip("\n")[:300])
+        except Exception:
+            pass
+        finally:
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            rc = proc.wait()
+            with self._lock:
+                if fid in self.procs:
+                    self.procs[fid]["returncode"] = rc
+            label = self.catalog.get(fid, {}).get("label", fid)
+            events.emit("system", f"■ {label} exited (rc={rc})")
+
+
+def _sqlite_files():
+    """All repo-root sqlite databases worth browsing (sidecars excluded)."""
+    out = []
+    for name in sorted(os.listdir(_ROOT)):
+        if not name.endswith(".db"):
+            continue
+        path = os.path.join(_ROOT, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+            tables = [r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+            counts = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+                      for t in tables}
+            conn.close()
+        except Exception as ex:
+            tables, counts = [], {"_error": str(ex)[:80]}
+        out.append({
+            "name": name,
+            "size_kb": round(os.path.getsize(path) / 1024, 1),
+            "modified": time.strftime("%d %b %H:%M", time.localtime(os.path.getmtime(path))),
+            "tables": [{"name": t, "rows": counts.get(t)} for t in tables]
+            if not counts.get("_error") else [],
+            "error": counts.get("_error"),
+        })
+    return {"databases": out}
+
+
+def _table_preview(db_name, table, limit=30):
+    """Recent rows of a table, read-only. Names validated against the DB's own
+    schema before any interpolation."""
+    if not db_name.endswith(".db") or "/" in db_name or "\\" in db_name or ".." in db_name:
+        return {"error": "bad database name"}, 400
+    path = os.path.join(_ROOT, db_name)
+    if not os.path.isfile(path):
+        return {"error": "no such database"}, 404
+    limit = max(1, min(int(limit or 30), 200))
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+        known = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type IN ('table','view')")}
+        if table not in known:
+            conn.close()
+            return {"error": f"no such table '{table}'"}, 404
+        cols = [r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')]
+        rows = conn.execute(
+            f'SELECT * FROM "{table}" ORDER BY rowid DESC LIMIT ?', (limit,)).fetchall()
+        conn.close()
+    except Exception as ex:
+        return {"error": str(ex)[:200]}, 500
+    return {"database": db_name, "table": table, "columns": cols,
+            "rows": [[(c if c is not None else None) for c in r] for r in rows]}, 200
 
 
 class Dashboard:
@@ -30,6 +250,7 @@ class Dashboard:
         self.cfg = cfg
         self.engine = None
         self._engine_lock = threading.Lock()
+        self.features = FeatureManager()
         port = int(cfg.get("ui", {}).get("port", 8787))
         self.httpd = ThreadingHTTPServer(("127.0.0.1", port), self._make_handler())
         self.port = port
@@ -90,6 +311,31 @@ class Dashboard:
                         st.close()
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "searches": []})
+                elif self.path == "/features":
+                    self._json(dash.features.status())
+                elif self.path.startswith("/features/") and self.path.endswith("/log"):
+                    fid = self.path[len("/features/"):-len("/log")]
+                    self._json(dash.features.log_tail(fid))
+                elif self.path == "/db":
+                    try:
+                        self._json(_sqlite_files())
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "databases": []})
+                elif self.path.startswith("/db/"):
+                    # /db/<name>/<table>?limit=N
+                    from urllib.parse import urlparse, parse_qs
+                    parts = urlparse(self.path)
+                    seg = [s for s in parts.path.split("/") if s]  # ['db', name, table]
+                    if len(seg) != 3:
+                        self._json({"error": "use /db/<name>/<table>"}, 400)
+                        return
+                    limit = (parse_qs(parts.query).get("limit") or [30])[0]
+                    try:
+                        limit = int(limit)
+                    except ValueError:
+                        limit = 30
+                    data, code = _table_preview(seg[1], seg[2], limit)
+                    self._json(data, code)
                 # ---- Demand Radar (phase 4) ----
                 elif self.path == "/demand":
                     try:
@@ -176,8 +422,21 @@ class Dashboard:
 
                 if self.path == "/shutdown":
                     events.emit("system", "🛑 shutdown requested from dashboard")
+                    dash.features.stop_all()
                     self._json({"ok": True})
-                    threading.Timer(0.4, lambda: os.kill(os.getpid(), signal.SIGINT)).start()
+                    # Deterministic exit: stop_all() reaped the children above,
+                    # the response is flushed, remaining threads are daemons.
+                    threading.Timer(0.4, lambda: os._exit(0)).start()
+
+                elif self.path.startswith("/features/") and self.path.endswith("/start"):
+                    fid = self.path[len("/features/"):-len("/start")]
+                    data, code = dash.features.start(fid)
+                    self._json(data, code)
+
+                elif self.path.startswith("/features/") and self.path.endswith("/stop"):
+                    fid = self.path[len("/features/"):-len("/stop")]
+                    data, code = dash.features.stop(fid)
+                    self._json(data, code)
 
                 elif self.path == "/search":
                     query = (payload.get("query") or "").strip()
@@ -212,5 +471,6 @@ class Dashboard:
         except KeyboardInterrupt:
             pass
         finally:
+            self.features.stop_all()   # never orphan managed crawlers/bots
             self.httpd.server_close()
             print("[ui] shutdown complete")

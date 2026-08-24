@@ -121,6 +121,46 @@
   .etacell.fast { background: rgba(63,185,80,.25); } .etacell.mid { background: rgba(210,153,34,.22); }
   .etacell.slow { background: rgba(248,81,73,.22); }
   .etacell.none { opacity: .45; }
+  /* features panel */
+  .fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; padding: 12px 14px; }
+  .feat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+          display: flex; flex-direction: column; gap: 6px; }
+  .feat .top { display: flex; align-items: center; gap: 8px; }
+  .feat .name { font-weight: 700; font-size: 13px; flex: 1; }
+  .pill { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 10px;
+          border: 1px solid var(--border); color: var(--dim); white-space: nowrap; }
+  .pill.run { color: var(--green); border-color: var(--green); }
+  .pill.err { color: var(--red); border-color: var(--red); }
+  .pill.done { color: var(--green); border-color: var(--green); opacity: .7; }
+  .feat .d { color: var(--dim); font-size: 11.5px; min-height: 28px; }
+  .feat .btns { display: flex; gap: 6px; }
+  .feat button { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text);
+                 border-radius: 6px; padding: 4px 0; cursor: pointer; font: inherit; font-size: 12px; }
+  .feat button:hover { border-color: var(--blue); color: var(--blue); }
+  .feat button.go { border-color: var(--green); color: var(--green); }
+  .feat button.go:hover { background: var(--green); color: #04121f; }
+  .feat button.halt { border-color: var(--red); color: var(--red); }
+  .feat button.halt:hover { background: var(--red); color: #fff; }
+  .feat button:disabled { opacity: .35; cursor: default; pointer-events: none; }
+  /* database explorer */
+  .dbtabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 14px 4px; }
+  .dbtab { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px;
+           padding: 5px 12px; cursor: pointer; font: inherit; font-size: 12.5px; }
+  .dbtab.active { border-color: var(--blue); color: var(--blue); }
+  .dbtab small { color: var(--dim); margin-left: 6px; }
+  .tblchips { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; }
+  .tchip { background: #21262d; border: 0; color: var(--dim); border-radius: 10px; padding: 3px 10px;
+           cursor: pointer; font: inherit; font-size: 11.5px; }
+  .tchip.active { color: #04121f; background: var(--blue); font-weight: 700; }
+  .dbview { padding: 6px 14px 14px; overflow-x: auto; }
+  table.rows { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  table.rows th { text-align: left; color: var(--dim); font-size: 10px; text-transform: uppercase;
+                  letter-spacing: .05em; padding: 4px 8px; border-bottom: 1px solid var(--border);
+                  position: sticky; top: 0; background: var(--panel); }
+  table.rows td { padding: 4px 8px; border-bottom: 1px solid #21262d; max-width: 260px;
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  pre.logview { margin: 0; padding: 12px 16px; font: 11.5px/1.55 "SF Mono", Menlo, monospace;
+                white-space: pre-wrap; word-break: break-word; max-height: 60vh; overflow-y: auto; }
   footer { color: var(--dim); font-size: 11px; margin-top: 8px; }
 </style>
 </head>
@@ -140,6 +180,11 @@
     <div class="card"><div class="k">Glitch alerts</div><div class="v" id="cAlerts">—</div><div class="s">fired to desktop/log</div></div>
     <div class="card"><div class="k">Searches saved</div><div class="v" id="cSaved">—</div><div class="s">in deals.db</div></div>
     <div class="card"><div class="k">Open OOS</div><div class="v" id="cOos">—</div><div class="s">demand radar · live stock-outs</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Features <span class="chip">start · stop · every capability of this repo</span></h2>
+    <div class="fgrid" id="featGrid"><div class="muted">loading…</div></div>
   </div>
 
   <div class="panel">
@@ -166,6 +211,13 @@
         <div id="hist"><div class="muted">no searches yet</div></div>
       </div>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>SQL databases <span class="chip">deals.db + per-app inventories · newest rows first</span></h2>
+    <div class="dbtabs" id="dbTabs"><span class="muted">loading…</span></div>
+    <div class="tblchips" id="tblChips"></div>
+    <div class="dbview" id="dbView"><div class="muted">pick a database and a table</div></div>
   </div>
 
   <div class="panel">
@@ -429,11 +481,116 @@ async function loadQc(){
   } catch(e){}
 }
 
+// ---------- features (start / stop / logs) ----------
+let FEATURES = [];
+async function loadFeatures(){
+  try {
+    const r = await fetch('/features'); const d = await r.json();
+    FEATURES = d.features || [];
+    document.getElementById('featGrid').innerHTML = FEATURES.map(f => {
+      let pill = '<span class="pill">stopped</span>';
+      if (f.running) pill = `<span class="pill run">● running ${fmtUp(f.uptime_sec)}</span>`;
+      else if (f.returncode === 0) pill = '<span class="pill done">done ✓</span>';
+      else if (f.returncode !== null && f.returncode !== undefined) pill = `<span class="pill err">exit ${f.returncode}</span>`;
+      return `<div class="feat" data-id="${f.id}">
+        <div class="top"><span class="name">${esc(f.label)}</span>${f.service?'<span class="chip">service</span>':''}${pill}</div>
+        <div class="d">${esc(f.desc)}${f.pid?` · pid ${f.pid}`:''}</div>
+        <div class="btns">
+          <button class="go" onclick="featAction('${f.id}','start')" ${f.running?'disabled':''}>▶ start</button>
+          <button class="halt" onclick="featAction('${f.id}','stop')" ${f.running?'':'disabled'}>■ stop</button>
+          <button onclick="openLog('${f.id}')">log</button>
+        </div></div>`;
+    }).join('');
+  } catch(e){}
+}
+function fmtUp(s){
+  if (s === null || s === undefined) return '';
+  const m = Math.floor(s / 60);
+  return m ? (m + 'm' + (s % 60 ? (s % 60) + 's' : '')) : (s + 's');
+}
+async function featAction(id, action){
+  try {
+    const r = await fetch(`/features/${id}/${action}`, {method:'POST'});
+    const d = await r.json();
+    if (d.error) alert(d.error);
+  } catch(e){ alert('failed: '+e); }
+  loadFeatures();
+}
+let logTimer = null;
+async function openLog(id){
+  clearInterval(logTimer);
+  const f = FEATURES.find(x=>x.id===id) || {};
+  document.getElementById('mtitle').textContent = `📜 ${f.label||id} — output`;
+  const paint = async () => {
+    try {
+      const r = await fetch(`/features/${id}/log`); const d = await r.json();
+      const pre = document.getElementById('logPre');
+      if (!pre) return;
+      pre.textContent = d.lines?.length ? d.lines.join('\n') : '(no output yet)';
+      pre.scrollTop = pre.scrollHeight;
+      const st = d.running ? 'running' : (d.returncode === 0 ? 'finished ✓' : ('exited rc=' + (d.returncode ?? '?')));
+      document.getElementById('mtitle').textContent = `📜 ${f.label||id} — output (${st})`;
+    } catch(e){}
+  };
+  document.getElementById('mbody').innerHTML = '<pre class="logview" id="logPre"></pre>';
+  document.getElementById('modal').classList.remove('hidden');
+  const oldClose = closeModal;
+  window.closeModal = function(){ clearInterval(logTimer); window.closeModal = oldClose; oldClose(); };
+  await paint();
+  logTimer = setInterval(paint, 1200);
+}
+
+// ---------- sql database explorer ----------
+let DBS = [], curDb = null, curTable = null;
+async function loadDbs(){
+  try {
+    const r = await fetch('/db'); const d = await r.json();
+    DBS = d.databases || [];
+    if (!DBS.length){ document.getElementById('dbTabs').innerHTML = '<span class="muted">no .db files found</span>'; return; }
+    if (!curDb || !DBS.some(x=>x.name===curDb)) { curDb = DBS[0].name; curTable = null; }
+    document.getElementById('dbTabs').innerHTML = DBS.map(b =>
+      `<button class="dbtab${b.name===curDb?' active':''}" onclick="pickDb('${b.name}')">${b.name}<small>${b.size_kb} kB · probed ${b.modified}</small></button>`).join('');
+    const meta = DBS.find(x=>x.name===curDb) || {};
+    document.getElementById('tblChips').innerHTML =
+      '<button class="tchip'+(curTable?'':' active')+'" onclick="pickTable(null)">overview</button>' +
+      (meta.tables||[]).map(t =>
+        `<button class="tchip${t.name===curTable?' active':''}" onclick="pickTable('${t.name}')">${esc(t.name)} · ${(t.rows??0).toLocaleString()}</button>`).join('');
+    if (curTable) await showTable();
+    else await showOverview(meta);
+  } catch(e){}
+}
+function pickDb(name){ curDb = name; curTable = null; loadDbs(); }
+function pickTable(t){ curTable = t; loadDbs(); }
+async function showOverview(meta){
+  const el = document.getElementById('dbView');
+  if ((meta.tables||[]).length === 0){
+    el.innerHTML = `<div class="muted">${meta.error ? esc(meta.error) : 'empty database'}</div>`; return;
+  }
+  el.innerHTML = '<table class="rows"><tr><th>table</th><th style="text-align:right">rows</th></tr>' +
+    meta.tables.map(t=>`<tr><td>${esc(t.name)}</td><td style="text-align:right">${(t.rows??0).toLocaleString()}</td></tr>`).join('') + '</table>';
+}
+async function showTable(){
+  try {
+    const r = await fetch(`/db/${encodeURIComponent(curDb)}/${encodeURIComponent(curTable)}?limit=40`);
+    const d = await r.json();
+    const el = document.getElementById('dbView');
+    if (d.error){ el.innerHTML = `<div class="muted">${esc(d.error)}</div>`; return; }
+    el.innerHTML = `<table class="rows"><tr>${d.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>` +
+      d.rows.map(row=>'<tr>'+row.map(v=>{
+        const s = v===null||v===undefined ? '' : String(v);
+        return `<td title="${esc(s.slice(0,300))}">${esc(s.slice(0,80))||(v===null?'<i>null</i>':'')}</td>`;
+      }).join('')+'</tr>').join('') + '</table>';
+  } catch(e){}
+}
+
 refresh(); loadCats(); loadHist();
+loadFeatures(); loadDbs();
 loadDemand(); loadHeat(); loadEta(); loadQc();
 setInterval(refresh, 2000);
 setInterval(loadCats, 8000);
 setInterval(loadHist, 8000);
+setInterval(loadFeatures, 4000);
+setInterval(loadDbs, 20000);
 setInterval(loadDemand, 15000);
 setInterval(loadHeat, 30000);
 setInterval(loadEta, 60000);

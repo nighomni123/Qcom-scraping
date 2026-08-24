@@ -178,10 +178,22 @@ Never commit `.env`. The old repo accidentally had a Gmail app-password in
 
 Real-time view of everything the process does, plus the exit switch:
 
+- **Features** — every capability of this repo as a card (glitch monitor,
+  Telegram bot, demand prober, demo, QC probe, inventory sweep, locality
+  mapping, watchlist builder, demand report). Start and stop them right from
+  the browser; each runs as a managed child process with live logs, uptime
+  and exit codes. STOP ALL / shutdown also reaps anything the dashboard
+  started, so nothing keeps crawling in the background.
+- **SQL databases** — browse every sqlite file in the repo (deals.db +
+  `inventory_blinkit.db` / `inventory_instamart.db` / `inventory_zepto.db`):
+  pick a database, pick a table, see row counts and the newest rows. The
+  same data is available as JSON: `GET /db`, `GET /db/<db>/<table>`.
 - **Live feed** — every crawl, cycle, alert, and Telegram query as it happens.
   **Click any row** for details: full ranked results of a search (with codes,
   delivery, links), sample products of a crawl, or an alert's reason/store.
 - **Product categories covered** — all crawled products grouped by category.
 - **Search history** — every archived search; click to reopen its stored
   results from `deals.db` anytime.
-- **■ STOP ALL** — gracefully ends bot + monitor + dashboard.
+- **Demand Radar panels** — platform health, DPI ranking, onset heatmap,
+  per-hour ETA curve.
+- **■ STOP ALL** — gracefully ends the dashboard and everything it manages.

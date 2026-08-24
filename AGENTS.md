@@ -105,8 +105,14 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # IP; no spoofing) -> inventory_<app>.db
 
 Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
-/searches /search/<id>` (bot analytics) and `/demand /heatmap?store=
-/eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`).
+/searches /search/<id>` (bot analytics), `/demand /heatmap?store=
+/eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`),
+`/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
+deals.db + inventory_*.db) and `/features` + `/features/<id>/start|stop|log`
+(spawn/terminate any repo feature — monitor loop, bot, --demand, demo,
+inventory sweeps… — as managed child processes). Invariant: those children
+belong to the dashboard process; STOP ALL /shutdown reaps them, so never
+orphan-start crawlers outside it while a dashboard is up.
 
 Telegram bot (`--bot`) commands: `/watch <product>` — persist a keyword watch
 (`keyword_watches` table; bare `/watch` lists yours, `/unwatch <product>`
