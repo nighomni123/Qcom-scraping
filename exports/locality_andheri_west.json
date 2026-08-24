@@ -1,7 +1,7 @@
 {
   "locality": "Andheri West",
-  "generated_ts": 1787386722.110276,
-  "anchor_count": 3,
+  "generated_ts": 1787569424.106279,
+  "anchor_count": 81,
   "anchors": [
     {
       "label": "Andheri West station",
@@ -20,11 +20,506 @@
       "lat": 19.12879,
       "lon": 72.82555,
       "kind": "landmark"
+    },
+    {
+      "label": "Seven Bungalows",
+      "lat": 19.133,
+      "lon": 72.8244,
+      "kind": "landmark"
+    },
+    {
+      "label": "Kokilaben Hospital",
+      "lat": 19.13129,
+      "lon": 72.82463,
+      "kind": "landmark"
+    },
+    {
+      "label": "Versova",
+      "lat": 19.1345,
+      "lon": 72.812,
+      "kind": "landmark"
+    },
+    {
+      "label": "Yari Road",
+      "lat": 19.132,
+      "lon": 72.817,
+      "kind": "landmark"
+    },
+    {
+      "label": "Lokhandwala",
+      "lat": 19.14445,
+      "lon": 72.82409,
+      "kind": "landmark"
+    },
+    {
+      "label": "Infiniti Mall",
+      "lat": 19.14128,
+      "lon": 72.83095,
+      "kind": "landmark"
+    },
+    {
+      "label": "grid r4c4",
+      "lat": 19.12515,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c5",
+      "lat": 19.12515,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c4",
+      "lat": 19.11886,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c5",
+      "lat": 19.11886,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c4",
+      "lat": 19.13144,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c3",
+      "lat": 19.12515,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c5",
+      "lat": 19.13144,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c3",
+      "lat": 19.11886,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c3",
+      "lat": 19.13144,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c6",
+      "lat": 19.12515,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c4",
+      "lat": 19.11258,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c5",
+      "lat": 19.11258,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c6",
+      "lat": 19.11886,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c6",
+      "lat": 19.13144,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c4",
+      "lat": 19.13773,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c3",
+      "lat": 19.11258,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c5",
+      "lat": 19.13773,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c2",
+      "lat": 19.12515,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c2",
+      "lat": 19.11886,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c6",
+      "lat": 19.11258,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c3",
+      "lat": 19.13773,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c2",
+      "lat": 19.13144,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c4",
+      "lat": 19.10629,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c6",
+      "lat": 19.13773,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c7",
+      "lat": 19.12515,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c5",
+      "lat": 19.10629,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c7",
+      "lat": 19.11886,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c2",
+      "lat": 19.11258,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c7",
+      "lat": 19.13144,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c3",
+      "lat": 19.10629,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c4",
+      "lat": 19.14402,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c2",
+      "lat": 19.13773,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c5",
+      "lat": 19.14402,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c6",
+      "lat": 19.10629,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c7",
+      "lat": 19.11258,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c3",
+      "lat": 19.14402,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c1",
+      "lat": 19.12515,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c1",
+      "lat": 19.11886,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c7",
+      "lat": 19.13773,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c6",
+      "lat": 19.14402,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c1",
+      "lat": 19.13144,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c2",
+      "lat": 19.10629,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c4",
+      "lat": 19.1,
+      "lon": 72.82662,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c5",
+      "lat": 19.1,
+      "lon": 72.83328,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c1",
+      "lat": 19.11258,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c8",
+      "lat": 19.12515,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c2",
+      "lat": 19.14402,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c8",
+      "lat": 19.11886,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c7",
+      "lat": 19.10629,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c3",
+      "lat": 19.1,
+      "lon": 72.81997,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c1",
+      "lat": 19.13773,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c8",
+      "lat": 19.13144,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c6",
+      "lat": 19.1,
+      "lon": 72.83993,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c7",
+      "lat": 19.14402,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c8",
+      "lat": 19.11258,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c1",
+      "lat": 19.10629,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c8",
+      "lat": 19.13773,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c2",
+      "lat": 19.1,
+      "lon": 72.81331,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c0",
+      "lat": 19.12515,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c0",
+      "lat": 19.11886,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c0",
+      "lat": 19.13144,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c1",
+      "lat": 19.14402,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c7",
+      "lat": 19.1,
+      "lon": 72.84659,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c8",
+      "lat": 19.10629,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r2c0",
+      "lat": 19.11258,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c0",
+      "lat": 19.13773,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c8",
+      "lat": 19.14402,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c1",
+      "lat": 19.1,
+      "lon": 72.80666,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r1c0",
+      "lat": 19.10629,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c8",
+      "lat": 19.1,
+      "lon": 72.85324,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c0",
+      "lat": 19.14402,
+      "lon": 72.8,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r0c0",
+      "lat": 19.1,
+      "lon": 72.8,
+      "kind": "grid"
     }
   ],
   "apps": {
     "blinkit": {
       "stores": [
+        {
+          "store_id": "47578",
+          "label": "blinkit store 47578",
+          "points": [
+            {
+              "label": "Four Bungalows",
+              "lat": 19.12879,
+              "lon": 72.82555
+            },
+            {
+              "label": "grid r4c4",
+              "lat": 19.12515,
+              "lon": 72.82662
+            },
+            {
+              "label": "grid r4c5",
+              "lat": 19.12515,
+              "lon": 72.83328
+            },
+            {
+              "label": "grid r3c4",
+              "lat": 19.11886,
+              "lon": 72.82662
+            }
+          ],
+          "eta_min": 9
+        },
         {
           "store_id": "36517",
           "label": "blinkit store 36517",
@@ -38,21 +533,65 @@
               "label": "DN Nagar",
               "lat": 19.12196,
               "lon": 72.83086
+            },
+            {
+              "label": "grid r3c5",
+              "lat": 19.11886,
+              "lon": 72.83328
             }
           ],
           "eta_min": 10
         },
         {
-          "store_id": "47578",
-          "label": "blinkit store 47578",
+          "store_id": "37814",
+          "label": "blinkit store 37814",
           "points": [
             {
-              "label": "Four Bungalows",
-              "lat": 19.12879,
-              "lon": 72.82555
+              "label": "Seven Bungalows",
+              "lat": 19.133,
+              "lon": 72.8244
+            },
+            {
+              "label": "Kokilaben Hospital",
+              "lat": 19.13129,
+              "lon": 72.82463
+            },
+            {
+              "label": "Lokhandwala",
+              "lat": 19.14445,
+              "lon": 72.82409
             }
           ],
-          "eta_min": 9
+          "eta_min": 8
+        },
+        {
+          "store_id": "43507",
+          "label": "blinkit store 43507",
+          "points": [
+            {
+              "label": "Versova",
+              "lat": 19.1345,
+              "lon": 72.812
+            },
+            {
+              "label": "Yari Road",
+              "lat": 19.132,
+              "lon": 72.817
+            }
+          ],
+          "eta_min": 8
+        },
+        {
+          "store_id": "34292",
+          "label": "blinkit store 34292",
+          "points": [
+            {
+              "label": "Infiniti Mall",
+              "lat": 19.14128,
+              "lon": 72.83095
+            }
+          ],
+          "eta_min": 10
         }
       ],
       "history": [
@@ -63,9 +602,9 @@
           "kind": "landmark",
           "resolved_store": "36517",
           "eta_min": 10,
-          "products": 84,
+          "products": 192,
           "error": null,
-          "sec": 11.0
+          "sec": 53.5
         },
         {
           "label": "DN Nagar",
@@ -74,9 +613,9 @@
           "kind": "landmark",
           "resolved_store": "36517",
           "eta_min": 10,
-          "products": 84,
+          "products": 232,
           "error": null,
-          "sec": 9.0
+          "sec": 48.3
         },
         {
           "label": "Four Bungalows",
@@ -85,9 +624,349 @@
           "kind": "landmark",
           "resolved_store": "47578",
           "eta_min": 9,
+          "products": 217,
+          "error": null,
+          "sec": 59.7
+        },
+        {
+          "label": "Seven Bungalows",
+          "lat": 19.133,
+          "lon": 72.8244,
+          "kind": "landmark",
+          "resolved_store": "37814",
+          "eta_min": 8,
+          "products": 213,
+          "error": null,
+          "sec": 54.2
+        },
+        {
+          "label": "Kokilaben Hospital",
+          "lat": 19.13129,
+          "lon": 72.82463,
+          "kind": "landmark",
+          "resolved_store": "37814",
+          "eta_min": 8,
+          "products": 198,
+          "error": null,
+          "sec": 51.0
+        },
+        {
+          "label": "Versova",
+          "lat": 19.1345,
+          "lon": 72.812,
+          "kind": "landmark",
+          "resolved_store": "43507",
+          "eta_min": 8,
+          "products": 223,
+          "error": null,
+          "sec": 44.0
+        },
+        {
+          "label": "Yari Road",
+          "lat": 19.132,
+          "lon": 72.817,
+          "kind": "landmark",
+          "resolved_store": "43507",
+          "eta_min": 8,
+          "products": 223,
+          "error": null,
+          "sec": 42.2
+        },
+        {
+          "label": "Lokhandwala",
+          "lat": 19.14445,
+          "lon": 72.82409,
+          "kind": "landmark",
+          "resolved_store": "37814",
+          "eta_min": 9,
+          "products": 213,
+          "error": null,
+          "sec": 46.6
+        },
+        {
+          "label": "Infiniti Mall",
+          "lat": 19.14128,
+          "lon": 72.83095,
+          "kind": "landmark",
+          "resolved_store": "34292",
+          "eta_min": 10,
+          "products": 224,
+          "error": null,
+          "sec": 44.6
+        },
+        {
+          "label": "grid r4c4",
+          "lat": 19.12515,
+          "lon": 72.82662,
+          "kind": "grid",
+          "resolved_store": "47578",
+          "eta_min": 9,
+          "products": 225,
+          "error": null,
+          "sec": 52.3
+        },
+        {
+          "label": "grid r4c5",
+          "lat": 19.12515,
+          "lon": 72.83328,
+          "kind": "grid",
+          "resolved_store": "47578",
+          "eta_min": 10,
+          "products": 187,
+          "error": null,
+          "sec": 49.1
+        },
+        {
+          "label": "grid r3c4",
+          "lat": 19.11886,
+          "lon": 72.82662,
+          "kind": "grid",
+          "resolved_store": "47578",
+          "eta_min": 10,
+          "products": 231,
+          "error": null,
+          "sec": 50.7
+        },
+        {
+          "label": "grid r3c5",
+          "lat": 19.11886,
+          "lon": 72.83328,
+          "kind": "grid",
+          "resolved_store": "36517",
+          "eta_min": 10,
+          "products": 220,
+          "error": null,
+          "sec": 49.4
+        }
+      ]
+    },
+    "instamart": {
+      "stores": [
+        {
+          "store_id": "1398452",
+          "label": "instamart store 1398452",
+          "points": [
+            {
+              "label": "Seven Bungalows",
+              "lat": 19.133,
+              "lon": 72.8244
+            },
+            {
+              "label": "Kokilaben Hospital",
+              "lat": 19.13129,
+              "lon": 72.82463
+            },
+            {
+              "label": "Versova",
+              "lat": 19.1345,
+              "lon": 72.812
+            },
+            {
+              "label": "Yari Road",
+              "lat": 19.132,
+              "lon": 72.817
+            }
+          ],
+          "eta_min": 8
+        }
+      ],
+      "history": [
+        {
+          "label": "Andheri West station",
+          "lat": 19.1197,
+          "lon": 72.8446,
+          "kind": "landmark",
+          "resolved_store": null,
+          "eta_min": null,
+          "products": 0,
+          "error": null,
+          "sec": 35.8
+        },
+        {
+          "label": "DN Nagar",
+          "lat": 19.12196,
+          "lon": 72.83086,
+          "kind": "landmark",
+          "resolved_store": null,
+          "eta_min": null,
+          "products": 0,
+          "error": null,
+          "sec": 35.9
+        },
+        {
+          "label": "Four Bungalows",
+          "lat": 19.12879,
+          "lon": 72.82555,
+          "kind": "landmark",
+          "resolved_store": null,
+          "eta_min": null,
+          "products": 0,
+          "error": null,
+          "sec": 36.8
+        },
+        {
+          "label": "Seven Bungalows",
+          "lat": 19.133,
+          "lon": 72.8244,
+          "kind": "landmark",
+          "resolved_store": "1398452",
+          "eta_min": 8,
+          "products": 33,
+          "error": null,
+          "sec": 38.8
+        },
+        {
+          "label": "Kokilaben Hospital",
+          "lat": 19.13129,
+          "lon": 72.82463,
+          "kind": "landmark",
+          "resolved_store": "1398452",
+          "eta_min": 10,
+          "products": 33,
+          "error": null,
+          "sec": 36.1
+        },
+        {
+          "label": "Versova",
+          "lat": 19.1345,
+          "lon": 72.812,
+          "kind": "landmark",
+          "resolved_store": "1398452",
+          "eta_min": 15,
+          "products": 32,
+          "error": null,
+          "sec": 38.4
+        },
+        {
+          "label": "Yari Road",
+          "lat": 19.132,
+          "lon": 72.817,
+          "kind": "landmark",
+          "resolved_store": "1398452",
+          "eta_min": 12,
+          "products": 32,
+          "error": null,
+          "sec": 36.9
+        },
+        {
+          "label": "Lokhandwala",
+          "lat": 19.14445,
+          "lon": 72.82409,
+          "kind": "landmark",
+          "resolved_store": null,
+          "eta_min": null,
+          "products": 0,
+          "error": null,
+          "sec": 32.2
+        }
+      ]
+    },
+    "zepto": {
+      "stores": [
+        {
+          "store_id": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "label": "zepto store b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "points": [
+            {
+              "label": "Andheri West station",
+              "lat": 19.1197,
+              "lon": 72.8446
+            },
+            {
+              "label": "DN Nagar",
+              "lat": 19.12196,
+              "lon": 72.83086
+            },
+            {
+              "label": "Four Bungalows",
+              "lat": 19.12879,
+              "lon": 72.82555
+            },
+            {
+              "label": "Seven Bungalows",
+              "lat": 19.133,
+              "lon": 72.8244
+            },
+            {
+              "label": "Kokilaben Hospital",
+              "lat": 19.13129,
+              "lon": 72.82463
+            },
+            {
+              "label": "Versova",
+              "lat": 19.1345,
+              "lon": 72.812
+            }
+          ],
+          "eta_min": 12
+        }
+      ],
+      "history": [
+        {
+          "label": "Andheri West station",
+          "lat": 19.1197,
+          "lon": 72.8446,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 12,
           "products": 84,
           "error": null,
-          "sec": 12.7
+          "sec": 29.9
+        },
+        {
+          "label": "DN Nagar",
+          "lat": 19.12196,
+          "lon": 72.83086,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 14,
+          "products": 84,
+          "error": null,
+          "sec": 30.5
+        },
+        {
+          "label": "Four Bungalows",
+          "lat": 19.12879,
+          "lon": 72.82555,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 14,
+          "products": 84,
+          "error": null,
+          "sec": 30.4
+        },
+        {
+          "label": "Seven Bungalows",
+          "lat": 19.133,
+          "lon": 72.8244,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": null,
+          "products": 84,
+          "error": null,
+          "sec": 27.6
+        },
+        {
+          "label": "Kokilaben Hospital",
+          "lat": 19.13129,
+          "lon": 72.82463,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": null,
+          "products": 84,
+          "error": null,
+          "sec": 27.3
+        },
+        {
+          "label": "Versova",
+          "lat": 19.1345,
+          "lon": 72.812,
+          "kind": "landmark",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": null,
+          "products": 84,
+          "error": null,
+          "sec": 28.3
         }
       ]
     }

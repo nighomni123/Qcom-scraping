@@ -1,7 +1,7 @@
 {
   "locality": "current blinkit",
-  "generated_ts": 1787566143.542655,
-  "anchor_count": 10,
+  "generated_ts": 1787578096.92415,
+  "anchor_count": 12,
   "anchors": [
     {
       "label": "current location",
@@ -62,6 +62,18 @@
       "lat": 19.06022,
       "lon": 72.8826,
       "kind": "grid"
+    },
+    {
+      "label": "grid r7c5",
+      "lat": 19.08538,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c3",
+      "lat": 19.0728,
+      "lon": 72.86929,
+      "kind": "grid"
     }
   ],
   "apps": {
@@ -97,7 +109,7 @@
               "lon": 72.87595
             }
           ],
-          "eta_min": 9
+          "eta_min": 8
         },
         {
           "store_id": "35002",
@@ -120,9 +132,9 @@
           "kind": "landmark",
           "resolved_store": "41649",
           "eta_min": 10,
-          "products": 210,
+          "products": 214,
           "error": null,
-          "sec": 37.9
+          "sec": 32.1
         },
         {
           "label": "grid r4c5",
@@ -131,9 +143,9 @@
           "kind": "grid",
           "resolved_store": "35002",
           "eta_min": 10,
-          "products": 202,
+          "products": 208,
           "error": null,
-          "sec": 36.7
+          "sec": 33.4
         },
         {
           "label": "grid r6c5",
@@ -141,10 +153,10 @@
           "lon": 72.8826,
           "kind": "grid",
           "resolved_store": "41649",
-          "eta_min": 9,
-          "products": 210,
+          "eta_min": 8,
+          "products": 214,
           "error": null,
-          "sec": 35.4
+          "sec": 36.4
         },
         {
           "label": "grid r5c4",
@@ -153,9 +165,9 @@
           "kind": "grid",
           "resolved_store": "41649",
           "eta_min": 10,
-          "products": 197,
+          "products": 214,
           "error": null,
-          "sec": 42.5
+          "sec": 31.7
         },
         {
           "label": "grid r5c6",
@@ -164,9 +176,9 @@
           "kind": "grid",
           "resolved_store": "41649",
           "eta_min": 10,
-          "products": 210,
+          "products": 213,
           "error": null,
-          "sec": 35.5
+          "sec": 31.9
         },
         {
           "label": "grid r4c4",
@@ -175,9 +187,9 @@
           "kind": "grid",
           "resolved_store": "41649",
           "eta_min": 10,
-          "products": 210,
+          "products": 213,
           "error": null,
-          "sec": 31.8
+          "sec": 34.6
         }
       ]
     }
