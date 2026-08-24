@@ -79,6 +79,22 @@ Offers/delivery fees live in `codes.yaml` — **edit it** to match the cards and
 codes you actually hold; every applied offer shows its note so you can verify
 at checkout before paying.
 
+### Proactive alerts: /watch & /digest
+
+    👀 /watch amul milk     # ping this chat when crawls/searches surface a match
+    👀 /watch               # list your watches
+    🗑 /unwatch amul milk   # stop watching
+    📋 /digest              # today's cheapest find per category + DPI top-5
+
+Watches persist in `deals.db` (the `keyword_watches` table, up to 10 per chat).
+Every `--search` run, every bot search, and every monitor/demo crawl batch is
+matched against them — same token-overlap scoring as search ranking — and any
+match is pushed straight to your Telegram chat with platform, price and link.
+Pushes are rate-limited by `alert.rate_cap` per hour plus a 6-hour per-watch
+cooldown (`last_alerted_ts`), so restarts and hot keywords can't spam you.
+`/digest` reads today's archived search results + the Demand Radar DPI ranking
+straight from the DB — no crawling.
+
 ## How it beats polling limits
 
 - **Browser-intercept, not web scraping.** Runs the *real* mobile web app in
@@ -120,7 +136,8 @@ external.
 - `geo.corridor` — Mumbai stations Virar→Andheri with lat/lon. Edit to widen.
 - `anti_block.honey_pot` — canary SKUs with `true_price`. Tune to your basket.
 - `detect.*` — glitch thresholds (deviation %, z-score, MRP margin).
-- `alert.*` — desktop notification, optional Telegram, log file, rate cap.
+- `alert.*` — desktop notification, optional Telegram, log file, rate cap
+  (`max_alerts_per_hour` for glitch alerts; `rate_cap` for /watch pushes).
 - `demand.*` — Demand Radar: `locality` (name/bbox/landmarks/grid), watchlist
   builder (`categories_per_store`, `staple_queries`, `watchlist_max_per_store`),
   prober (`probe_interval_sec`, `probe_terms_max`, `oos_debounce_snapshots`,
@@ -139,7 +156,7 @@ Never commit `.env`. The old repo accidentally had a Gmail app-password in
   (`searches` / `search_results` tables; every bot/UI/CLI search lands there,
   tagged with `src/categories.py` product categories for future analysis),
   plus Demand Radar tables (`darkstores`, `watchlist`, `stock_obs`,
-  `oos_events`).
+  `oos_events`) and Telegram keyword watches (`keyword_watches`).
 - `exports/locality_<name>.json` — darkstore map with per-store rotation
   pools of anchor coordinates.
 

@@ -13,7 +13,11 @@ One tool, three features (all sharing the same browser-intercept crawler):
 2. **Price-search Telegram bot** — cheapest offer per product across 5
    platforms (`src/search.py`, `src/tgbot.py`, `src/pricing.py`), with
    search-history persistence + keyword category analytics
-   (`src/categories.py`; dashboard endpoints `/searches`, `/categories`).
+   (`src/categories.py`; dashboard endpoints `/searches`, `/categories`),
+   plus proactive keyword watches: `/watch <product>` stores a chat-level
+   watch and WatchPusher (`src/tgbot.py`) pushes Telegram pings whenever a
+   search result or crawl batch matches (rate-capped); `/digest` replies with
+   today's cheapest find per category + Demand Radar DPI top-5.
 3. **Demand Radar** — per-darkstore stock-out intelligence for a locality
    (Andheri West first). Design + status: `DEMAND_RADAR.md`. Pipeline:
    `--map-locality` → `--build-watchlist` → `--demand` → (phase 4: analysis).
@@ -77,7 +81,8 @@ src/
 exports/                locality mapping JSON (rotation pools per store)
 scripts/live_sweep.py   one-shot real-glitch hunt
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
-                        stock_obs, oos_events, searches, search_results
+                        stock_obs, oos_events, searches, search_results,
+                        keyword_watches
 ```
 
 ## Commands
@@ -94,6 +99,16 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
 Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics) and `/demand /heatmap?store=
 /eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`).
+
+Telegram bot (`--bot`) commands: `/watch <product>` — persist a keyword watch
+(`keyword_watches` table; bare `/watch` lists yours, `/unwatch <product>`
+removes); every `--search` run, bot search, and monitor/demo crawl batch is
+matched against active watches (`WatchPusher`, same token-overlap scoring as
+search ranking) and pushed to the watching chat, capped by
+`config.yaml → alert.rate_cap` pushes/hour + a 6h per-watch cooldown
+(`last_alerted_ts`, restart-proof). `/digest` — today's cheapest find per
+category from the searches archive + Demand Radar DPI top-5 (pure sqlite, no
+crawling).
 
 "Test suite" = `python3 -m py_compile` on touched files + `node --check
 tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
