@@ -16,8 +16,12 @@ Override the auto-detected point with --lat/--lon if needed.
 
 Discovery itself is the proven --map-locality machinery (LocalityMapper over a
 small centered bbox grid, saturation early-stop, politeness gaps) pointed at a
-per-app Store instance, so nothing here touches deals.db. Keep volumes modest:
-this is research tooling, not bulk harvesting.
+per-app Store instance, so nothing here touches deals.db. It runs in product-
+capture mode (LocalityMapper capture_products=True): every probe's products
+are persisted store-attributed — stock_obs (stock/price/mrp/eta,
+source='inventory') + price_obs (name/price/url, auto-categorized) — so each
+inventory DB holds the stores AND what they currently stock. Keep volumes
+modest: this is research tooling, not bulk harvesting.
 """
 from __future__ import annotations
 
@@ -112,6 +116,10 @@ def run_inventory(cfg, apps=None, lat=None, lon=None, radius_m=None,
         raise SystemExit(f"[inventory] unknown app(s): {unknown} — "
                          f"known: {sorted(QC_APPS)}")
 
+    print("[inventory] note: run this ALONE — concurrent --demand/--map-locality/"
+          "--build-watchlist crawls of the same apps get rate-limited into "
+          "empty probes (see AGENTS.md).")
+
     root = os.path.dirname(os.path.abspath(__file__))
     root = os.path.dirname(root)                      # repo root (like deals.db)
     summary = {}
@@ -123,24 +131,35 @@ def run_inventory(cfg, apps=None, lat=None, lon=None, radius_m=None,
             lat, lon, radius_m, name=f"current {app}")
         print(f"\n[inventory] === {app} === ({i + 1}/{len(want)}) -> {db_path}")
         db = Store(db_path)
+        n_obs = n_prices = 0
         try:
             mapper = LocalityMapper(app_cfg, db)
-            result = mapper.map_locality(apps=[app], max_points=max_points)
+            result = mapper.map_locality(apps=[app], max_points=max_points,
+                                         capture_products=True)
             stores = result["apps"].get(app, {}).get("stores", [])
+            n_obs = db.conn.execute(
+                "SELECT COUNT(*) FROM stock_obs").fetchone()[0]
+            n_prices = db.conn.execute(
+                "SELECT COUNT(*) FROM price_obs").fetchone()[0]
         finally:
             rows = db.darkstores(app)
             db.close()
-        summary[app] = {"db": db_path, "stores": len(rows)}
+        summary[app] = {"db": db_path, "stores": len(rows),
+                        "products_obs": n_obs, "price_rows": n_prices}
         if rows:
-            print(f"[inventory] {app}: {len(rows)} store(s) in {os.path.basename(db_path)}:")
+            print(f"[inventory] {app}: {len(rows)} store(s), {n_obs} product "
+                  f"stock-readings, {n_prices} price rows in "
+                  f"{os.path.basename(db_path)}:")
             for sid, label, slat, slon in [(r[1], r[2], r[3], r[4]) for r in rows]:
                 print(f"    {sid:<16} {str(label)[:44]:<46} ({slat:.5f},{slon:.5f})")
         else:
             print(f"[inventory] {app}: NO stores resolved — see warnings above "
                   f"(Instamart is known-gated pre-onboarding; exit-IP may also "
-                  f"sit outside the app's service area)")
+                  f"sit outside the app's service area; concurrent crawls "
+                  f"rate-limit probes into empty results)")
     print("\n[inventory] done: " +
-          ", ".join(f"{a}={s['stores']}({os.path.basename(s['db'])})"
+          ", ".join(f"{a}={s['stores']} stores/{s['products_obs']} obs "
+                    f"({os.path.basename(s['db'])})"
                     for a, s in summary.items()))
     return summary
 

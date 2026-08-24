@@ -187,8 +187,15 @@ class LocalityMapper:
         return QC_APPS[app](self.cfg, corridor, [])
 
     # -- discovery --------------------------------------------------------
-    def discover_for_app(self, adapter, anchors):
-        """Probe anchors sequentially; cluster by resolved store id."""
+    def discover_for_app(self, adapter, anchors, capture_products=False):
+        """Probe anchors sequentially; cluster by resolved store id.
+
+        capture_products=True (inventory mode) also persists each probe's
+        products into the mapper's DB: price_obs (name/price/url, auto-
+        categorized) + stock_obs (stock/price/mrp/eta, source='inventory').
+        Only probes that resolved a store are captured, so every row stays
+        store-attributed. Default False keeps --map-locality store-only.
+        """
         seen, history = {}, []
         last_new = -1
         for i, pt in enumerate(anchors):
@@ -230,6 +237,25 @@ class LocalityMapper:
                                          rep["lat"], rep["lon"], entry["eta_min"])
                 if is_new:
                     last_new = i
+            if capture_products and pick and products:
+                # Inventory mode: persist what this probe saw, store-attributed.
+                # stock_obs: stock/price/mrp/eta (source='inventory');
+                # price_obs: name/price/mrp/url (auto-categorized).
+                try:
+                    self.db.record_stock_obs(
+                        adapter.name, pick["store_id"],
+                        [{"sku_key": p.get("sku_key"), "in_stock": p.get("in_stock"),
+                          "price": p.get("price"), "mrp": p.get("mrp"),
+                          "source": "inventory"} for p in products],
+                        eta_min=eta)
+                    for p in products:
+                        self.db.record(adapter.name, pick["store_id"],
+                                       p.get("sku_key"), p.get("name"),
+                                       p.get("price"), p.get("mrp"),
+                                       p.get("url", ""))
+                except Exception as ex:
+                    print(f"  [{adapter.name}] warn: product capture failed: "
+                          f"{str(ex)[:100]}")
             if (i + 1) >= self.min_points and last_new >= 0 and (i - last_new) >= self.saturation:
                 print(f"  [{adapter.name}] no new stores in {self.saturation} consecutive "
                       f"probes — stopping early ({i + 1}/{len(anchors)} anchors probed)")
@@ -238,7 +264,7 @@ class LocalityMapper:
         return seen, history
 
     # -- entrypoint --------------------------------------------------------
-    def map_locality(self, apps=None, max_points=None):
+    def map_locality(self, apps=None, max_points=None, capture_products=False):
         loc_name = self.loc_cfg.get("name", "locality")
         anchors = build_anchors(self.loc_cfg)
         if max_points:
@@ -257,7 +283,8 @@ class LocalityMapper:
             for app in self.enabled_apps(apps):
                 adapter = self._make_adapter(app)
                 print(f"[locality] mapping {app} …")
-                seen, history = self.discover_for_app(adapter, anchors)
+                seen, history = self.discover_for_app(adapter, anchors,
+                                                      capture_products=capture_products)
                 stores = []
                 for s in seen.values():
                     stores.append({k: s[k] for k in ("store_id", "label", "points", "eta_min")})
