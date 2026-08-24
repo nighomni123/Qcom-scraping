@@ -40,34 +40,62 @@ _ROOT = os.path.dirname(os.path.dirname(_HTML_PATH))   # repo root: deals.db liv
 # vectors so the panel always mirrors the real CLI.
 FEATURE_CATALOG = [
     {"id": "monitor", "label": "Glitch monitor", "service": True,
-     "desc": "continuous corridor crawl → detector → alerts",
+     "desc": "Crawls Blinkit · Zepto · Instamart across the Mumbai corridor "
+             "(Virar→Andheri), scores price glitches and pushes Telegram "
+             "alerts for real mispricings.",
+     "meta": "LIVE crawl of all 3 apps · writes deals.db + alerts · watch the Live feed below",
      "cmd": [sys.executable, "-u", "run.py"]},
     {"id": "bot", "label": "Telegram bot", "service": True,
-     "desc": "price-search bot + /watch //digest proactive alerts",
+     "desc": "Answers /search with the cheapest offer across apps, pushes "
+             "/watch keyword alerts when crawls match, /digest for today's "
+             "best finds per category.",
+     "meta": "needs TG_BOT_TOKEN in .env · replies land in your Telegram chat",
      "cmd": [sys.executable, "-u", "run.py", "--bot", "--no-monitor"]},
     {"id": "demand", "label": "Demand prober", "service": True,
-     "desc": "--demand stock_obs loop + debounced oos_events machine",
+     "desc": "Continuously probes every watchlist SKU on its darkstore, "
+             "records stock/price/ETA observations and opens debounced "
+             "stock-out events. Feeds the Demand Radar panels below.",
+     "meta": "LIVE crawl, runs until stopped · keep it the only crawler running",
      "cmd": [sys.executable, "-u", "run.py", "--demand"]},
     {"id": "demo", "label": "Demo pipeline", "service": False,
-     "desc": "--demo offline end-to-end test with an injected glitch",
+     "desc": "Offline end-to-end test: injects a fake glitch into a synthetic "
+             "store and verifies crawl → detect → alert → store. Touches no "
+             "live app.",
+     "meta": "SAFE anytime · ~10 s · use as a health check",
      "cmd": [sys.executable, "-u", "run.py", "--demo"]},
     {"id": "qc_status", "label": "QC health probe", "service": False,
-     "desc": "--qc-status one live probe per app (~45 s/app)",
+     "desc": "One live probe per quick-commerce app to verify extraction "
+             "still works: products found, stock states, store id and ETA.",
+     "meta": "light live check · ~45 s per app",
      "cmd": [sys.executable, "-u", "run.py", "--qc-status"]},
     {"id": "demand_once", "label": "Demand round", "service": False,
-     "desc": "--demand --once --max-terms 5 single sweep (~70 s)",
+     "desc": "A single full demand-probe sweep across watchlist stores, then "
+             "stops — collects the same data as the Demand prober without "
+             "looping forever.",
+     "meta": "live crawl · ~70 s · lighter alternative to the prober",
      "cmd": [sys.executable, "-u", "run.py", "--demand", "--once", "--max-terms", "5"]},
     {"id": "store_inventory", "label": "Store inventory", "service": False,
-     "desc": "--store-inventory per-app store DBs near current location",
+     "desc": "Maps darkstores near this machine's REAL location (public IP, "
+             "no spoofing) into inventory_<app>.db per app AND captures every "
+             "probe's products — browse them in SQL databases below.",
+     "meta": "LIVE crawl · ~10–15 min for all 3 apps · run ALONE — concurrent "
+             "crawls get rate-limited into empty results",
      "cmd": [sys.executable, "-u", "run.py", "--store-inventory"]},
     {"id": "map_locality", "label": "Map locality", "service": False,
-     "desc": "--map-locality Andheri West darkstore discovery (~2 min+)",
+     "desc": "Discovers darkstores for the configured locality (Andheri West) "
+             "anchor-by-anchor into deals.db and exports rotation-pool JSONs.",
+     "meta": "LIVE crawl · ~2 min+ per app",
      "cmd": [sys.executable, "-u", "run.py", "--map-locality"]},
     {"id": "build_watchlist", "label": "Build watchlist", "service": False,
-     "desc": "--build-watchlist per-store SKU probe sets",
+     "desc": "Builds per-store SKU probe sets from live category/search "
+             "sweeps — the list of items the Demand prober then tracks for "
+             "stock-outs.",
+     "meta": "LIVE crawl · writes the watchlist table in deals.db",
      "cmd": [sys.executable, "-u", "run.py", "--build-watchlist"]},
     {"id": "demand_report", "label": "Demand report", "service": False,
-     "desc": "--demand-report DPI table + heatmap summary (prints)",
+     "desc": "Prints the Demand Pressure Index ranking and hour×SKU onset "
+             "heatmap summary computed from already-recorded data.",
+     "meta": "NO crawling · safe anytime · --csv exports exports/dpi_*.csv",
      "cmd": [sys.executable, "-u", "run.py", "--demand-report"]},
 ]
 
@@ -97,6 +125,7 @@ class FeatureManager:
                 running = bool(st and st["proc"].poll() is None)
                 out.append({
                     "id": fid, "label": f["label"], "desc": f["desc"],
+                    "meta": f.get("meta", ""),
                     "service": f["service"],
                     "running": running,
                     "pid": st["proc"].pid if running else None,
