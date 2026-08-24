@@ -56,8 +56,8 @@ Demand Radar phases, one on search-history/category analytics). Rules:
 ```
 run.py                  entrypoint; ALL CLI flags live here (--check --demo
                         --search --bot --ui --once --map-locality
-                        --build-watchlist --demand; flag args parsed by
-                        _flag_* helpers)
+                        --build-watchlist --demand --store-inventory; flag
+                        args parsed by _flag_* helpers)
 config.yaml             every tunable; secrets go in .env only
 codes.yaml              delivery fees + offer codes (user-editable)
 tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
@@ -72,6 +72,9 @@ src/
   demand.py             phase 4: DPI rollups, hour×SKU onset heatmap, ETA
                         curves, CSV export (pure functions over sqlite)
   categories.py         keyword product-category classifier (ordered rules)
+  inventory.py          per-app darkstore inventories near the machine's real
+                        location (public-IP derived, no spoofing) into separate
+                        inventory_<app>.db files (--store-inventory)
   store.py              sqlite schema + all persistence helpers
   geo.py                corridor anchors + store resolver (glitch monitor)
   adapters/             blinkit / zepto / instamart / amazon / flipkart /
@@ -95,6 +98,11 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
     python3 run.py --qc-status [--apps blinkit,zepto,instamart]
+    python3 run.py --store-inventory [--apps …] [--lat X --lon Y]
+                    [--radius-m N] [--max-points N]
+                                    # per-app darkstore inventories around the
+                                    # machine's REAL approximate location (public
+                                    # IP; no spoofing) -> inventory_<app>.db
 
 Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics) and `/demand /heatmap?store=
@@ -172,11 +180,19 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
 
 - Zepto: WORKING since 08-22 (see Zepto specifics above). 24–30 products per
   search sweep, stock-stamped, store ids resolve per variant, ETA via the
-  home redirect chain. Home page alone yields no products by design.
+  home redirect chain. Home page alone yields no products by design — one-shot
+  probes therefore go through `PROBE_URL` (search route); continuous monitor
+  crawls still hit home + honey searches only.
+- Probe breadth: `Adapter.PROBE_URL` / `PROBE_TERMS` (base.py; overridden per
+  app) make `probe_point()` product-bearing — Zepto probes its search route,
+  Blinkit/Instamart fire a few staple terms in-session beyond the dairy-first
+  home carousels. Deliberately NOT wired into the continuous crawl loop.
 - Instamart: onboarding-gated. `home/v2` resolves a numeric storeId but
   returns `cards: []` until an address-confirm flow completes; direct
-  `/api/instamart/search` 403s pre-onboarding. Next step: trace the
-  confirm-location POST from a real browser session and replicate it.
+  `/api/instamart/search` 403s pre-onboarding. pw_catalog.js now drives the
+  app's OWN location CTAs (`clickThroughOnboarding`) when a session is stuck
+  at zero products — no endpoint guessing; if it still yields nothing, trace
+  the confirm-location POST from a real browser session next.
 - Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see

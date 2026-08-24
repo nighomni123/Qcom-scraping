@@ -59,6 +59,14 @@ def _flag_int(name):
         return None
 
 
+def _flag_float(name):
+    v = _flag_value(name)
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def main():
     cfg = load_cfg()
     # Reset the demo db BEFORE opening the Store connection (deleting the file
@@ -100,6 +108,17 @@ def main():
                                            store_filter=_flag_value("--store"),
                                            max_per_store=_flag_int("--max-per-store"),
                                            max_queries=_flag_int("--max-queries"))
+        return
+
+    if "--store-inventory" in sys.argv:
+        # Per-app darkstore inventories around the machine's real approximate
+        # location (public-IP derived; --lat/--lon to override) into
+        # inventory_<app>.db files — separate from deals.db.
+        from src.inventory import run_inventory
+        run_inventory(cfg, apps=_flag_list("--apps"),
+                      lat=_flag_float("--lat"), lon=_flag_float("--lon"),
+                      radius_m=_flag_int("--radius-m"),
+                      max_points=_flag_int("--max-points"))
         return
 
     if "--demand" in sys.argv:

@@ -18,6 +18,9 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
     python3 run.py --map-locality                    # discover Andheri West darkstores
     python3 run.py --map-locality --apps blinkit     # one app only
     python3 run.py --map-locality --max-points 5     # quick partial sweep
+    python3 run.py --store-inventory                 # per-app store DBs near YOU
+    python3 run.py --store-inventory --apps blinkit,zepto --max-points 8
+    python3 run.py --store-inventory --lat 19.07 --lon 72.88       # override point
     python3 run.py --build-watchlist                 # per-store SKU probe set
     python3 run.py --build-watchlist --apps blinkit --store 47578 \
                     --max-per-store 100 --max-queries 10
@@ -25,6 +28,17 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
     python3 run.py --qc-status                       # per-app QC health board
+
+**Store inventory near you (`--store-inventory`):** resolves the machine's
+approximate location from its public IP (honest — no GPS spoofing; override
+with `--lat/--lon`), builds a small anchor grid around it, and maps each app's
+darkstores into SEPARATE databases: `inventory_blinkit.db`,
+`inventory_instamart.db`, `inventory_zepto.db` (each a full Store schema; the
+`darkstores` table holds that app's stores with label/coords/ETA). One-shot
+probes are product-bearing: Zepto probes its search route, Blinkit/Instamart
+fire a few staple searches in-session so you get more than the dairy-first
+home carousels, and Instamart's location-consent gate is driven through the
+app's own UI buttons when a session is stuck at zero products.
 
 **Demand analysis (phase 4):** the dashboard's Demand Radar panels show a
 Demand Pressure Index per SKU (Σ OOS-minutes × recency ÷ observation-days),
