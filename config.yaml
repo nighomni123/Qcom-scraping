@@ -85,25 +85,17 @@ codes_file: "codes.yaml"      # delivery fees + offers knowledge base
 demand:
   enabled: true
   locality:
+    # edited via dashboard 25-08 11:32
     name: "Andheri West"
     bbox:
-      min_lat: 19.100
-      max_lat: 19.148
-      min_lon: 72.800
-      max_lon: 72.857
+      min_lat: 19.14244
+      max_lat: 19.18736
+      min_lon: 72.81922
+      max_lon: 72.86678
     grid_step_m: 700
     landmarks:
-      - "Andheri West station"
-      - "DN Nagar"
-      - "Four Bungalows"
-      - "Seven Bungalows"
-      - "Kokilaben Hospital"
-      - "Versova"
-      - "Yari Road"
-      - "Lokhandwala"
-      - "Infiniti Mall"
-      # explicit form for custom seeds:
-      # - { name: "My Building", lat: 19.125, lon: 72.835 }
+      # explicit form — resolves exactly, no preset matching:
+      - { name: "Andheri West center", lat: 19.1649, lon: 72.843 }
   # discovery sweep tuning
   min_points_before_early_stop: 6   # probes before saturation-stop may trigger
   saturation_stop: 4                # stop app sweep after N probes w/o new store
