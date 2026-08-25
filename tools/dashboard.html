@@ -841,7 +841,7 @@ async function saveCorridor(){
 }
 
 // ---------- AI assistant (optional) ----------
-let AI = null, PENDING_SUGG = [], PENDING_QUERIES = [];
+let AI = null, PENDING_SUGG = [], PENDING_QUERIES = [], AITICK = null, AIPOLL = null, AICTRL = null;
 async function aiStatus(){
   const chip = document.getElementById('aiChip');
   try {
@@ -868,20 +868,44 @@ function aiOut(id, text, isErr){
   el.textContent = text;
   el.classList.toggle('aierr', !!isErr);
 }
+// Runs a POST with: live elapsed ticker in the button, server-phase polling
+// (reasoning models can legitimately think for minutes), and a hard cap so
+// nothing ever looks silently hung.
 async function runAi(path, outId, btnId, busyLabel, body){
   const btn = document.getElementById(btnId);
-  const old = btn.textContent; btn.disabled = true; btn.textContent = '⏳ working…';
+  const old = btn.textContent; btn.disabled = true;
   aiOut(outId, busyLabel || 'thinking…');
+  const t0 = Date.now();
+  AICTRL = new AbortController();
+  clearInterval(AITICK); clearInterval(AIPOLL);
+  AITICK = setInterval(() => {
+    btn.textContent = `⏳ ${Math.round((Date.now() - t0) / 1000)}s…`;
+  }, 1000);
+  AIPOLL = setInterval(async () => {
+    try {
+      const s = await (await fetch('/ai/status')).json();
+      if (s.live && s.live.active && s.live.phase){
+        btn.textContent = `⏳ ${Math.round((Date.now()-t0)/1000)}s · ${s.live.phase}` +
+          (s.live.attempt > 1 ? ` (attempt ${s.live.attempt}/${s.live.max_attempts})` : '');
+      }
+    } catch(e){}
+  }, 4000);
+  const hardCap = setTimeout(() => { try { AICTRL.abort(); } catch(e){} }, 6 * 60 * 1000);
   try {
     const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'},
+                                 signal: AICTRL.signal,
                                  body: JSON.stringify(body || {})});
     const d = await r.json();
-    if (d.error) aiOut(outId, '⚠ ' + d.error, true);
+    if (d.error){ aiOut(outId, '⚠ ' + d.error, true); return d; }
     return d;
   } catch(e){
-    aiOut(outId, '⚠ request failed: ' + e, true);
-    return {error: String(e)};
+    const msg = e.name === 'AbortError'
+      ? '⚠ gave up after 6 minutes with no answer. The model endpoint is very slow or stuck right now — try again shortly, or set a faster model in config.yaml → ai.model.'
+      : '⚠ request failed: ' + e;
+    aiOut(outId, msg, true);
+    return {error: msg};
   } finally {
+    clearTimeout(hardCap); clearInterval(AITICK); clearInterval(AIPOLL);
     btn.disabled = false; btn.textContent = old;
   }
 }

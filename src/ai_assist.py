@@ -44,6 +44,10 @@ def _root():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+class _Deadline(Exception):
+    """Internal: per-attempt wall-clock budget exhausted (slow-drip guard)."""
+
+
 class AiAssist:
     """Thin OpenAI-compatible client + configuration."""
 
@@ -85,8 +89,6 @@ class AiAssist:
                      "Ollama: http://127.0.0.1:11434/v1)"),
             "needs_key": not local,
         }
-
-    # -- raw chat ----------------------------------------------------------
     def chat(self, system, user, timeout=150):
         if not self.available:
             raise RuntimeError(self.unavailable_reason())
@@ -100,47 +102,98 @@ class AiAssist:
             "max_tokens": self.max_tokens,
         }
         attempt = 0
-        while True:
-            attempt += 1
-            req = urllib.request.Request(
-                url, data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json"})
-            if self.key:
-                req.add_header("Authorization", "Bearer " + self.key)
-            try:
-                with urllib.request.urlopen(req, timeout=timeout) as r:
-                    d = json.loads(r.read().decode())
-            except urllib.error.HTTPError as ex:
-                detail = ""
+        t0 = time.time()
+        _LIVE.update({"active": True, "phase": "thinking", "attempt": 0,
+                      "max_attempts": 2, "started_ts": t0, "model": self.model})
+        try:
+            while True:
+                attempt += 1
+                _LIVE["attempt"] = attempt
+                _LIVE["phase"] = ("thinking" if attempt == 1
+                                  else "retrying with larger token budget")
+                # Total wall-clock budget ≈ 2×timeout: attempt 1 gets the full
+                # slice, the retry only what's left of it.
+                per_call = timeout if attempt == 1 else max(30, int(timeout * 2 - (time.time() - t0)))
+                req = urllib.request.Request(
+                    url, data=json.dumps(body).encode(),
+                    headers={"Content-Type": "application/json"})
+                if self.key:
+                    req.add_header("Authorization", "Bearer " + self.key)
                 try:
-                    detail = ex.read().decode()[:220]
-                except Exception:
-                    pass
-                raise RuntimeError(f"AI endpoint HTTP {ex.code}: {detail}") from None
-            except Exception as ex:
-                raise RuntimeError(f"AI endpoint unreachable: {str(ex)[:180]}") from None
-            # NB: .get("content", "") is NOT enough — some providers send
-            # "content": null (content filters; reasoning models that spend the
-            # whole budget on reasoning_content), which would make .strip() blow
-            # up on None. Fall back to reasoning_content, then fail with WHY.
-            choice = (d.get("choices") or [{}])[0]
-            msg = choice.get("message") or {}
-            content = msg.get("content") or msg.get("reasoning_content") or ""
-            if str(content).strip():
-                return str(content).strip()
-            fr = choice.get("finish_reason")
-            err = d.get("error") or {}
-            # Reasoning models routinely exhaust a small token budget on
-            # thinking alone (finish_reason=length). Self-heal: retry ONCE
-            # with 4x the budget before giving up.
-            if fr == "length" and attempt == 1:
-                body["max_tokens"] = min(int(body["max_tokens"]) * 4, 16000)
-                continue
-            hint = (f" after retrying with {body['max_tokens']} tokens"
-                    if fr == "length" else "")
-            fpart = f" (finish_reason={fr})" if fr else ""
-            dpart = f": {str(err)[:200]}" if err else ""
-            raise RuntimeError(f"AI returned no content{fpart}{hint}{dpart}")
+                    with urllib.request.urlopen(req, timeout=per_call) as r:
+                        # socket timeout only bounds gaps BETWEEN bytes; a
+                        # slow-dripping response could stall for many minutes.
+                        # Enforce the per-attempt WALL-CLOCK budget here too.
+                        deadline = time.time() + per_call
+                        chunks = []
+                        while True:
+                            if time.time() > deadline:
+                                raise _Deadline(per_call)
+                            chunk = r.read(65536)
+                            if not chunk:
+                                break
+                            chunks.append(chunk)
+                        d = json.loads(b"".join(chunks).decode())
+                except _Deadline:
+                    raise RuntimeError(
+                        f"AI endpoint exceeded its {int(per_call)}s wall-clock "
+                        f"budget — model too slow right now; try again or set a "
+                        f"faster ai.model") from None
+                except urllib.error.HTTPError as ex:
+                    detail = ""
+                    try:
+                        detail = ex.read().decode()[:220]
+                    except Exception:
+                        pass
+                    raise RuntimeError(f"AI endpoint HTTP {ex.code}: {detail}") from None
+                except Exception as ex:
+                    raise RuntimeError(f"AI endpoint unreachable: {str(ex)[:180]}") from None
+                # NB: .get("content", "") is NOT enough — some providers send
+                # "content": null (content filters; reasoning models that spend the
+                # whole budget on reasoning_content), which would make .strip() blow
+                # up on None. Fall back to reasoning_content, then fail with WHY.
+                choice = (d.get("choices") or [{}])[0]
+                msg = choice.get("message") or {}
+                content = msg.get("content") or msg.get("reasoning_content") or ""
+                if str(content).strip():
+                    return str(content).strip()
+                fr = choice.get("finish_reason")
+                err = d.get("error") or {}
+                # Reasoning models routinely exhaust a small token budget on
+                # thinking alone (finish_reason=length). Self-heal: retry ONCE
+                # with 4x the budget before giving up.
+                if fr == "length" and attempt == 1:
+                    body["max_tokens"] = min(int(body["max_tokens"]) * 4, 16000)
+                    continue
+                hint = (f" after retrying with {body['max_tokens']} tokens"
+                        if fr == "length" else "")
+                fpart = f" (finish_reason={fr})" if fr else ""
+                dpart = f": {str(err)[:200]}" if err else ""
+                raise RuntimeError(f"AI returned no content{fpart}{hint}{dpart}")
+        finally:
+            _LIVE.update({"active": False, "phase": "", "attempt": 0,
+                          "started_ts": None})
+
+
+
+
+# Live call state — the dashboard polls this so a slow reasoning model never
+# looks like a hang. Last-writer-wins; single-user tool, that's fine.
+_LIVE = {"active": False, "phase": "", "attempt": 0, "max_attempts": 2,
+         "started_ts": None, "model": ""}
+
+
+def live_state():
+    d = dict(_LIVE)
+    if d["active"] and d["started_ts"]:
+        d["elapsed_sec"] = int(time.time() - d["started_ts"])
+    else:
+        d["elapsed_sec"] = None
+        d["phase"] = ""
+    return d
+
+
+# -- raw chat ----------------------------------------------------------
 
 
 # ---------------- data digests (compact, token-friendly) ----------------

@@ -629,8 +629,10 @@ class Dashboard:
                 elif self.path == "/ai/status":
                     try:
                         cfg, err = _cfg_parse()
-                        from .ai_assist import AiAssist
-                        self._json(AiAssist(cfg if not err else {}).status())
+                        from .ai_assist import AiAssist, live_state
+                        st = AiAssist(cfg if not err else {}).status()
+                        st["live"] = live_state()
+                        self._json(st)
                     except Exception as ex:
                         self._json({"available": False, "reason": str(ex)[:200]})
                 elif self.path.startswith("/features/") and self.path.endswith("/log"):
