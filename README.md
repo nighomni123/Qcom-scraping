@@ -192,6 +192,13 @@ Real-time view of everything the process does, plus the exit switch:
   the browser; each runs as a managed child process with live logs, uptime
   and exit codes. STOP ALL / shutdown also reaps anything the dashboard
   started, so nothing keeps crawling in the background.
+- **Working area** — change WHERE the tool operates, interactively: drag the
+  map pin (or click the map / pick a preset / use your device location / the
+  server's IP location) and save it as the Demand Radar locality with a
+  radius slider; edit the monitor's corridor stations in a table and set the
+  search anchor. Every save is validated against both YAML loaders before it
+  lands in config.yaml (previous file backed up in /tmp) and applies when you
+  next start or restart a feature.
 - **SQL databases** — browse every sqlite file in the repo (deals.db +
   `inventory_blinkit.db` / `inventory_instamart.db` / `inventory_zepto.db`):
   pick a database, pick a table, see row counts and the newest rows. The

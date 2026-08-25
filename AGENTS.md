@@ -117,10 +117,16 @@ Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics), `/demand /heatmap?store=
 /eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`),
 `/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
-deals.db + inventory_*.db) and `/features` + `/features/<id>/start|stop|log`
+deals.db + inventory_*.db), `/features` + `/features/<id>/start|stop|log`
 (spawn/terminate any repo feature — monitor loop, bot, --demand, demo,
-inventory sweeps… — as managed child processes). Invariant: those children
-belong to the dashboard process; STOP ALL /shutdown reaps them, so never
+inventory sweeps… — as managed child processes) and `/location`
++ `/location/presets` + POST `/location/locality` | `/location/corridor`
+(interactive working-area editor: regenerates `geo.corridor`,
+`demand.locality` and `search.station` blocks in config.yaml in the existing
+miniyaml-compatible style, validates with BOTH loaders before an atomic
+write, previous file backed up to /tmp; changes apply when a feature
+process is next started/restarted). Invariant: those children belong
+to the dashboard process; STOP ALL /shutdown reaps them, so never
 orphan-start crawlers outside it while a dashboard is up.
 
 Telegram bot (`--bot`) commands: `/watch <product>` — persist a keyword watch

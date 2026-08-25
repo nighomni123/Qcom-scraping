@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <title>Moneymaker — Live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Interactive map for the Working-area panel (CDN; the panel degrades to
+     plain lat/lon inputs gracefully if this fails to load). -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #e6edf3;
@@ -135,6 +139,31 @@
   .feat .d { color: var(--dim); font-size: 11.5px; min-height: 28px; }
   .feat .meta { color: var(--dim); font-size: 10.5px; opacity: .85; line-height: 1.45;
                 border-top: 1px dashed var(--border); padding-top: 5px; min-height: 30px; }
+  /* working-area (locations) */
+  .locwrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; padding: 12px 14px; }
+  .loccard { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .loccard h3 { font-size: 13px; } .loccard h3 small { color: var(--dim); font-weight: 400; margin-left: 6px; }
+  #locMap { height: 240px; border-radius: 8px; border: 1px solid var(--border); z-index: 0; }
+  .mapfall { color: var(--dim); font-size: 11.5px; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; }
+  .locrow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .locrow input, .locrow select { background: #21262d; border: 1px solid var(--border); color: var(--text);
+          border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12px; }
+  .locrow input[type=number] { width: 96px; }
+  .locrow input:focus, .locrow select:focus { outline: none; border-color: var(--blue); }
+  .locbtn { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 6px;
+            padding: 5px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+  .locbtn:hover { border-color: var(--blue); color: var(--blue); }
+  .locbtn.primary { border-color: var(--green); color: var(--green); font-weight: 700; }
+  .locbtn.primary:hover { background: var(--green); color: #04121f; }
+  .locnote { color: var(--dim); font-size: 11px; line-height: 1.5; }
+  table.corr { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.corr td { padding: 3px 4px; }
+  table.corr input { width: 100%; background: #21262d; border: 1px solid var(--border); color: var(--text);
+                     border-radius: 5px; padding: 4px 7px; font: inherit; font-size: 12px; }
+  table.corr input:focus { outline: none; border-color: var(--blue); }
+  table.corr .rm { background: transparent; border: 0; color: var(--red); cursor: pointer; font-size: 14px; }
+  .radiusline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+  .radiusline input[type=range] { flex: 1; accent-color: var(--blue); }
   .feat .btns { display: flex; gap: 6px; }
   .feat button { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text);
                  border-radius: 6px; padding: 4px 0; cursor: pointer; font: inherit; font-size: 12px; }
@@ -187,6 +216,56 @@
   <div class="panel">
     <h2>Features <span class="chip">start · stop · every capability of this repo</span></h2>
     <div class="fgrid" id="featGrid"><div class="muted">loading…</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Working area <span class="chip">where the tool crawls · saved to config.yaml</span></h2>
+    <div class="locnote" style="padding: 8px 14px 0;">Changes persist to
+      <b>config.yaml</b> (validated before writing, backup in /tmp) and take effect when you
+      (re)start a feature from the Features panel — already-running processes keep the old area.</div>
+    <div class="locwrap">
+      <div class="loccard">
+        <h3>Demand Radar locality <small>bbox + landmarks for --demand / --map-locality / inventory</small></h3>
+        <div id="locMap"></div>
+        <div class="mapfall" id="mapFallback" style="display:none;">
+          Map unavailable (offline?) — set coordinates with the inputs below or pick a preset.
+        </div>
+        <div class="locrow">
+          <input id="locName" placeholder="area name" style="flex:1; min-width:140px;" title="name written to demand.locality.name">
+          <select id="locPreset" style="flex:1; min-width:150px;" onchange="pickPreset(this)">
+            <option value="">presets…</option>
+          </select>
+        </div>
+        <div class="locrow">
+          <label style="font-size:11px;color:var(--dim)">lat</label>
+          <input id="locLat" type="number" step="0.0001" onchange="formToMarker()">
+          <label style="font-size:11px;color:var(--dim)">lon</label>
+          <input id="locLon" type="number" step="0.0001" onchange="formToMarker()">
+          <button class="locbtn" onclick="useMyLocation()" title="browser geolocation">📍 my location</button>
+          <button class="locbtn" onclick="useIpLocation()" title="server's public-IP location">🌐 IP location</button>
+        </div>
+        <div class="radiusline">
+          <span>radius</span>
+          <input type="range" id="locRadius" min="0.5" max="10" step="0.5" value="2.5" oninput="document.getElementById('locRadiusVal').textContent=this.value+' km'">
+          <span id="locRadiusVal">2.5 km</span>
+        </div>
+        <div class="locrow" style="justify-content: space-between;">
+          <span class="locnote" id="locCurrent"></span>
+          <button class="locbtn primary" onclick="saveLocality()">💾 save locality</button>
+        </div>
+      </div>
+      <div class="loccard">
+        <h3>Monitor corridor <small>stations the glitch monitor crawls + search anchor</small></h3>
+        <table class="corr" id="corrTable"></table>
+        <div class="locrow">
+          <button class="locbtn" onclick="addStationRow()">＋ add station</button>
+          <span style="flex:1"></span>
+          <label style="font-size:11px;color:var(--dim)">search anchor</label>
+          <select id="corrAnchor" title="search.station — dark-store anchor for bot/CLI searches"></select>
+          <button class="locbtn primary" onclick="saveCorridor()">💾 save corridor</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -543,6 +622,168 @@ async function openLog(id){
   logTimer = setInterval(paint, 1200);
 }
 
+// ---------- working area (locations) ----------
+let LOC = null, LMAP = null, LMARK = null;
+async function loadLocation(){
+  try {
+    const r = await fetch('/location'); LOC = await r.json();
+    if (LOC.error){ document.getElementById('locCurrent').textContent = 'error: ' + LOC.error; return; }
+    const loc = LOC.locality || {};
+    const c = loc.center || [19.124, 72.8285];
+    document.getElementById('locName').value = loc.name || '';
+    document.getElementById('locLat').value = c[0];
+    document.getElementById('locLon').value = c[1];
+    if (loc.bbox && loc.bbox.min_lat !== undefined && loc.bbox.max_lat !== undefined){
+      const rkm = ((+loc.bbox.max_lat) - (+loc.bbox.min_lat)) / 2 * 111.32;
+      const rr = Math.max(0.5, Math.min(10, Math.round(rkm * 2) / 2));
+      document.getElementById('locRadius').value = rr;
+      document.getElementById('locRadiusVal').textContent = rr + ' km';
+    }
+    document.getElementById('locCurrent').textContent =
+      `now: ${loc.name || '?'} · ${c[0]}, ${c[1]}`;
+    initMap(c);
+    renderCorridor(LOC.corridor || []);
+    fillAnchorSelect(LOC.search_station);
+  } catch(e){}
+}
+function initMap(center){
+  if (!window.L){ mapFail(); return; }
+  try {
+    LMAP = L.map('locMap');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                {attribution: '© OpenStreetMap', maxZoom: 18}).addTo(LMAP);
+    LMAP.setView(center, 12);
+    LMARK = L.marker(center, {draggable: true}).addTo(LMAP);
+    LMARK.on('dragend', markerToForm);
+    LMAP.on('click', e => { LMARK.setLatLng(e.latlng); markerToForm(); });
+    setTimeout(() => LMAP.invalidateSize(), 250);
+  } catch(e){ mapFail(); }
+}
+function mapFail(){
+  document.getElementById('locMap').style.display = 'none';
+  document.getElementById('mapFallback').style.display = 'block';
+}
+function markerToForm(){
+  if (!LMARK) return;
+  const p = LMARK.getLatLng();
+  document.getElementById('locLat').value = p.lat.toFixed(4);
+  document.getElementById('locLon').value = p.lng.toFixed(4);
+}
+function formToMarker(){
+  if (!LMARK) return;
+  const la = parseFloat(document.getElementById('locLat').value);
+  const lo = parseFloat(document.getElementById('locLon').value);
+  if (isFinite(la) && isFinite(lo)){ LMARK.setLatLng([la, lo]); LMAP.panTo([la, lo]); }
+}
+async function loadPresets(){
+  try {
+    const r = await fetch('/location/presets'); const d = await r.json();
+    const sel = document.getElementById('locPreset');
+    let area = null, og = null;
+    for (const p of (d.presets || [])){
+      if (p.area !== area){
+        area = p.area;
+        og = document.createElement('optgroup'); og.label = area; sel.appendChild(og);
+      }
+      const o = document.createElement('option');
+      o.value = JSON.stringify(p);
+      o.textContent = `${p.name}`;
+      og.appendChild(o);
+    }
+  } catch(e){}
+}
+function pickPreset(sel){
+  if (!sel.value) return;
+  let p; try { p = JSON.parse(sel.value); } catch(e){ return; }
+  document.getElementById('locName').value = p.name.replace(/ \(area center\)/, '');
+  document.getElementById('locLat').value = p.lat;
+  document.getElementById('locLon').value = p.lon;
+  formToMarker();
+  if (LMAP) LMAP.setView([p.lat, p.lon], 13);
+}
+function useMyLocation(){
+  if (!navigator.geolocation) return alert('geolocation not available in this browser');
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('locLat').value = pos.coords.latitude.toFixed(4);
+    document.getElementById('locLon').value = pos.coords.longitude.toFixed(4);
+    formToMarker();
+  }, err => alert('geolocation failed: ' + err.message), {timeout: 8000});
+}
+function useIpLocation(){
+  const ip = (LOC || {}).ip_location;
+  if (!ip || ip.error) return alert('server IP location unavailable' + (ip && ip.error ? ': ' + ip.error : ''));
+  document.getElementById('locName').value = (ip.city || 'current') + (ip.region ? ', ' + ip.region : '');
+  document.getElementById('locLat').value = ip.lat;
+  document.getElementById('locLon').value = ip.lon;
+  formToMarker();
+}
+async function saveLocality(){
+  const body = {
+    name: document.getElementById('locName').value.trim(),
+    lat: parseFloat(document.getElementById('locLat').value),
+    lon: parseFloat(document.getElementById('locLon').value),
+    radius_km: parseFloat(document.getElementById('locRadius').value),
+  };
+  if (!isFinite(body.lat) || !isFinite(body.lon)) return alert('set coordinates first (map, inputs or preset)');
+  try {
+    const r = await fetch('/location/locality', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.error) return alert('save failed: ' + d.error);
+    loadLocation();
+  } catch(e){ alert('save failed: ' + e); }
+}
+function renderCorridor(stations){
+  const tb = document.getElementById('corrTable');
+  tb.innerHTML = '<tr><th style="text-align:left;color:var(--dim);font-size:10px;padding:2px 4px">STATION</th>' +
+    '<th style="color:var(--dim);font-size:10px;padding:2px 4px">LAT</th>' +
+    '<th style="color:var(--dim);font-size:10px;padding:2px 4px">LON</th><th></th></tr>';
+  stations.forEach(s => addStationRow(s.station, s.lat, s.lon));
+}
+function addStationRow(name = '', lat = '', lon = ''){
+  const tb = document.getElementById('corrTable');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input class="c-name" value="${esc(name)}" placeholder="name"></td>` +
+    `<td><input class="c-lat" type="number" step="0.0001" value="${lat}" placeholder="lat"></td>` +
+    `<td><input class="c-lon" type="number" step="0.0001" value="${lon}" placeholder="lon"></td>` +
+    `<td><button class="rm" title="remove station">✕</button></td>`;
+  tr.querySelector('.rm').onclick = () => tr.remove();
+  tb.appendChild(tr);
+}
+function fillAnchorSelect(current){
+  const sel = document.getElementById('corrAnchor');
+  sel.innerHTML = '';
+  ((LOC || {}).corridor || []).forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.station; o.textContent = s.station;
+    if (s.station === current) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+async function saveCorridor(){
+  const rows = [...document.querySelectorAll('#corrTable tr')].slice(1);
+  const stations = [];
+  for (const tr of rows){
+    const name = tr.querySelector('.c-name').value.trim();
+    if (!name) continue;
+    const lat = parseFloat(tr.querySelector('.c-lat').value);
+    const lon = parseFloat(tr.querySelector('.c-lon').value);
+    if (!isFinite(lat) || !isFinite(lon)) return alert(`station "${name}" needs valid numbers`);
+    stations.push({station: name, lat, lon});
+  }
+  if (!stations.length) return alert('add at least one station');
+  try {
+    const r = await fetch('/location/corridor', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({stations,
+        search_station: document.getElementById('corrAnchor').value || null})});
+    const d = await r.json();
+    if (d.error) return alert('save failed: ' + d.error);
+    if (d.warn) alert(d.warn);
+    loadLocation();
+  } catch(e){ alert('save failed: ' + e); }
+}
+
 // ---------- sql database explorer ----------
 let DBS = [], curDb = null, curTable = null;
 async function loadDbs(){
@@ -588,6 +829,7 @@ async function showTable(){
 
 refresh(); loadCats(); loadHist();
 loadFeatures(); loadDbs();
+loadLocation(); loadPresets();
 loadDemand(); loadHeat(); loadEta(); loadQc();
 setInterval(refresh, 2000);
 setInterval(loadCats, 8000);

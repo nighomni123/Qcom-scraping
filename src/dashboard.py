@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import collections
 import json
+import math
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -274,6 +276,276 @@ def _table_preview(db_name, table, limit=30):
             "rows": [[(c if c is not None else None) for c in r] for r in rows]}, 200
 
 
+# ---------------- working-area (locations) ----------------
+# The tool's geography lives entirely in config.yaml: geo.corridor (glitch
+# monitor stations), demand.locality (Demand Radar bbox + landmarks) and
+# search.station (bot search anchor). These helpers let the dashboard edit
+# those blocks SAFELY: generated blocks mimic the existing miniyaml-compatible
+# style, every write is validated with BOTH loaders before it lands, and the
+# previous file is backed up to /tmp.
+
+_CFG_PATH = os.path.join(_ROOT, "config.yaml")
+
+
+def _yaml_check(text):
+    """Validate YAML text with the same loaders run.py uses. Error str or None."""
+    try:
+        import yaml
+        try:
+            yaml.safe_load(text)
+            return None
+        except Exception as ex:
+            return f"pyyaml: {str(ex)[:160]}"
+    except ImportError:
+        from . import miniyaml
+        try:
+            miniyaml.loads(text)
+            return None
+        except Exception as ex:
+            return f"miniyaml: {str(ex)[:160]}"
+
+
+def _cfg_parse():
+    """Parse the live config.yaml. Returns (data, error)."""
+    with open(_CFG_PATH, encoding="utf-8") as f:
+        text = f.read()
+    err = _yaml_check(text)
+    if err:
+        return None, err
+    try:
+        import yaml
+        return yaml.safe_load(text), None
+    except ImportError:
+        from . import miniyaml
+        return miniyaml.loads(text), None
+
+
+def _block_span(lines, key, indent):
+    """[start, end) line span of the `key:` block nested at exactly `indent`
+    spaces. end = first later non-blank line whose indent <= key's."""
+    pat = re.compile(r"^(\s*)" + re.escape(key) + r"\s*:\s*(#.*)?$")
+    start = None
+    for i, ln in enumerate(lines):
+        m = pat.match(ln)
+        if m and len(m.group(1)) == indent:
+            start = i
+            break
+    if start is None:
+        return None
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        ln = lines[j]
+        if not ln.strip():
+            continue
+        if len(ln) - len(ln.lstrip()) <= indent:
+            end = j
+            break
+    return start, end
+
+
+def _fmt(v):
+    """Compact numeric formatting for generated YAML (trims trailing zeros)."""
+    if isinstance(v, float):
+        s = f"{v:.5f}".rstrip("0").rstrip(".")
+        return s or "0"
+    return str(v)
+
+
+def _q(s):
+    """Quote a string for double-quoted YAML flow style."""
+    return '"' + str(s).replace("\\", "\\\\").replace('"', "'") + '"'
+
+
+def _write_cfg(new_text):
+    """Backup current file to /tmp, then atomically replace config.yaml."""
+    import shutil
+    backup = f"/tmp/config.yaml.bak-{int(time.time())}"
+    shutil.copyfile(_CFG_PATH, backup)
+    tmp = _CFG_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(new_text)
+    os.replace(tmp, _CFG_PATH)
+    return backup
+
+
+def _location_state():
+    cfg, err = _cfg_parse()
+    if err:
+        return {"error": err}
+    corr = [{"station": s.get("station"), "lat": s.get("lat"), "lon": s.get("lon")}
+            for s in ((cfg.get("geo") or {}).get("corridor") or [])]
+    loc = (cfg.get("demand") or {}).get("locality") or {}
+    bbox = loc.get("bbox") or {}
+    center = None
+    try:
+        center = [round((float(bbox["min_lat"]) + float(bbox["max_lat"])) / 2, 5),
+                  round((float(bbox["min_lon"]) + float(bbox["max_lon"])) / 2, 5)]
+    except Exception:
+        pass
+    return {
+        "corridor": corr,
+        "search_station": (cfg.get("search") or {}).get("station"),
+        "locality": {
+            "name": loc.get("name"),
+            "bbox": bbox,
+            "grid_step_m": loc.get("grid_step_m"),
+            "landmarks": [l if isinstance(l, dict) else str(l) for l in (loc.get("landmarks") or [])],
+            "center": center,
+        },
+    }
+
+
+_IPLOC = {"ts": 0.0, "data": None}
+
+
+def _ip_location_cached(ttl=600):
+    if time.time() - _IPLOC["ts"] > ttl or _IPLOC["data"] is None:
+        try:
+            from .inventory import approx_location
+            _IPLOC["data"] = approx_location(timeout=5)
+        except Exception as ex:
+            _IPLOC["data"] = {"error": str(ex)[:140]}
+        _IPLOC["ts"] = time.time()
+    return _IPLOC["data"]
+
+
+def _location_presets():
+    """Pickable points: repo landmark presets flattened + area centers +
+    the live corridor stations (always relevant, zero invented geography)."""
+    from .locality import PRESET_LANDMARKS
+    out = []
+    for area, marks in sorted(PRESET_LANDMARKS.items()):
+        pts = list(marks.values())
+        out.append({"name": f"{area.title()} (area center)",
+                    "area": area.title(),
+                    "lat": round(sum(p[0] for p in pts) / len(pts), 5),
+                    "lon": round(sum(p[1] for p in pts) / len(pts), 5)})
+        for nm, (la, lo) in sorted(marks.items()):
+            out.append({"name": nm.title(), "area": area.title(),
+                        "lat": la, "lon": lo})
+    cfg, err = _cfg_parse()
+    if not err:
+        for s in ((cfg.get("geo") or {}).get("corridor") or []):
+            out.append({"name": f"Corridor · {s.get('station')}",
+                        "area": "Monitor corridor",
+                        "lat": s.get("lat"), "lon": s.get("lon")})
+    return {"presets": out}
+
+
+def _write_locality(body):
+    """Replace demand.locality with a square bbox around one point."""
+    name = str(body.get("name") or "Custom area").strip()[:60] or "Custom area"
+    try:
+        lat = float(body["lat"]); lon = float(body["lon"])
+        radius_km = float(body.get("radius_km", 3))
+    except (KeyError, TypeError, ValueError):
+        return {"error": "lat, lon, radius_km required"}, 400
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180) or not (0.2 <= radius_km <= 25):
+        return {"error": "lat/lon/radius_km out of range"}, 400
+
+    cfg, err = _cfg_parse()
+    if err:
+        return {"error": err}, 500
+    old_grid = int(((cfg.get("demand") or {}).get("locality") or {}).get("grid_step_m", 700))
+
+    with open(_CFG_PATH, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    span = _block_span(lines, "locality", 2)
+    if not span:
+        return {"error": "config.yaml has no 'demand.locality' block"}, 500
+    s, e = span
+
+    dlat = radius_km / 111.320
+    dlon = radius_km / (111.320 * max(math.cos(math.radians(lat)), 0.01))
+    block = [
+        "  locality:",
+        f"    # edited via dashboard {time.strftime('%d-%m %H:%M')}",
+        f"    name: {_q(name)}",
+        "    bbox:",
+        f"      min_lat: {_fmt(lat - dlat)}",
+        f"      max_lat: {_fmt(lat + dlat)}",
+        f"      min_lon: {_fmt(lon - dlon)}",
+        f"      max_lon: {_fmt(lon + dlon)}",
+        f"    grid_step_m: {old_grid}",
+        "    landmarks:",
+        "      # explicit form — resolves exactly, no preset matching:",
+        f"      - {{ name: {_q(name + ' center')}, lat: {_fmt(lat)}, lon: {_fmt(lon)} }}",
+    ]
+    new_lines = lines[:s] + block + lines[e:]
+    new_text = "\n".join(new_lines).rstrip("\n") + "\n"
+    if (verr := _yaml_check(new_text)):
+        return {"error": f"generated config failed validation ({verr}) — nothing written"}, 500
+    backup = _write_cfg(new_text)
+    st = _location_state()
+    st.update({"ok": True, "backup": backup,
+               "note": "applies when you (re)start a feature from the Features panel"})
+    return st, 200
+
+
+def _write_corridor(body):
+    stations_in = body.get("stations")
+    if not isinstance(stations_in, list) or not (1 <= len(stations_in) <= 40):
+        return {"error": "stations list (1..40) required"}, 400
+    clean = []
+    seen = set()
+    for st in stations_in:
+        nm = str(st.get("station") or "").strip()[:30]
+        try:
+            la = round(float(st["lat"]), 5); lo = round(float(st["lon"]), 5)
+        except (KeyError, TypeError, ValueError):
+            return {"error": "each station needs station/lat/lon"}, 400
+        if not nm or not (-90 <= la <= 90 and -180 <= lo <= 180):
+            return {"error": f"bad station row: {nm!r}"}, 400
+        if nm.lower() in seen:
+            return {"error": f"duplicate station name: {nm}"}, 400
+        seen.add(nm.lower())
+        clean.append((nm, la, lo))
+
+    search_station = body.get("search_station")
+    with open(_CFG_PATH, encoding="utf-8") as f:
+        text = f.read()
+    lines = text.splitlines()
+    span = _block_span(lines, "corridor", 2)
+    if not span:
+        return {"error": "config.yaml has no 'geo.corridor' block"}, 500
+    s, e = span
+    w = max(len(nm) for nm, _, _ in clean)
+    block = ["  corridor:"]
+    block += [f"    - {{ station: {_q(nm)+',':<{w+3}} lat: {_fmt(la)}, lon: {_fmt(lo)} }}"
+              for nm, la, lo in clean]
+
+    new_lines = lines[:s] + block + lines[e:]
+    new_text = "\n".join(new_lines)
+
+    if search_station is not None:
+        snm = str(search_station).strip()
+        if snm and snm.lower() not in seen:
+            return {"error": f"search anchor '{snm}' is not one of the stations"}, 400
+        pat = re.compile(r'^(\s{2}station:\s*)"[^"]*"(,.*)?$')
+        hits = [(i, pat.match(ln)) for i, ln in enumerate(new_lines)]
+        hits = [(i, m) for i, m in hits if m]
+        warn = None
+        if snm:
+            if len(hits) != 1:
+                warn = "could not locate unique 'search.station' line — anchor unchanged"
+            else:
+                i, m = hits[0]
+                tail = m.group(2) or ""
+                comment = ""
+                if "#" in tail:
+                    comment = "  " + tail[tail.index("#"):]
+                new_lines[i] = f'{m.group(1)}{_q(snm)}{comment}'.rstrip()
+
+    new_text = "\n".join(new_lines).rstrip("\n") + "\n"
+    if (verr := _yaml_check(new_text)):
+        return {"error": f"generated config failed validation ({verr}) — nothing written"}, 500
+    backup = _write_cfg(new_text)
+    st = _location_state()
+    st.update({"ok": True, "backup": backup, "warn": warn,
+               "note": "applies when you (re)start a feature from the Features panel"})
+    return st, 200
+
+
 class Dashboard:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -342,6 +614,18 @@ class Dashboard:
                         self._json({"error": str(ex)[:200], "searches": []})
                 elif self.path == "/features":
                     self._json(dash.features.status())
+                elif self.path == "/location":
+                    try:
+                        st = _location_state()
+                        st["ip_location"] = _ip_location_cached()
+                        self._json(st)
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]})
+                elif self.path == "/location/presets":
+                    try:
+                        self._json(_location_presets())
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "presets": []})
                 elif self.path.startswith("/features/") and self.path.endswith("/log"):
                     fid = self.path[len("/features/"):-len("/log")]
                     self._json(dash.features.log_tail(fid))
@@ -466,6 +750,20 @@ class Dashboard:
                     fid = self.path[len("/features/"):-len("/stop")]
                     data, code = dash.features.stop(fid)
                     self._json(data, code)
+
+                elif self.path == "/location/locality":
+                    try:
+                        data, code = _write_locality(payload)
+                        self._json(data, code)
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
+
+                elif self.path == "/location/corridor":
+                    try:
+                        data, code = _write_corridor(payload)
+                        self._json(data, code)
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
 
                 elif self.path == "/search":
                     query = (payload.get("query") or "").strip()
