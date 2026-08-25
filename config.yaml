@@ -101,12 +101,12 @@ demand:
   saturation_stop: 4                # stop app sweep after N probes w/o new store
   # watchlist builder (phase 2)
   categories_per_store: 6           # DOM category pages visited per store
-  staple_queries: []                # empty = built-in high-velocity defaults
+  staple_queries: ["earbuds", "power bank", "usb c cable", "phone charger", "led bulb", "aa batteries", "smart watch", "bluetooth speaker", "extension board", "phone case"]                # empty = built-in high-velocity defaults
   watchlist_max_per_store: 300
   # stock prober (phase 3)
-  probe_interval_sec: 900           # per-store cycle target; jittered, off-peak faster
-  probe_terms_max: 20               # watchlist search terms re-probed per store/cycle
-  oos_debounce_snapshots: 2         # consecutive OOS reads before an event opens
+  probe_interval_sec: 600           # per-store cycle target; jittered, off-peak faster
+  probe_terms_max: 30               # watchlist search terms re-probed per store/cycle
+  oos_debounce_snapshots: 3         # consecutive OOS reads before an event opens
   vanished_cycles: 4                # missed successful sweeps before 'vanished'
   stock_canary_queries: ["amul milk", "eggs"]   # must return in-stock items
   suspect_flip_min: 10              # mass-flip soft-block guard: >= N flips...
