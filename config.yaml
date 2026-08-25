@@ -123,4 +123,7 @@ ai:
   enabled: true
   base_url: "https://openrouter.ai/api/v1"                  # empty = https://api.openai.com/v1
   model: "stealth/ox-alpha"
-  max_tokens: 700
+  # Reasoning models burn tokens thinking before answering — give them room.
+  # If a response still truncates (finish_reason=length), chat() auto-retries
+  # once with 4x this budget.
+  max_tokens: 3000

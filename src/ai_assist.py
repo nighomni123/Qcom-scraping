@@ -52,7 +52,7 @@ class AiAssist:
         self.enabled = bool(ai.get("enabled", False))
         self.base = (str(ai.get("base_url") or "").strip() or DEFAULT_BASE).rstrip("/")
         self.model = str(ai.get("model") or DEFAULT_MODEL).strip()
-        self.max_tokens = int(ai.get("max_tokens") or 700)
+        self.max_tokens = int(ai.get("max_tokens") or 3000)
         try:
             from .alert import _load_env
             env = _load_env(os.path.join(_root(), ".env"))
@@ -87,7 +87,7 @@ class AiAssist:
         }
 
     # -- raw chat ----------------------------------------------------------
-    def chat(self, system, user, timeout=60):
+    def chat(self, system, user, timeout=150):
         if not self.available:
             raise RuntimeError(self.unavailable_reason())
         url = f"{self.base}/chat/completions"
@@ -98,40 +98,49 @@ class AiAssist:
                 {"role": "user", "content": user},
             ],
             "max_tokens": self.max_tokens,
-            "temperature": 0.2,
         }
-        req = urllib.request.Request(
-            url, data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json"})
-        if self.key:
-            req.add_header("Authorization", "Bearer " + self.key)
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
-                d = json.loads(r.read().decode())
-        except urllib.error.HTTPError as ex:
-            detail = ""
+        attempt = 0
+        while True:
+            attempt += 1
+            req = urllib.request.Request(
+                url, data=json.dumps(body).encode(),
+                headers={"Content-Type": "application/json"})
+            if self.key:
+                req.add_header("Authorization", "Bearer " + self.key)
             try:
-                detail = ex.read().decode()[:220]
-            except Exception:
-                pass
-            raise RuntimeError(f"AI endpoint HTTP {ex.code}: {detail}") from None
-        except Exception as ex:
-            raise RuntimeError(f"AI endpoint unreachable: {str(ex)[:180]}") from None
-        # NB: .get("content", "") is NOT enough — some providers send
-        # "content": null (content filters; reasoning models that spend the
-        # whole budget on reasoning_content), which would make .strip() blow
-        # up on None. Fall back to reasoning_content, then fail with WHY.
-        msg = ((d.get("choices") or [{}])[0].get("message") or {})
-        content = (msg.get("content") or msg.get("reasoning_content") or "")
-        if not str(content).strip():
-            fr = (d.get("choices") or [{}])[0].get("finish_reason")
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    d = json.loads(r.read().decode())
+            except urllib.error.HTTPError as ex:
+                detail = ""
+                try:
+                    detail = ex.read().decode()[:220]
+                except Exception:
+                    pass
+                raise RuntimeError(f"AI endpoint HTTP {ex.code}: {detail}") from None
+            except Exception as ex:
+                raise RuntimeError(f"AI endpoint unreachable: {str(ex)[:180]}") from None
+            # NB: .get("content", "") is NOT enough — some providers send
+            # "content": null (content filters; reasoning models that spend the
+            # whole budget on reasoning_content), which would make .strip() blow
+            # up on None. Fall back to reasoning_content, then fail with WHY.
+            choice = (d.get("choices") or [{}])[0]
+            msg = choice.get("message") or {}
+            content = msg.get("content") or msg.get("reasoning_content") or ""
+            if str(content).strip():
+                return str(content).strip()
+            fr = choice.get("finish_reason")
             err = d.get("error") or {}
-            hint = (f" (finish_reason={fr} — try raising ai.max_tokens)"
-                    if fr == "length" else
-                    (f" (finish_reason={fr})" if fr else ""))
-            detail = f": {str(err)[:200]}" if err else ""
-            raise RuntimeError(f"AI returned no content{hint}{detail}")
-        return str(content).strip()
+            # Reasoning models routinely exhaust a small token budget on
+            # thinking alone (finish_reason=length). Self-heal: retry ONCE
+            # with 4x the budget before giving up.
+            if fr == "length" and attempt == 1:
+                body["max_tokens"] = min(int(body["max_tokens"]) * 4, 16000)
+                continue
+            hint = (f" after retrying with {body['max_tokens']} tokens"
+                    if fr == "length" else "")
+            fpart = f" (finish_reason={fr})" if fr else ""
+            dpart = f": {str(err)[:200]}" if err else ""
+            raise RuntimeError(f"AI returned no content{fpart}{hint}{dpart}")
 
 
 # ---------------- data digests (compact, token-friendly) ----------------
