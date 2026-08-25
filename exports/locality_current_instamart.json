@@ -1,6 +1,6 @@
 {
   "locality": "current instamart",
-  "generated_ts": 1787578950.751965,
+  "generated_ts": 1787639759.4833841,
   "anchor_count": 12,
   "anchors": [
     {
@@ -104,7 +104,7 @@
               "lon": 72.87595
             }
           ],
-          "eta_min": 11
+          "eta_min": 10
         },
         {
           "store_id": "1381966",
@@ -121,7 +121,7 @@
               "lon": 72.88925
             }
           ],
-          "eta_min": 12
+          "eta_min": 13
         },
         {
           "store_id": "1405018",
@@ -133,7 +133,7 @@
               "lon": 72.8826
             }
           ],
-          "eta_min": 21
+          "eta_min": 15
         }
       ],
       "history": [
@@ -143,10 +143,10 @@
           "lon": 72.8826,
           "kind": "landmark",
           "resolved_store": "1403030",
-          "eta_min": 18,
+          "eta_min": 15,
           "products": 0,
           "error": null,
-          "sec": 42.3
+          "sec": 46.2
         },
         {
           "label": "grid r4c5",
@@ -154,10 +154,10 @@
           "lon": 72.8826,
           "kind": "grid",
           "resolved_store": "1381966",
-          "eta_min": 12,
+          "eta_min": 13,
           "products": 0,
           "error": null,
-          "sec": 43.7
+          "sec": 45.4
         },
         {
           "label": "grid r6c5",
@@ -165,10 +165,10 @@
           "lon": 72.8826,
           "kind": "grid",
           "resolved_store": "1405018",
-          "eta_min": 21,
+          "eta_min": 15,
           "products": 0,
           "error": null,
-          "sec": 42.5
+          "sec": 44.9
         },
         {
           "label": "grid r5c4",
@@ -176,10 +176,10 @@
           "lon": 72.87595,
           "kind": "grid",
           "resolved_store": "1403030",
-          "eta_min": 11,
+          "eta_min": 10,
           "products": 0,
           "error": null,
-          "sec": 41.6
+          "sec": 45.1
         },
         {
           "label": "grid r5c6",
@@ -187,10 +187,10 @@
           "lon": 72.88925,
           "kind": "grid",
           "resolved_store": "1381966",
-          "eta_min": 20,
+          "eta_min": 23,
           "products": 0,
           "error": null,
-          "sec": 41.9
+          "sec": 45.2
         },
         {
           "label": "grid r4c4",
@@ -198,10 +198,10 @@
           "lon": 72.87595,
           "kind": "grid",
           "resolved_store": "1403030",
-          "eta_min": 16,
+          "eta_min": 10,
           "products": 0,
           "error": null,
-          "sec": 43.9
+          "sec": 46.4
         },
         {
           "label": "grid r6c4",
@@ -209,10 +209,10 @@
           "lon": 72.87595,
           "kind": "grid",
           "resolved_store": "1403030",
-          "eta_min": 18,
+          "eta_min": 12,
           "products": 0,
           "error": null,
-          "sec": 48.9
+          "sec": 49.9
         }
       ]
     }

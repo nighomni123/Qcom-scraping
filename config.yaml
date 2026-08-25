@@ -121,6 +121,6 @@ ui:
 # keyless server instead, e.g. Ollama: http://127.0.0.1:11434/v1
 ai:
   enabled: true
-  base_url: ""                  # empty = https://api.openai.com/v1
-  model: "gpt-4o-mini"
+  base_url: "https://openrouter.ai/api/v1"                  # empty = https://api.openai.com/v1
+  model: "stealth/ox-alpha"
   max_tokens: 700

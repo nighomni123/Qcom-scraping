@@ -1,6 +1,6 @@
 {
   "locality": "current zepto",
-  "generated_ts": 1787578635.434016,
+  "generated_ts": 1787640103.584237,
   "anchor_count": 12,
   "anchors": [
     {
@@ -99,11 +99,6 @@
               "lon": 72.8826
             },
             {
-              "label": "grid r5c4",
-              "lat": 19.0728,
-              "lon": 72.87595
-            },
-            {
               "label": "grid r5c6",
               "lat": 19.0728,
               "lon": 72.88925
@@ -112,9 +107,58 @@
               "label": "grid r4c4",
               "lat": 19.06651,
               "lon": 72.87595
+            },
+            {
+              "label": "grid r6c4",
+              "lat": 19.07909,
+              "lon": 72.87595
+            },
+            {
+              "label": "grid r6c6",
+              "lat": 19.07909,
+              "lon": 72.88925
+            },
+            {
+              "label": "grid r3c5",
+              "lat": 19.06022,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r7c5",
+              "lat": 19.08538,
+              "lon": 72.8826
             }
           ],
-          "eta_min": 14
+          "eta_min": 12
+        },
+        {
+          "store_id": "4a54d5f5-0bd9-4b8f-b08a-120d8e7926d7",
+          "label": "zepto store 4a54d5f5-0bd9-4b8f-b08a-120d8e7926d7",
+          "points": [
+            {
+              "label": "grid r5c4",
+              "lat": 19.0728,
+              "lon": 72.87595
+            },
+            {
+              "label": "grid r5c3",
+              "lat": 19.0728,
+              "lon": 72.86929
+            }
+          ],
+          "eta_min": 12
+        },
+        {
+          "store_id": "48018697-39cd-458a-a2dc-b6ac22e6b5c0",
+          "label": "zepto store 48018697-39cd-458a-a2dc-b6ac22e6b5c0",
+          "points": [
+            {
+              "label": "grid r4c6",
+              "lat": 19.06651,
+              "lon": 72.88925
+            }
+          ],
+          "eta_min": 8
         }
       ],
       "history": [
@@ -124,10 +168,10 @@
           "lon": 72.8826,
           "kind": "landmark",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 79,
+          "eta_min": 12,
+          "products": 81,
           "error": null,
-          "sec": 22.0
+          "sec": 21.5
         },
         {
           "label": "grid r4c5",
@@ -135,10 +179,10 @@
           "lon": 72.8826,
           "kind": "grid",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 79,
+          "eta_min": 12,
+          "products": 81,
           "error": null,
-          "sec": 22.7
+          "sec": 22.0
         },
         {
           "label": "grid r6c5",
@@ -146,21 +190,21 @@
           "lon": 72.8826,
           "kind": "grid",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 79,
+          "eta_min": 12,
+          "products": 81,
           "error": null,
-          "sec": 22.6
+          "sec": 21.6
         },
         {
           "label": "grid r5c4",
           "lat": 19.0728,
           "lon": 72.87595,
           "kind": "grid",
-          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 79,
+          "resolved_store": "4a54d5f5-0bd9-4b8f-b08a-120d8e7926d7",
+          "eta_min": 12,
+          "products": 0,
           "error": null,
-          "sec": 22.6
+          "sec": 30.7
         },
         {
           "label": "grid r5c6",
@@ -169,9 +213,9 @@
           "kind": "grid",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
           "eta_min": null,
-          "products": 79,
+          "products": 81,
           "error": null,
-          "sec": 23.0
+          "sec": 27.4
         },
         {
           "label": "grid r4c4",
@@ -179,10 +223,76 @@
           "lon": 72.87595,
           "kind": "grid",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 79,
+          "eta_min": 12,
+          "products": 81,
           "error": null,
-          "sec": 23.4
+          "sec": 29.5
+        },
+        {
+          "label": "grid r6c4",
+          "lat": 19.07909,
+          "lon": 72.87595,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 12,
+          "products": 54,
+          "error": null,
+          "sec": 22.8
+        },
+        {
+          "label": "grid r4c6",
+          "lat": 19.06651,
+          "lon": 72.88925,
+          "kind": "grid",
+          "resolved_store": "48018697-39cd-458a-a2dc-b6ac22e6b5c0",
+          "eta_min": 8,
+          "products": 0,
+          "error": null,
+          "sec": 29.7
+        },
+        {
+          "label": "grid r6c6",
+          "lat": 19.07909,
+          "lon": 72.88925,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": null,
+          "products": 51,
+          "error": null,
+          "sec": 30.0
+        },
+        {
+          "label": "grid r3c5",
+          "lat": 19.06022,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 12,
+          "products": 81,
+          "error": null,
+          "sec": 22.3
+        },
+        {
+          "label": "grid r7c5",
+          "lat": 19.08538,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 12,
+          "products": 54,
+          "error": null,
+          "sec": 22.7
+        },
+        {
+          "label": "grid r5c3",
+          "lat": 19.0728,
+          "lon": 72.86929,
+          "kind": "grid",
+          "resolved_store": "4a54d5f5-0bd9-4b8f-b08a-120d8e7926d7",
+          "eta_min": 12,
+          "products": 0,
+          "error": null,
+          "sec": 28.6
         }
       ]
     }
