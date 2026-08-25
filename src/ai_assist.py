@@ -117,8 +117,21 @@ class AiAssist:
             raise RuntimeError(f"AI endpoint HTTP {ex.code}: {detail}") from None
         except Exception as ex:
             raise RuntimeError(f"AI endpoint unreachable: {str(ex)[:180]}") from None
-        content = ((d.get("choices") or [{}])[0].get("message") or {}).get("content", "")
-        return content.strip()
+        # NB: .get("content", "") is NOT enough — some providers send
+        # "content": null (content filters; reasoning models that spend the
+        # whole budget on reasoning_content), which would make .strip() blow
+        # up on None. Fall back to reasoning_content, then fail with WHY.
+        msg = ((d.get("choices") or [{}])[0].get("message") or {})
+        content = (msg.get("content") or msg.get("reasoning_content") or "")
+        if not str(content).strip():
+            fr = (d.get("choices") or [{}])[0].get("finish_reason")
+            err = d.get("error") or {}
+            hint = (f" (finish_reason={fr} — try raising ai.max_tokens)"
+                    if fr == "length" else
+                    (f" (finish_reason={fr})" if fr else ""))
+            detail = f": {str(err)[:200]}" if err else ""
+            raise RuntimeError(f"AI returned no content{hint}{detail}")
+        return str(content).strip()
 
 
 # ---------------- data digests (compact, token-friendly) ----------------
