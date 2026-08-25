@@ -82,6 +82,9 @@ src/
                         also holds the probes' products (stock_obs source=
                         'inventory' + categorized price_obs)
   store.py              sqlite schema + all persistence helpers
+  ai_assist.py          OPTIONAL LLM advisor behind the dashboard AI panel
+                        (/ai/*): result explanations, whitelisted demand-probe
+                        tuning, product-focus staple_queries; OpenAI-compatible
   geo.py                corridor anchors + store resolver (glitch monitor)
   adapters/             blinkit / zepto / instamart / amazon / flipkart /
                         trackers / demo; base.py holds the browser machinery
@@ -125,7 +128,15 @@ inventory sweeps… — as managed child processes) and `/location`
 `demand.locality` and `search.station` blocks in config.yaml in the existing
 miniyaml-compatible style, validates with BOTH loaders before an atomic
 write, previous file backed up to /tmp; changes apply when a feature
-process is next started/restarted). Invariant: those children belong
+process is next started/restarted) and `/ai/status` + POST `/ai/explain`
+`/ai/methodology[/apply]` `/ai/focus[/apply]` (OPTIONAL LLM assistant,
+src/ai_assist.py: explains Demand Radar results, proposes demand-probing
+methodology changes and product-focus staple_queries. Provider is any
+OpenAI-compatible endpoint via config.yaml → ai: + AI_API_KEY in .env;
+local Ollama works keyless. Suggestions are parsed then ENFORCED against a
+whitelist with bounds in ai_assist.INT_PARAMS — only those demand: knobs
+can be written, through the same validated writer as the location editor;
+the LLM never runs crawls). Invariant: those children belong
 to the dashboard process; STOP ALL /shutdown reaps them, so never
 orphan-start crawlers outside it while a dashboard is up.
 

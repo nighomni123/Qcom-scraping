@@ -626,6 +626,13 @@ class Dashboard:
                         self._json(_location_presets())
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "presets": []})
+                elif self.path == "/ai/status":
+                    try:
+                        cfg, err = _cfg_parse()
+                        from .ai_assist import AiAssist
+                        self._json(AiAssist(cfg if not err else {}).status())
+                    except Exception as ex:
+                        self._json({"available": False, "reason": str(ex)[:200]})
                 elif self.path.startswith("/features/") and self.path.endswith("/log"):
                     fid = self.path[len("/features/"):-len("/log")]
                     self._json(dash.features.log_tail(fid))
@@ -762,6 +769,41 @@ class Dashboard:
                     try:
                         data, code = _write_corridor(payload)
                         self._json(data, code)
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
+
+                elif self.path.startswith("/ai/"):
+                    try:
+                        cfg, err = _cfg_parse()
+                        if err:
+                            return self._json({"error": f"config.yaml: {err}"}, 500)
+                        from .ai_assist import (AiAssist, explain_results,
+                                                suggest_methodology,
+                                                suggest_focus, apply_methodology,
+                                                apply_focus)
+                        ai = AiAssist(cfg)
+                        if not ai.available and self.path != "/ai/status":
+                            return self._json(
+                                {"error": "AI assistance is off — " + ai.unavailable_reason() +
+                                          ". Set AI_API_KEY in .env or point ai.base_url at a "
+                                          "local Ollama, then retry."}, 400)
+                        db = dash.cfg.get("db", "deals.db")
+                        if self.path == "/ai/explain":
+                            self._json({"text": explain_results(ai, db)})
+                        elif self.path == "/ai/methodology":
+                            self._json(suggest_methodology(ai, cfg, db))
+                        elif self.path == "/ai/methodology/apply":
+                            data, code = apply_methodology(cfg, payload.get("changes"))
+                            self._json(data, code)
+                        elif self.path == "/ai/focus":
+                            self._json(suggest_focus(ai, cfg, db, payload.get("intent")))
+                        elif self.path == "/ai/focus/apply":
+                            data, code = apply_focus(cfg, payload.get("staple_queries"))
+                            self._json(data, code)
+                        else:
+                            self._json({"error": "not found"}, 404)
+                    except RuntimeError as ex:      # LLM/network errors → readable 502
+                        self._json({"error": str(ex)[:300]}, 502)
                     except Exception as ex:
                         self._json({"error": str(ex)[:200]}, 500)
 

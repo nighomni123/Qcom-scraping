@@ -115,3 +115,12 @@ demand:
 
 ui:
   port: 8787                  # live dashboard: http://127.0.0.1:8787
+
+# Optional AI assistant (dashboard panel). Any OpenAI-compatible chat API;
+# the key goes in .env as AI_API_KEY — never here. Point base_url at a local
+# keyless server instead, e.g. Ollama: http://127.0.0.1:11434/v1
+ai:
+  enabled: true
+  base_url: ""                  # empty = https://api.openai.com/v1
+  model: "gpt-4o-mini"
+  max_tokens: 700

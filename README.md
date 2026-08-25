@@ -199,6 +199,18 @@ Real-time view of everything the process does, plus the exit switch:
   search anchor. Every save is validated against both YAML loaders before it
   lands in config.yaml (previous file backed up in /tmp) and applies when you
   next start or restart a feature.
+- **AI assistant (optional)** — three helpers on top of live data:
+  *Understand the results* explains what the Demand Radar panels show (pressure
+  SKUs, temporal patterns, data-quality caveats); *Tune probing methodology*
+  reviews probing health and proposes adjustments to the demand-prober knobs,
+  which you accept/reject per item before anything is written; *Choose product
+  focus* turns intents like "beverages and baby care" into concrete search
+  queries applied to `demand.staple_queries`. Config writes go through the
+  same validated path as the location editor. Setup: put `AI_API_KEY=…` in
+  `.env` (any OpenAI-compatible API; model/base via `config.yaml → ai:`), or
+  point `ai.base_url` at a keyless local Ollama
+  (`http://127.0.0.1:11434/v1`). With `ai.enabled: false` (or no key) the
+  panel greyed-out says exactly why.
 - **SQL databases** — browse every sqlite file in the repo (deals.db +
   `inventory_blinkit.db` / `inventory_instamart.db` / `inventory_zepto.db`):
   pick a database, pick a table, see row counts and the newest rows. The

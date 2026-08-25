@@ -164,6 +164,17 @@
   table.corr .rm { background: transparent; border: 0; color: var(--red); cursor: pointer; font-size: 14px; }
   .radiusline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
   .radiusline input[type=range] { flex: 1; accent-color: var(--blue); }
+  /* ai assistant */
+  .aiout { margin-top: 8px; padding: 10px 12px; background: #21262d; border: 1px solid var(--border);
+           border-radius: 8px; font: 11.5px/1.55 "SF Mono", Menlo, monospace; white-space: pre-wrap;
+           word-break: break-word; max-height: 320px; overflow-y: auto; }
+  .aierr { color: var(--red); }
+  .sugrow { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin-top: 6px;
+            background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px; }
+  .sugrow input[type=checkbox] { accent-color: var(--green); margin-top: 2px; }
+  .sugrow b { color: var(--blue); } .sugrow .why { color: var(--dim); display: block; }
+  .chipchip { display: inline-block; margin: 3px 4px 0 0; padding: 2px 9px; border-radius: 10px;
+              background: #21262d; border: 1px solid var(--border); font-size: 11.5px; }
   .feat .btns { display: flex; gap: 6px; }
   .feat button { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text);
                  border-radius: 6px; padding: 4px 0; cursor: pointer; font: inherit; font-size: 12px; }
@@ -264,6 +275,51 @@
           <select id="corrAnchor" title="search.station — dark-store anchor for bot/CLI searches"></select>
           <button class="locbtn primary" onclick="saveCorridor()">💾 save corridor</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>AI assistant <span class="chip">optional</span> <span id="aiChip" class="chip">checking…</span></h2>
+    <div class="locnote" style="padding: 8px 14px 0;" id="aiHint"></div>
+    <div class="locwrap">
+      <div class="loccard">
+        <h3>📊 Understand the results</h3>
+        <div class="locnote">Reads everything the Demand Radar panels show (DPI,
+          stock-out events, onset heatmap, ETAs) and explains what it means —
+          pressure SKUs, temporal patterns, data-quality caveats.</div>
+        <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runAi('/ai/explain','aiOut1','btnExplain','Analyzing latest results…')">✨ explain latest results</button></div>
+        <pre class="aiout" id="aiOut1" style="display:none"></pre>
+      </div>
+      <div class="loccard">
+        <h3>🔧 Tune probing methodology</h3>
+        <div class="locnote">Reviews probing health (null rates, event counts,
+          observation volume) and suggests safe adjustments to the demand-prober
+          knobs. You pick which to apply — writes config.yaml only.</div>
+        <div class="locrow"><button class="locbtn primary" id="btnMeth" onclick="runMeth()">✨ review methodology</button></div>
+        <div id="methList"></div>
+        <div class="locrow" id="methApplyRow" style="display:none">
+          <span style="flex:1"></span>
+          <button class="locbtn primary" onclick="applyMethod()">apply selected</button>
+        </div>
+        <pre class="aiout" id="aiOut2" style="display:none"></pre>
+      </div>
+      <div class="loccard">
+        <h3>🎯 Choose product focus</h3>
+        <div class="locnote">Tell it what to prioritize and it turns that into
+          concrete search queries for the watchlist builder / demand prober
+          (<code>demand.staple_queries</code>).</div>
+        <div class="locrow">
+          <input id="focusIntent" placeholder="e.g. beverages and baby care" style="flex:1; min-width:160px;
+                 background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
+          <button class="locbtn primary" id="btnFocus" onclick="runFocus()">suggest queries</button>
+        </div>
+        <div id="focusList"></div>
+        <div class="locrow" id="focusApplyRow" style="display:none">
+          <span style="flex:1"></span>
+          <button class="locbtn primary" onclick="applyFocusSel()">apply as staple_queries</button>
+        </div>
+        <pre class="aiout" id="aiOut3" style="display:none"></pre>
       </div>
     </div>
   </div>
@@ -784,6 +840,106 @@ async function saveCorridor(){
   } catch(e){ alert('save failed: ' + e); }
 }
 
+// ---------- AI assistant (optional) ----------
+let AI = null, PENDING_SUGG = [], PENDING_QUERIES = [];
+async function aiStatus(){
+  const chip = document.getElementById('aiChip');
+  try {
+    const r = await fetch('/ai/status'); AI = await r.json();
+  } catch(e){ AI = {available:false, reason:'status unreachable'}; }
+  if (AI.available){
+    chip.textContent = `on · ${AI.model}` + (AI.has_key ? '' : ' (no key — needs local endpoint)');
+    chip.style.color = 'var(--green)'; chip.style.borderColor = 'var(--green)';
+    document.getElementById('aiHint').textContent = AI.has_key ? '' :
+      'No AI_API_KEY in .env — set one for cloud APIs, or point ai.base_url at a keyless local server (Ollama).';
+  } else {
+    chip.textContent = 'off';
+    chip.style.color = 'var(--dim)';
+    document.getElementById('aiHint').textContent = 'Why: ' + (AI.reason||'') +
+      (AI.hint? ' · ' + AI.hint : '') + ' — enable via config.yaml → ai:';
+    ['btnExplain','btnMeth','btnFocus'].forEach(id => {
+      const b = document.getElementById(id); if (b) b.disabled = true;
+    });
+  }
+}
+function aiOut(id, text, isErr){
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.textContent = text;
+  el.classList.toggle('aierr', !!isErr);
+}
+async function runAi(path, outId, btnId, busyLabel, body){
+  const btn = document.getElementById(btnId);
+  const old = btn.textContent; btn.disabled = true; btn.textContent = '⏳ working…';
+  aiOut(outId, busyLabel || 'thinking…');
+  try {
+    const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'},
+                                 body: JSON.stringify(body || {})});
+    const d = await r.json();
+    if (d.error) aiOut(outId, '⚠ ' + d.error, true);
+    return d;
+  } catch(e){
+    aiOut(outId, '⚠ request failed: ' + e, true);
+    return {error: String(e)};
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+async function runMeth(){
+  const d = await runAi('/ai/methodology', 'aiOut2', 'btnMeth', 'reviewing probing health…');
+  if (d.error) return;
+  PENDING_SUGG = d.suggestions || [];
+  const list = document.getElementById('methList');
+  if (!PENDING_SUGG.length){
+    list.innerHTML = '<div class="locnote" style="margin-top:6px">No changes suggested — current methodology looks consistent with the data.</div>';
+    document.getElementById('methApplyRow').style.display = 'none';
+    return;
+  }
+  list.innerHTML = PENDING_SUGG.map((s,i) =>
+    `<label class="sugrow"><input type="checkbox" class="sugck" data-i="${i}" checked>
+     <span><b>${esc(s.param)}</b>: ${esc(String(s.current))} → <b>${s.suggested}</b>
+     <span class="why">${esc(s.reason)}</span></span></label>`).join('');
+  document.getElementById('methApplyRow').style.display = 'flex';
+}
+async function applyMethod(){
+  const changes = {};
+  document.querySelectorAll('.sugck:checked').forEach(ck => {
+    const s = PENDING_SUGG[+ck.dataset.i];
+    if (s) changes[s.param] = s.suggested;
+  });
+  if (!Object.keys(changes).length) return alert('select at least one suggestion');
+  const d = await runAi('/ai/methodology/apply', 'aiOut2', 'btnMeth', 'writing config…',
+                        {changes});
+  if (!d.error){
+    aiOut('aiOut2', '✅ applied: ' + JSON.stringify(d.applied) +
+          '\n' + (d.note || '') + '\nbackup: ' + (d.backup || '').split('/').pop());
+    document.getElementById('methList').innerHTML = '';
+    document.getElementById('methApplyRow').style.display = 'none';
+  }
+}
+async function runFocus(){
+  const intent = document.getElementById('focusIntent').value.trim();
+  if (!intent) return alert('describe the focus first');
+  const d = await runAi('/ai/focus', 'aiOut3', 'btnFocus', 'picking products…', {intent});
+  if (d.error) return;
+  PENDING_QUERIES = d.staple_queries || [];
+  document.getElementById('focusList').innerHTML =
+    (PENDING_QUERIES.map(q => `<span class="chipchip">${esc(q)}</span>`).join('') || '<i>none</i>') +
+    (d.rationale ? `<div class="locnote" style="margin-top:6px">${esc(d.rationale)}</div>` : '');
+  document.getElementById('focusApplyRow').style.display = PENDING_QUERIES.length ? 'flex' : 'none';
+}
+async function applyFocusSel(){
+  if (!PENDING_QUERIES.length) return;
+  const d = await runAi('/ai/focus/apply', 'aiOut3', 'btnFocus', 'writing config…',
+                        {staple_queries: PENDING_QUERIES});
+  if (!d.error){
+    aiOut('aiOut3', '✅ staple_queries now: ' + JSON.stringify(d.applied) +
+          '\n' + (d.note || ''));
+    document.getElementById('focusList').innerHTML = '';
+    document.getElementById('focusApplyRow').style.display = 'none';
+  }
+}
+
 // ---------- sql database explorer ----------
 let DBS = [], curDb = null, curTable = null;
 async function loadDbs(){
@@ -830,6 +986,7 @@ async function showTable(){
 refresh(); loadCats(); loadHist();
 loadFeatures(); loadDbs();
 loadLocation(); loadPresets();
+aiStatus();
 loadDemand(); loadHeat(); loadEta(); loadQc();
 setInterval(refresh, 2000);
 setInterval(loadCats, 8000);
