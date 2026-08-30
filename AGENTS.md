@@ -91,6 +91,9 @@ src/
   detect.py alert.py honey.py events.py dashboard.py search.py pricing.py
                         tgbot.py miniyaml.py (stdlib YAML fallback)
 exports/                locality mapping JSON (rotation pools per store)
+docs/                   research reports: QuickCommerce API vetting + Zepto/Swiggy
+                        APK reverse-engineering findings (source .apkm files live in
+                        apks/, gitignored — too large to commit)
 scripts/live_sweep.py   one-shot real-glitch hunt
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
                         stock_obs, oos_events, searches, search_results,
@@ -248,7 +251,13 @@ Worked example (Zepto consumer APK under `apks/`): the app side is gated by **AW
 delivered as the `aws-waf-token` cookie. The web `request-signature` / `x-csrf-secret`
 / `x-xsrf-token` / `x-api-key` signing lives in the **web** bundle (see the Zepto note
 above), NOT the APK. The crawler's "harvest already-signed responses" approach remains
-correct — do NOT forge the AWS-WAF token.
+correct — do NOT forge the AWS-WAF token. Two follow-ons from the same analysis: the WAF
+token is **session-bound** (solved per browser session by the app's own WAF SDK), so
+rotating exit IPs under a live context invalidates it — each proxy identity needs a FRESH
+browser context (Phase 5 constraint, see DEMAND_RADAR.md); and `assets/api_key.txt` in the
+APK is an **Amazon LWA key, NOT Zepto's `x-api-key`** — a distractor, don't chase it.
+Zepto hosts have no cert pinning (mitm capture is a viable fallback if web sessions ever
+get gated harder). Full report: `docs/zepto-apk-reverse-findings.md`.
 
 Worked example (Swiggy consumer APK `in.swiggy.android_4.115.1-1817` under `apks/`,
 focused on **Instamart**): the app-side anti-bot is **AWS WAF too** — `com.amazonaws.waf.mobilesdk`
@@ -269,7 +278,7 @@ Native Instamart API paths: legacy `/api/v1/instamart{...}` (`{pageID}`, `produc
 identical to Zepto: harvest already-tokened/signed responses in a real browser — **do NOT
 forge** `x-aws-waf-token` or `x-swiggy-auth`. The app's `www.swiggy.com/instamart` SPA is
 login-walled for our exit IP; `instamart.in` (the separate storefront) is the crawl target.
-Full report: `/tmp/swiggy_re/SWIGGY_APK_INSTAMART_FINDINGS.md`.
+Full report: `docs/swiggy-apk-instamart-findings.md`.
 
 ## Known limitations / TODO
 

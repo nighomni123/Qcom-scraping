@@ -9,3 +9,4 @@ inventory_*.db-shm
 inventory_*.db-wal
 deals.log
 .DS_Store
+apks/

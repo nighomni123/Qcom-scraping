@@ -220,6 +220,12 @@ Rollups (SQL views or Python):
 - Proxy/IP↔coords coherence: prefer Mumbai-exit residential proxies
   (`PROXY_URL`) so spoofed GPS matches IP geo; else expect degraded store
   resolution from far IPs.
+- **WAF tokens are session-bound** (verified via Zepto/Swiggy APK RE,
+  `docs/zepto-apk-reverse-findings.md` §3): the `aws-waf-token` is solved per
+  browser session by the app's own WAF SDK. Never rotate a proxy under a live
+  context — spawn a FRESH browser context per proxy identity so the SDK mints
+  a new token; the existing `awswaf` page-reload stays a within-session
+  fallback, not an identity switch.
 - Per-store stagger + jitter (reuse scheduler); global cap on requests/hour;
   exponential backoff on WAF/challenge hits (existing `awswaf` reload logic).
 - Identity rotation stays as-is (UA/install-id per cycle).
