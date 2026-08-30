@@ -280,6 +280,23 @@ forge** `x-aws-waf-token` or `x-swiggy-auth`. The app's `www.swiggy.com/instamar
 login-walled for our exit IP; `instamart.in` (the separate storefront) is the crawl target.
 Full report: `docs/swiggy-apk-instamart-findings.md`.
 
+Worked example (Blinkit `com.grofers.customerapp_18.23.0-280180230` under `apks/` — legacy
+**Grofers** package; Blinkit is **Zomato-owned**): the app side has **NO AWS WAF** (no
+`com.amazonaws.waf.mobilesdk`; only `mobileconnectors.remoteconfiguration`) — so Blinkit is the
+*easiest* of the three QC apps on anti-bot (no WAF token to solve). Its API is gated by
+**authentication, not a signature**: a **hardcoded Basic credential**
+`Authorization: Basic base64("cde_external:uq8vGL99wd4RfP4ER33GxnU3")` plus an API-key header
+`X-Zomato-API-Key` (Zomato infra) plus a session token. There is **no per-request HMAC**
+(unlike Swiggy's `x-swiggy-auth` / Zepto's `request-signature`). On-device anti-abuse is only
+**Google Play Integrity** (device attestation), which does not gate our browser crawl. The
+home/feed "tabs"/sections are a **layout-engine**: `/v1/layout/feed` (and `/v2/layout/feed`)
+returns the widget/section tree, per-screen layouts at `/v1/layout/{screen}`; static assets from
+`cdn.grofers.com/layout-engine/v2/`. API host: `api3.blinkit.com` (also `api2.grofers.com`,
+`api.blinkit.dev`). Location = Zomato `locationkit` lat/lng (same rewrite as other apps). The
+embedded `cde_external` credential is a real extractable secret but the browser supplies it, so
+**do NOT hardcode it** and **do NOT forge** anything — harvest already-authenticated responses.
+Full report: `docs/blinkit-apk-reverse-findings.md`.
+
 ## Known limitations / TODO
 
 - Zepto: WORKING since 08-22 (see Zepto specifics above). 24–30 products per
