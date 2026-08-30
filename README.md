@@ -214,7 +214,9 @@ Real-time view of everything the process does, plus the exit switch:
   saved as a markdown file (`exports/ai_explain_<stamp>.md`) with a
   **⬇ download full report** link under the panel (served by
   `GET /ai/report/<file>`), so long answers never depend on the dashboard
-  box; *Tune probing methodology*
+  box; an **ask a follow-up** field under it lets you keep questioning that
+  answer (each Q&A is appended to the same report file, so the download stays
+  complete); *Tune probing methodology*
   reviews probing health and proposes adjustments to the demand-prober knobs,
   which you accept/reject per item before anything is written; *Choose product
   focus* turns intents like "beverages and baby care" into concrete search

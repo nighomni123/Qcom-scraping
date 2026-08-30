@@ -138,13 +138,17 @@ inventory sweeps… — as managed child processes) and `/location`
 miniyaml-compatible style, validates with BOTH loaders before an atomic
 write, previous file backed up to /tmp; changes apply when a feature
 process is next started/restarted) and `/ai/status` + POST `/ai/explain`
-`/ai/methodology[/apply]` `/ai/focus[/apply]` (OPTIONAL LLM assistant,
+`/ai/explain/followup` `/ai/methodology[/apply]` `/ai/focus[/apply]` (OPTIONAL LLM assistant,
 src/ai_assist.py: explains Demand Radar results, proposes demand-probing
 methodology changes and product-focus staple_queries. /ai/explain also
 persists the FULL analysis as markdown to exports/ai_explain_<stamp>.md
 (gitignored; GET /ai/report/<file> downloads it — strict filename pattern,
 nothing else in exports/ is reachable) so long outputs never depend on the
-panel. Provider is any
+panel. /ai/explain/followup answers follow-up questions about that analysis:
+it re-reads the digest fresh (sqlite), grounds on the prior analysis held in
+ai_assist.LAST_EXPLAIN (the client echoes its displayed text as fallback after
+a dashboard restart), and APPENDS each Q&A block to the saved report file so
+the download stays complete. Provider is any
 OpenAI-compatible endpoint via config.yaml → ai: + AI_API_KEY in .env;
 local Ollama works keyless. Suggestions are parsed then ENFORCED against a
 whitelist with bounds in ai_assist.INT_PARAMS — only those demand: knobs

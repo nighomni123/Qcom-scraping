@@ -300,7 +300,61 @@ def explain_results(ai, db_path):
              " Task: explain what the latest results mean for demand research — "
              "top pressure SKUs, temporal patterns, per-store anomalies, and any "
              "data-quality caveats. End with 'Next actions:' and 2-3 concrete ideas.")
-    return ai.chat(sys_p, digest)
+    out = ai.chat(sys_p, digest)
+    LAST_EXPLAIN.update({"digest": digest, "text": out, "report": "",
+                         "ts": time.time()})
+    return out
+
+
+# Context of the most recent explain_results — lets the dashboard ask
+# follow-up questions without the client having to re-supply the digest.
+# Last-writer-wins, same convention as _LIVE (single-user tool).
+#   "report" is filled in by the dashboard once the md file is saved.
+LAST_EXPLAIN = {"digest": "", "text": "", "report": "", "ts": 0.0}
+
+FOLLOWUP_RULES = (
+    " Task: you produced the analysis shown below from the provided Demand "
+    "Radar digest. Answer the user's follow-up question about that analysis. "
+    "Ground every claim in the digest or the prior analysis; if the data "
+    "cannot support the answer, say so plainly instead of guessing. Be "
+    "concise; plain bullets."
+)
+
+
+def explain_followup(ai, db_path, question, prior_text=""):
+    """Answer a follow-up about the last explain_results analysis. The digest
+    is recomputed fresh (cheap sqlite rollups) so answers reflect current
+    data; the prior analysis comes from server state, falling back to what
+    the client still has displayed (e.g. after a dashboard restart). Each
+    Q&A is appended to the saved report file so the download stays complete."""
+    q = str(question or "").strip()[:500]
+    if not q:
+        raise RuntimeError("type a question first")
+    digest = demand_digest(db_path)
+    prior = (LAST_EXPLAIN.get("text") or str(prior_text or ""))[:8000]
+    user = (f"== data digest ==\n{digest}\n\n"
+            f"== your previous analysis ==\n"
+            f"{prior or '(none — answer from the digest alone)'}\n\n"
+            f"== follow-up question ==\n{q}")
+    answer = ai.chat(_BASE_SYSTEM + FOLLOWUP_RULES, user)
+    LAST_EXPLAIN.update({"digest": digest, "ts": time.time()})
+    _append_report(q, answer)
+    return answer
+
+
+def _append_report(question, answer):
+    """Append a Q&A block to the last saved report file (best-effort)."""
+    fname = LAST_EXPLAIN.get("report") or ""
+    if not fname:
+        return
+    fp = os.path.join(_root(), "exports", fname)
+    try:
+        if os.path.isfile(fp):
+            with open(fp, "a", encoding="utf-8") as f:
+                f.write(f"\n\n---\n\n## Follow-up\n\n**Q:** {question}\n\n"
+                        f"**A:**\n\n{answer}\n")
+    except OSError:
+        pass
 
 
 METHODOLOGY_RULES = (

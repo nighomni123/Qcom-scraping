@@ -824,6 +824,7 @@ class Dashboard:
                         if err:
                             return self._json({"error": f"config.yaml: {err}"}, 500)
                         from .ai_assist import (AiAssist, explain_results,
+                                                explain_followup, LAST_EXPLAIN,
                                                 suggest_methodology,
                                                 suggest_focus, apply_methodology,
                                                 apply_focus)
@@ -837,9 +838,19 @@ class Dashboard:
                         if self.path == "/ai/explain":
                             text = explain_results(ai, db)
                             fname = _save_ai_report("ai_explain", ai.model, text)
+                            LAST_EXPLAIN["report"] = fname or ""
                             self._json({"text": text, "report": fname,
                                         "download": ("/ai/report/" + fname)
                                                     if fname else None})
+                        elif self.path == "/ai/explain/followup":
+                            # Follow-up about the analysis just shown. The
+                            # client echoes its displayed text as a fallback
+                            # for a dashboard restart (server state lost).
+                            text = explain_followup(ai, db,
+                                                    payload.get("question"),
+                                                    payload.get("prior"))
+                            self._json({"text": text,
+                                        "report": LAST_EXPLAIN.get("report") or None})
                         elif self.path == "/ai/methodology":
                             self._json(suggest_methodology(ai, cfg, db))
                         elif self.path == "/ai/methodology/apply":

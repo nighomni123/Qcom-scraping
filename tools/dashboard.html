@@ -172,6 +172,12 @@
   .aidl { color: var(--blue); font-size: 12px; text-decoration: none; }
   .aidl:hover { text-decoration: underline; }
   .aidlmeta { color: var(--dim); font-size: 11px; margin-left: 6px; }
+  .qrow { margin-top: 10px; font-size: 12px; color: var(--blue); word-break: break-word; }
+  .qrow b { background: var(--blue); color: #0d1117; border-radius: 4px; padding: 0 5px;
+            margin-right: 6px; font-size: 10.5px; }
+  .arow { margin-top: 4px; padding: 8px 10px; background: #21262d; border: 1px solid var(--border);
+          border-radius: 8px; font: 11.5px/1.55 "SF Mono", Menlo, monospace; white-space: pre-wrap;
+          word-break: break-word; max-height: 260px; overflow-y: auto; }
   .sugrow { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin-top: 6px;
             background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px; }
   .sugrow input[type=checkbox] { accent-color: var(--green); margin-top: 2px; }
@@ -294,6 +300,13 @@
         <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runExplain()">✨ explain latest results</button></div>
         <pre class="aiout" id="aiOut1" style="display:none"></pre>
         <div id="aiDl1" style="margin-top:6px"></div>
+        <div class="locrow" id="askRow" style="display:none">
+          <input id="askQ" placeholder="ask a follow-up about this analysis…" onkeydown="if(event.key==='Enter')askFollowup()"
+                 style="flex:1; min-width:160px; background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
+          <button class="locbtn primary" id="btnAsk" onclick="askFollowup()">ask</button>
+        </div>
+        <pre class="aiout" id="aiAskErr" style="display:none"></pre>
+        <div id="aiChat1"></div>
       </div>
       <div class="loccard">
         <h3>🔧 Tune probing methodology</h3>
@@ -913,17 +926,38 @@ async function runAi(path, outId, btnId, busyLabel, body){
     btn.disabled = false; btn.textContent = old;
   }
 }
+let LAST_ANALYSIS = '';
 async function runExplain(){
   const d = await runAi('/ai/explain','aiOut1','btnExplain','Analyzing latest results…');
   if (d.error) return;
   // The old code never rendered the success payload — that's why the panel
   // looked dead. Show the full text (the box scrolls) + a file download.
-  aiOut('aiOut1', d.text || '(the model returned no text)');
+  LAST_ANALYSIS = d.text || '(the model returned no text)';
+  aiOut('aiOut1', LAST_ANALYSIS);
+  document.getElementById('aiChat1').innerHTML = '';   // new analysis, new thread
+  document.getElementById('aiAskErr').style.display = 'none';
+  document.getElementById('askRow').style.display = 'flex';
   const dl = document.getElementById('aiDl1');
   dl.innerHTML = d.download
     ? `<a class="aidl" href="${esc(d.download)}" download>⬇ download full report (.md)</a>` +
       `<span class="aidlmeta"> also saved to exports/${esc(d.report || '')}</span>`
     : '<span class="aidlmeta">⚠ could not save the report file (disk error) — text above is complete</span>';
+}
+async function askFollowup(){
+  const inp = document.getElementById('askQ');
+  const q = inp.value.trim();
+  if (!q) return;
+  // Errors + busy label land in aiAskErr so the analysis above stays visible.
+  const d = await runAi('/ai/explain/followup','aiAskErr','btnAsk','thinking…',
+                        {question: q, prior: LAST_ANALYSIS});
+  const err = document.getElementById('aiAskErr');
+  if (d.error){ err.style.display = 'block'; return; }
+  err.style.display = 'none';
+  inp.value = '';
+  const chat = document.getElementById('aiChat1');
+  chat.insertAdjacentHTML('beforeend',
+    `<div class="qrow"><b>Q</b> ${esc(q)}</div>` +
+    `<div class="arow">${esc(d.text || '(no answer)')}</div>`);
 }
 async function runMeth(){
   const d = await runAi('/ai/methodology', 'aiOut2', 'btnMeth', 'reviewing probing health…');
