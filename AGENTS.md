@@ -224,6 +224,32 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
 - ETA is per-store/per-snapshot (`stock_obs.eta_min`) — there is no
   per-product delivery time in any app.
 
+## Reverse-engineering toolchain (persistent, repo-independent)
+
+Android/APK reverse-engineering tools are installed **outside this repo and outside
+`/tmp`**, at `/Users/Mitesh Gada/revtools` (self-contained: bundles its own JRE 17, so
+no system Java is needed). Use these for any APK/binary analysis task — including in
+**other repos**:
+
+- `jadx` 1.5.6 (DEX→Java decompiler) and `apktool` 3.0.3 (APK→smali + decoded
+  manifest/resources) are on PATH via `~/.zshrc`. If PATH isn't picked up in a
+  non-interactive shell, call them by absolute path:
+  `/Users/Mitesh Gada/revtools/bin/jadx` and `/Users/Mitesh Gada/revtools/bin/apktool`.
+- The `bin/` wrappers set `JAVA_HOME` + `JAVA_OPTS=-Duser.home=$HOME/revtools/.cache`.
+  That redirect is **required** — without it the tools try to write to
+  `~/Library/Application Support/...`, which the sandbox blocks ("Operation not
+  permitted"). Do NOT invoke the bare `java -jar` of `jadx`/`apktool.jar`; always use
+  the `bin/` wrappers.
+- Full usage + bootstrap-from-scratch instructions:
+  `/Users/Mitesh Gada/revtools/README.md`.
+
+Worked example (Zepto consumer APK under `apks/`): the app side is gated by **AWS WAF**
+(Mobile SDK `com.amazonaws.waf.mobilesdk`, native `NativeWaf` module); the WAF token is
+delivered as the `aws-waf-token` cookie. The web `request-signature` / `x-csrf-secret`
+/ `x-xsrf-token` / `x-api-key` signing lives in the **web** bundle (see the Zepto note
+above), NOT the APK. The crawler's "harvest already-signed responses" approach remains
+correct — do NOT forge the AWS-WAF token.
+
 ## Known limitations / TODO
 
 - Zepto: WORKING since 08-22 (see Zepto specifics above). 24–30 products per
