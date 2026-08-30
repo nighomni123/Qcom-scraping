@@ -29,6 +29,15 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
     python3 run.py --qc-status                       # per-app QC health board
 
+**Live progress:** every browser sweep (`--build-watchlist`, `--map-locality`,
+`--store-inventory`, `--demand`) streams its progress as it works — which store
+it's on as `(i/N) <app> @ store <id> — <label>`, how many visits are queued
+(categories + searches), then one `[sweep] …` line per visit with the
+cumulative SKU count, plus onboarding/localization steps. Watch it in the
+terminal, or start the feature from the dashboard's **Features** panel and
+open its **log** (auto-refreshes ~1.2 s). Mute with
+`anti_block.stream_progress: false` in `config.yaml`.
+
 **Store inventory near you (`--store-inventory`):** resolves the machine's
 approximate location from its public IP (honest — no GPS spoofing; override
 with `--lat/--lon`), builds a small anchor grid around it, and maps each app's

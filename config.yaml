@@ -58,6 +58,11 @@ anti_block:
     - { app: "blinkit",   query: "lays 90g",        true_price: 20 }
     - { app: "instamart", query: "maggi 12 pack",   true_price: 168 }
     - { app: "zepto",     query: "amul gold 1l",    true_price: 72 }
+  # Stream the crawler's per-visit progress (home / category / search term ->
+  # cumulative SKUs, onboarding steps) live to the log while a sweep runs,
+  # instead of staying silent until the multi-minute store sweep finishes.
+  # Surface it via the dashboard Features > Build watchlist > log (or terminal).
+  stream_progress: true
 
 detect:
   # Glitch scoring thresholds.

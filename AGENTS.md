@@ -107,6 +107,12 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --map-locality [--apps blinkit,zepto] [--max-points N]
     python3 run.py --build-watchlist [--apps …] [--store ID]
                                     [--max-per-store N] [--max-queries N]
+                                    # streams per-visit progress live: store
+                                    # (i/N) + label + queued-visit scope, then
+                                    # one [sweep] line per visit with cumulative
+                                    # SKU count — watch in the terminal or
+                                    # Features ▸ Build watchlist ▸ log; mute
+                                    # via anti_block.stream_progress: false
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
     python3 run.py --qc-status [--apps blinkit,zepto,instamart]

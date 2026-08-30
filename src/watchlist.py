@@ -105,25 +105,35 @@ class WatchlistBuilder:
                   and (not store_filter or s[1] == store_filter)]
         if not stores:
             print("[watchlist] no darkstores to build from — run "
-                  "`python3 run.py --map-locality` first")
+                  "`python3 run.py --map-locality` first", flush=True)
             return
         print(f"[watchlist] building for {len(stores)} store(s) · cap={cap} · "
-              f"categories={self.categories} · queries={len(staples)}")
-        for app, store_id, label, lat, lon, eta in stores:
+              f"categories={self.categories} · queries={len(staples)}", flush=True)
+        total = len(stores)
+        for idx, (app, store_id, label, lat, lon, eta) in enumerate(stores, 1):
             try:
-                self._build_store(app, store_id, lat, lon, cap, staples)
+                self._build_store(app, store_id, lat, lon, cap, staples,
+                                  index=idx, total=total, label=label)
             except KeyboardInterrupt:
-                print("\n[watchlist] interrupted — partial results saved")
+                print("\n[watchlist] interrupted — partial results saved", flush=True)
                 raise
             time.sleep(2)
-        print("[watchlist] per-store totals:")
+        print("[watchlist] per-store totals:", flush=True)
         for app, sid, total, active in self.db.watchlist_stats():
-            print(f"    {app:<10} {sid:<28} active={active}/{total}")
+            print(f"    {app:<10} {sid:<28} active={active}/{total}", flush=True)
 
     # -- per store ---------------------------------------------------------
-    def _build_store(self, app, store_id, lat, lon, cap, staples):
+    def _build_store(self, app, store_id, lat, lon, cap, staples,
+                     index=None, total=None, label=None):
         adapter = self._make_adapter(app)
-        print(f"\n[watchlist] {app} @ store {store_id} ({lat:.4f},{lon:.4f})")
+        idx_s = f" ({index}/{total})" if index else ""
+        label_s = f" — {label}" if label else ""
+        n_visits = self.categories + len(staples)
+        print(f"\n[watchlist]{idx_s} {app} @ store {store_id}{label_s} "
+              f"({lat:.4f},{lon:.4f})", flush=True)
+        print(f"[watchlist]   queued {self.categories} categories + "
+              f"{len(staples)} searches = {n_visits} visits · per-visit "
+              f"progress streams below", flush=True)
         t0 = time.time()
         products, meta = adapter.deep_sweep(store_id, lat, lon,
                                             categories=self.categories, terms=staples)
@@ -162,10 +172,10 @@ class WatchlistBuilder:
         active_n = sum(1 for r in ranked if r["active"])
         print(f"[watchlist] {app}/{store_id}: {len(ranked)} SKUs seen "
               f"({n_stock_known} stock-stamped, {n_oos} OOS at build) -> "
-              f"active={active_n} · {time.time() - t0:.0f}s")
+              f"active={active_n} · {time.time() - t0:.0f}s", flush=True)
         for r in ranked[:8]:
             flag = "OOS" if r["in_stock"] is False else "ok " if r["in_stock"] else "?  "
             print(f"    [{flag}] {str(r['name'])[:52]:<54} ₹{r['price']}  "
-                  f"score={r['score']}  via={','.join(r['collections'][:3])}")
+                  f"score={r['score']}  via={','.join(r['collections'][:3])}", flush=True)
         if len(ranked) > 8:
-            print(f"    … +{len(ranked) - 8} more")
+            print(f"    … +{len(ranked) - 8} more", flush=True)

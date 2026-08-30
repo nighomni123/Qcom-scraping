@@ -16,7 +16,11 @@ from __future__ import annotations
 import json
 import os
 import random
+import signal
 import string
+import subprocess
+import sys
+import threading
 import time
 
 MOBILE_UAS = [
@@ -152,7 +156,6 @@ class Adapter:
         Node or the browser is missing.
         """
         import json as _json
-        import subprocess
         helper = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tools", "pw_catalog.js")
         if not os.path.exists(helper):
             self.available = False
@@ -173,37 +176,110 @@ class Adapter:
             cmd += ["--categories", str(int(categories))]
         if terms:
             cmd += ["--terms", "|".join(terms)]
+        timeout_s = 90 + extra_visits * 15
+        # Live progress: forward the helper's stderr (per-visit [sweep] lines,
+        # onboarding/localize steps) as it works instead of swallowing it until
+        # the multi-minute sweep ends. Disable via anti_block.stream_progress.
+        stream = bool(self.antiblk.get("stream_progress", True))
         try:
-            out = subprocess.run(cmd, capture_output=True, text=True,
-                                 timeout=90 + extra_visits * 15, env=env)
-            data = _json.loads(out.stdout.strip().splitlines()[-1]) if out.stdout.strip() else {}
-            if data.get("error"):
-                print(f"[{app_label}] browser: {data['error'][:120]}")
-                self.available = False
-                return [], {"error": str(data["error"])[:200]}
-            prods = data.get("products", [])
-            hint = data.get("store_hint") or {}
-            meta = {
-                "store_candidates": hint.get("candidates", []),
-                "eta_min": hint.get("eta_min"),
-                "api_endpoints_seen": data.get("api_endpoints_seen", 0),
-                "resolved_lat": data.get("lat"),
-                "resolved_lon": data.get("lon"),
-            }
-            if prods:
-                n_stock = sum(1 for p in prods if p.get("in_stock") is not None)
-                print(f"[{app_label}] browser-intercept ok @ {store_id}: {len(prods)} products "
-                      f"({n_stock} w/ stock state), eta={meta['eta_min']}, "
-                      f"{meta['api_endpoints_seen']} api endpoints seen")
-            return prods, meta
+            # Own process group so the timeout kill also reaps the browser
+            # grandchildren — otherwise they outlive the helper holding the
+            # pipe write-ends and the reader threads block forever.
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, bufsize=1, env=env,
+                **({"start_new_session": True} if os.name == "posix" else {}),
+            )
         except FileNotFoundError:
             print(f"[warn] node not found — {app_label} browser adapter offline")
             self.available = False
             return [], {"error": "node-not-found"}
         except Exception as ex:
-            print(f"[warn] {app_label} browser crawl failed: {str(ex)[:140]}")
+            print(f"[warn] {app_label} browser crawl failed to start: {str(ex)[:140]}")
             self.available = False
             return [], {"error": str(ex)[:200]}
+        # Drain BOTH pipes on background threads: the final JSON line can
+        # exceed the OS pipe buffer, so stdout must be consumed concurrently
+        # with stderr or the helper would deadlock writing it. The main thread
+        # waits on the PROCESS (not the pipes): a killed helper can leave
+        # grandchildren (the browser) holding the pipe write-ends, which would
+        # block a pipe-EOF read forever — wait() returns as soon as the helper
+        # itself is gone.
+        out_chunks = []
+
+        def _drain(fh, sink, prefix=None):
+            try:
+                for line in fh:
+                    line = line.rstrip("\n")
+                    if not line:
+                        continue
+                    if sink is not None:
+                        sink.append(line)
+                    elif stream:
+                        print(f"{prefix}{line}", file=sys.stderr, flush=True)
+            except Exception:
+                pass
+
+        threads = [threading.Thread(target=_drain, args=(proc.stdout, out_chunks), daemon=True),
+                   threading.Thread(target=_drain, args=(proc.stderr, None, f"[{app_label}] "), daemon=True)]
+        for t in threads:
+            t.start()
+        timed_out = {"v": False}
+
+        def _kill():
+            timed_out["v"] = True
+            try:
+                if os.name == "posix":
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                else:
+                    proc.kill()
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+
+        timer = threading.Timer(timeout_s, _kill)
+        timer.daemon = True
+        timer.start()
+        try:
+            proc.wait()
+        finally:
+            timer.cancel()
+        # Helper gone (or killed). Unblock the drainers in case grandchildren
+        # still hold the pipe write-ends, then give them a moment to finish.
+        for fh in (proc.stdout, proc.stderr):
+            try:
+                fh.close()
+            except Exception:
+                pass
+        for t in threads:
+            t.join(timeout=10)
+        drained = "".join(out_chunks)
+        if timed_out["v"]:
+            print(f"[warn] {app_label} browser crawl timed out after {timeout_s}s")
+            self.available = False
+            return [], {"error": f"timeout after {timeout_s}s"}
+        data = _json.loads(drained.strip().splitlines()[-1]) if drained.strip() else {}
+        if data.get("error"):
+            print(f"[{app_label}] browser: {data['error'][:120]}")
+            self.available = False
+            return [], {"error": str(data["error"])[:200]}
+        prods = data.get("products", [])
+        hint = data.get("store_hint") or {}
+        meta = {
+            "store_candidates": hint.get("candidates", []),
+            "eta_min": hint.get("eta_min"),
+            "api_endpoints_seen": data.get("api_endpoints_seen", 0),
+            "resolved_lat": data.get("lat"),
+            "resolved_lon": data.get("lon"),
+        }
+        if prods:
+            n_stock = sum(1 for p in prods if p.get("in_stock") is not None)
+            print(f"[{app_label}] browser-intercept ok @ {store_id}: {len(prods)} products "
+                  f"({n_stock} w/ stock state), eta={meta['eta_min']}, "
+                  f"{meta['api_endpoints_seen']} api endpoints seen")
+        return prods, meta
 
 
 _STOCK_KEYS = ("in_stock", "instock", "is_available", "available", "availability",
