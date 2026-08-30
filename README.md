@@ -165,12 +165,18 @@ external.
 ## Config (`config.yaml`)
 
 - `geo.corridor` — Mumbai stations Virar→Andheri with lat/lon. Edit to widen.
+- `schedule.crawl_terms` — one rotating search per app per monitor cycle;
+  de-biases deal-finder coverage away from the dairy-first home carousel
+  ([] = off).
 - `anti_block.honey_pot` — canary SKUs with `true_price`. Tune to your basket.
 - `detect.*` — glitch thresholds (deviation %, z-score, MRP margin).
 - `alert.*` — desktop notification, optional Telegram, log file, rate cap
   (`max_alerts_per_hour` for glitch alerts; `rate_cap` for /watch pushes).
 - `demand.*` — Demand Radar: `locality` (name/bbox/landmarks/grid), watchlist
-  builder (`categories_per_store`, `staple_queries`, `watchlist_max_per_store`),
+  builder (`categories_per_store`, `staple_queries`, `skip_categories` —
+  case-insensitive category-label substrings the deep-sweep queue skips, the
+  milk de-biasing knob since apps order their rails dairy-first —,
+  `watchlist_max_per_store`),
   prober (`probe_interval_sec`, `probe_terms_max`, `oos_debounce_snapshots`,
   `vanished_cycles`, `stock_canary_queries`, suspect-flip guards).
 

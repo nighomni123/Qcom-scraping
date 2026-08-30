@@ -30,5 +30,10 @@ class InstamartAdapter(Adapter):
             if q:
                 search_url = f"https://instamart.in/search?q={q.replace(' ', '%20')}"
                 products += self._browser_catalog(search_url, f"instamart::{station}", "instamart", lat, lon)
+        # Rotating coverage terms (schedule.crawl_terms): diversify price_obs
+        # beyond the dairy-first home carousel + honey canaries.
+        for t in self.rotating_terms(1):
+            search_url = "https://instamart.in/search?query=" + urllib.parse.quote_plus(t)
+            products += self._browser_catalog(search_url, f"instamart::{station}", "instamart", lat, lon)
         products += self._browser_catalog(self.APP_URL, f"instamart::{station}", "instamart", lat, lon)
         return products

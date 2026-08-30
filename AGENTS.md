@@ -65,7 +65,9 @@ config.yaml             every tunable; secrets go in .env only
 codes.yaml              delivery fees + offer codes (user-editable)
 tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
                         signed API calls; deep-sweep visit queue (categories +
-                        search terms); location seeding + request rewrite;
+                        search terms; --skip filters category labels — the
+                        demand.skip_categories milk de-biasing knob); location
+                        seeding + request rewrite;
                         DSH_BODY_DIR raw-body dump hook
 src/
   orchestrator.py       glitch-monitor loop (jitter, off-peak speedup)

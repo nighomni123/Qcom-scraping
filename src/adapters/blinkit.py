@@ -33,6 +33,11 @@ class BlinkitAdapter(Adapter):
             if q:
                 search_url = f"https://blinkit.com/s/?q={q.replace(' ', '%20')}"
                 products += self._browser_catalog(search_url, f"blinkit::{station}", "blinkit", lat, lon)
+        # Rotating coverage terms (schedule.crawl_terms): diversify price_obs
+        # beyond the dairy-first home carousel + honey canaries.
+        for t in self.rotating_terms(1):
+            search_url = "https://blinkit.com/s/?q=" + urllib.parse.quote_plus(t)
+            products += self._browser_catalog(search_url, f"blinkit::{station}", "blinkit", lat, lon)
         # General catalog sweep at this location.
         products += self._browser_catalog(self.APP_URL, f"blinkit::{station}", "blinkit", lat, lon)
         return products

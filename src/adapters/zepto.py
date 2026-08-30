@@ -35,5 +35,10 @@ class ZeptoAdapter(Adapter):
             if q:
                 search_url = f"https://www.zepto.com/search?query={q.replace(' ', '%20')}"
                 products += self._browser_catalog(search_url, f"zepto::{station}", "zepto", lat, lon)
+        # Rotating coverage terms (schedule.crawl_terms): diversify price_obs
+        # beyond the dairy-first home carousel + honey canaries.
+        for t in self.rotating_terms(1):
+            search_url = "https://www.zepto.com/search?query=" + urllib.parse.quote_plus(t)
+            products += self._browser_catalog(search_url, f"zepto::{station}", "zepto", lat, lon)
         products += self._browser_catalog(self.APP_URL, f"zepto::{station}", "zepto", lat, lon)
         return products

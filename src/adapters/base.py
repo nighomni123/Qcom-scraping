@@ -124,6 +124,21 @@ class Adapter:
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
                                           lat, lon, terms=tuple(self.PROBE_TERMS))
 
+    def rotating_terms(self, n=1):
+        """Next n queries from schedule.crawl_terms (round-robin per adapter
+        process). Lets the glitch monitor's coverage diversify beyond the
+        dairy-first home carousel + honey canaries without growing per-cycle
+        volume by more than n launches. Empty/absent list = off."""
+        terms = [str(t).strip() for t in
+                 ((self.cfg.get("schedule", {}) or {}).get("crawl_terms") or [])
+                 if str(t).strip()]
+        if not terms:
+            return []
+        n = max(1, min(int(n), len(terms)))
+        i = getattr(self, "_term_ix", 0)
+        self._term_ix = (i + n) % len(terms)
+        return [terms[(i + k) % len(terms)] for k in range(n)]
+
     def deep_sweep(self, station, lat, lon, categories=0, terms=None):
         """
         Demand Radar watchlist sweep for ONE store anchor in ONE browser
@@ -131,12 +146,19 @@ class Adapter:
         staple search terms. Everything is intercepted live from the real app,
         so products arrive signed + stock-stamped, labeled via `collections`
         ('home', category names, 'q:<term>').
+        demand.skip_categories (config) filters the category queue by label
+        substring — the apps' category rails are dairy-first, so without it
+        the sweep over-samples milk products.
         """
         url = getattr(self, "APP_URL", None)
         if not url:
             return [], {"error": f"{self.name}: no APP_URL defined"}
+        skip = [str(s).strip() for s in
+                ((self.cfg.get("demand", {}) or {}).get("skip_categories") or [])
+                if str(s).strip()]
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
-                                          lat, lon, categories=categories, terms=terms)
+                                          lat, lon, categories=categories, terms=terms,
+                                          skip=skip or None)
 
     def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None):
         """Compat wrapper returning products only; see _browser_catalog_full."""
@@ -144,7 +166,7 @@ class Adapter:
         return products
 
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
-                              categories=0, terms=None):
+                              categories=0, terms=None, skip=None):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -176,6 +198,8 @@ class Adapter:
             cmd += ["--categories", str(int(categories))]
         if terms:
             cmd += ["--terms", "|".join(terms)]
+        if skip:
+            cmd += ["--skip", "|".join(skip)]
         timeout_s = 90 + extra_visits * 15
         # Live progress: forward the helper's stderr (per-visit [sweep] lines,
         # onboarding/localize steps) as it works instead of swallowing it until

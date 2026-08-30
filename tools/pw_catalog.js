@@ -54,6 +54,11 @@ const DUMP = process.argv.includes('--dump');
 // catalog call stays signed/natural and costs one chromium launch total.
 const CATEGORIES = parseInt(arg('categories', '0'), 10) || 0;
 const TERMS = (arg('terms', '') || '').split('|').map(s => s.trim()).filter(Boolean);
+// Category-label skips (config demand.skip_categories): QC apps order their
+// category rail dairy/bread/eggs-first, so "first N links" over-samples milk.
+// Pipe-separated, case-insensitive substrings; a skipped label frees its
+// queue slot for the NEXT category — diversification at zero extra cost.
+const SKIP = (arg('skip', '') || '').split('|').map(s => s.trim().toLowerCase()).filter(Boolean);
 const CAT_WAIT = parseInt(arg('cat-wait-ms', '6500'), 10);
 
 // Label attached to everything intercepted while visiting the current page.
@@ -813,8 +818,14 @@ async function main() {
       const seenH = new Set();
       for (const l of links) {
         if (seenH.has(l.href)) continue;
+        const lab = l.text || l.href.split('/').pop() || 'cat';
+        if (SKIP.length && SKIP.some(s => lab.toLowerCase().includes(s))) {
+          seenH.add(l.href);
+          console.error(`[sweep] skip category "${lab.slice(0, 40)}"`);
+          continue;
+        }
         seenH.add(l.href);
-        visits.push({ url: l.href, label: l.text || l.href.split('/').pop() || 'cat' });
+        visits.push({ url: l.href, label: lab });
         if (visits.length >= CATEGORIES) break;
       }
     }
