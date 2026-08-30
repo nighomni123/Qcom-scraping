@@ -286,6 +286,28 @@ def _table_preview(db_name, table, limit=30):
 
 _CFG_PATH = os.path.join(_ROOT, "config.yaml")
 
+# AI report filenames are strict: ai_<kind>_<YYYY-MM-DD_HHMMSS>.md — the
+# download route matches this shape so nothing else in exports/ is reachable.
+_AI_REPORT_RE = re.compile(r"ai_[a-z]+_[0-9\-_]+\.md")
+
+
+def _save_ai_report(kind, model, text):
+    """Persist a full AI analysis to exports/<kind>_<stamp>.md so long outputs
+    never live or die inside the dashboard panel. Returns the filename, or
+    None if the write failed (a disk hiccup must never eat the answer)."""
+    try:
+        exp = os.path.join(_ROOT, "exports")
+        os.makedirs(exp, exist_ok=True)
+        fname = time.strftime(f"{kind}_%Y-%m-%d_%H%M%S.md")
+        head = (f"# Moneymaker AI report — {kind.removeprefix('ai_').replace('_', ' ')}\n\n"
+                f"- generated: {time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
+                f"- model: {model}\n\n---\n\n")
+        with open(os.path.join(exp, fname), "w", encoding="utf-8") as f:
+            f.write(head + (text or "").strip() + "\n")
+        return fname
+    except Exception:
+        return None
+
 
 def _yaml_check(text):
     """Validate YAML text with the same loaders run.py uses. Error str or None."""
@@ -731,6 +753,28 @@ class Dashboard:
                         self._json({"error": "not found"}, 404)
                     else:
                         self._json(data)
+                elif self.path.startswith("/ai/report/"):
+                    # Download an AI analysis saved by /ai/explain. Name is
+                    # strictly patterned (no separators) so only reports
+                    # inside exports/ can ever be served.
+                    name = self.path[len("/ai/report/"):]
+                    fp = os.path.join(_ROOT, "exports", name)
+                    if not _AI_REPORT_RE.fullmatch(name) or not os.path.isfile(fp):
+                        self._json({"error": "report not found"}, 404)
+                        return
+                    try:
+                        with open(fp, "rb") as f:
+                            data = f.read()
+                    except OSError as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                    self.send_header("Content-Disposition",
+                                     f'attachment; filename="{name}"')
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
                 else:
                     self._json({"error": "not found"}, 404)
 
@@ -791,7 +835,11 @@ class Dashboard:
                                           "local Ollama, then retry."}, 400)
                         db = dash.cfg.get("db", "deals.db")
                         if self.path == "/ai/explain":
-                            self._json({"text": explain_results(ai, db)})
+                            text = explain_results(ai, db)
+                            fname = _save_ai_report("ai_explain", ai.model, text)
+                            self._json({"text": text, "report": fname,
+                                        "download": ("/ai/report/" + fname)
+                                                    if fname else None})
                         elif self.path == "/ai/methodology":
                             self._json(suggest_methodology(ai, cfg, db))
                         elif self.path == "/ai/methodology/apply":

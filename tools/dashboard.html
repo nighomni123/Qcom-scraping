@@ -169,6 +169,9 @@
            border-radius: 8px; font: 11.5px/1.55 "SF Mono", Menlo, monospace; white-space: pre-wrap;
            word-break: break-word; max-height: 320px; overflow-y: auto; }
   .aierr { color: var(--red); }
+  .aidl { color: var(--blue); font-size: 12px; text-decoration: none; }
+  .aidl:hover { text-decoration: underline; }
+  .aidlmeta { color: var(--dim); font-size: 11px; margin-left: 6px; }
   .sugrow { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin-top: 6px;
             background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 11.5px; }
   .sugrow input[type=checkbox] { accent-color: var(--green); margin-top: 2px; }
@@ -288,8 +291,9 @@
         <div class="locnote">Reads everything the Demand Radar panels show (DPI,
           stock-out events, onset heatmap, ETAs) and explains what it means —
           pressure SKUs, temporal patterns, data-quality caveats.</div>
-        <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runAi('/ai/explain','aiOut1','btnExplain','Analyzing latest results…')">✨ explain latest results</button></div>
+        <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runExplain()">✨ explain latest results</button></div>
         <pre class="aiout" id="aiOut1" style="display:none"></pre>
+        <div id="aiDl1" style="margin-top:6px"></div>
       </div>
       <div class="loccard">
         <h3>🔧 Tune probing methodology</h3>
@@ -908,6 +912,18 @@ async function runAi(path, outId, btnId, busyLabel, body){
     clearTimeout(hardCap); clearInterval(AITICK); clearInterval(AIPOLL);
     btn.disabled = false; btn.textContent = old;
   }
+}
+async function runExplain(){
+  const d = await runAi('/ai/explain','aiOut1','btnExplain','Analyzing latest results…');
+  if (d.error) return;
+  // The old code never rendered the success payload — that's why the panel
+  // looked dead. Show the full text (the box scrolls) + a file download.
+  aiOut('aiOut1', d.text || '(the model returned no text)');
+  const dl = document.getElementById('aiDl1');
+  dl.innerHTML = d.download
+    ? `<a class="aidl" href="${esc(d.download)}" download>⬇ download full report (.md)</a>` +
+      `<span class="aidlmeta"> also saved to exports/${esc(d.report || '')}</span>`
+    : '<span class="aidlmeta">⚠ could not save the report file (disk error) — text above is complete</span>';
 }
 async function runMeth(){
   const d = await runAi('/ai/methodology', 'aiOut2', 'btnMeth', 'reviewing probing health…');

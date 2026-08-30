@@ -201,7 +201,11 @@ Real-time view of everything the process does, plus the exit switch:
   next start or restart a feature.
 - **AI assistant (optional)** — three helpers on top of live data:
   *Understand the results* explains what the Demand Radar panels show (pressure
-  SKUs, temporal patterns, data-quality caveats); *Tune probing methodology*
+  SKUs, temporal patterns, data-quality caveats) — the full analysis is also
+  saved as a markdown file (`exports/ai_explain_<stamp>.md`) with a
+  **⬇ download full report** link under the panel (served by
+  `GET /ai/report/<file>`), so long answers never depend on the dashboard
+  box; *Tune probing methodology*
   reviews probing health and proposes adjustments to the demand-prober knobs,
   which you accept/reject per item before anything is written; *Choose product
   focus* turns intents like "beverages and baby care" into concrete search
