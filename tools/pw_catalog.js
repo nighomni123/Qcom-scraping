@@ -604,7 +604,10 @@ async function main() {
           apiLog.push({ url: ru.slice(0, 170), status: res.status() });
         }
         const body = await res.text();
-        if (!body || body.length < 50 || body.length > 3_000_000) return;
+        // Cap raised from 3MB: Instamart's store-gated collection/home responses
+        // (home/v2 with a layoutId) routinely exceed 3MB and were being dropped
+        // before parsing, so whole curated grids (MxN campaigns etc.) returned 0.
+        if (!body || body.length < 50 || body.length > 12_000_000) return;
         if (DUMP && body.length > biggest.len) biggest = { url: res.url(), len: body.length, head: body.slice(0, 700) };
         const ct = (res.headers()['content-type'] || '');
         if (/json/i.test(ct)) {
@@ -633,6 +636,38 @@ async function main() {
       } catch (_) {}
     });
 
+    // Instamart warm-up: bind a store on the homepage FIRST. Deep/collection
+    // pages (e.g. /campaign-collection/mxn) do not expose the "Add your location"
+    // trigger, so instamartAddressFlow() cannot open the modal there and they stay
+    // store-less (no product fetch). The store set on the homepage (cookies /
+    // localStorage) carries into the later goto() of the real target URL, so the
+    // collection then fetches with store context.
+    if (APP === 'instamart') {
+      const warmTerm = imLocality || await reverseGeocode(LAT, LON);
+      await page.goto('https://instamart.in/', { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForTimeout(3000);
+      if (warmTerm) {
+        const ok = await instamartAddressFlow(page, warmTerm);
+        if (ok) {
+          console.error('[warmup] instamart: store bound on homepage, loading target with store context');
+          await page.waitForTimeout(5000);
+        }
+      }
+    }
+
+    // Drop warm-up homepage products so only the TARGET page's products remain
+    // (and receive the correct collection label below). The store context set
+    // during warm-up carries over via cookies, so the target still fetches.
+    if (APP === 'instamart') products.clear();
+
+    // Label products from a store-gated Instamart collection (e.g. MxN campaign
+    // grids) by their layoutId so Demand Radar can attribute them to the right
+    // section instead of the generic "home" bucket.
+    if (APP === 'instamart') {
+      const mxn = (URL_.match(/campaign-collection\/mxn[?&][^]*layoutId=(\d+)/i) || [])[1];
+      CURRENT_LABEL = mxn ? `mxn:${mxn}` : 'home';
+    }
+
     await page.goto(URL_, { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
     const deadline = Date.now() + WAIT;
     let reloaded = false;
@@ -658,7 +693,12 @@ async function main() {
         console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
         const ok = await instamartAddressFlow(page, imTerm);
         if (ok) {
-          console.error('[localize] instamart: location confirmed, waiting for localized feed');
+          // Store is now bound (cookies/localStorage). The Instamart SPA does NOT
+          // auto-refetch the current route on store change, so a collection/page
+          // that is store-gated (e.g. /campaign-collection/mxn) stays empty until
+          // reloaded. Reload with the store context so products actually fetch.
+          console.error('[localize] instamart: location confirmed, reloading with store context');
+          await page.reload({ timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
           await page.waitForTimeout(9000);
         }
       }
