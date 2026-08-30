@@ -250,6 +250,27 @@ delivered as the `aws-waf-token` cookie. The web `request-signature` / `x-csrf-s
 above), NOT the APK. The crawler's "harvest already-signed responses" approach remains
 correct — do NOT forge the AWS-WAF token.
 
+Worked example (Swiggy consumer APK `in.swiggy.android_4.115.1-1817` under `apks/`,
+focused on **Instamart**): the app-side anti-bot is **AWS WAF too** — `com.amazonaws.waf.mobilesdk`
+classes plus an interceptor reading `x-aws-waf-token` / `x-amzn-waf-action` /
+`x-amzn-waf-rate-limit` (same family as Zepto). The native API is authenticated by an
+**HMAC** scheme: `network/interceptors/b.smali` sets `x-swiggy-auth` (with `populateHMAC`
+/ `CalculateMac` / `calculateX2s` machinery) plus `x-oztok` / `x-channel` / device headers;
+`com.bureau.devicefingerprint` does fraud fingerprinting. Instamart is a **`webviewV2` +
+`externalWidget` "instamart"** surface whose WebView shell is
+`https://media-assets.swiggy.com/assets-aggregator/im_main_v3.json`; its tabs/sections are
+**gandalf/widgets/v2** protobufs (Square Wire) served by the **Discovery** service
+`disc.swiggy.com` (`evaluatePage` → `EvaluatePageResponse`), cached via `CacheEvaluatePageConfig`.
+Native Instamart API paths: legacy `/api/v1/instamart{...}` (`{pageID}`, `product`,
+`presearch`, `search-config`, `contextual_discovery`, `pass/activate`, `complimentary_item`,
+`relay-vendor-order`) and the unified BFF `/api/v2/view?cartType=INSTAMART` (`IInstamartApi`).
+`InstamartLatLngQueryInterceptor` injects `lat`/`lng` (or `latitude`/`longitude` under flag
+`enable_im_lat_long_full_names`) into `/api/v1/instamart` requests. Crawler conclusion is
+identical to Zepto: harvest already-tokened/signed responses in a real browser — **do NOT
+forge** `x-aws-waf-token` or `x-swiggy-auth`. The app's `www.swiggy.com/instamart` SPA is
+login-walled for our exit IP; `instamart.in` (the separate storefront) is the crawl target.
+Full report: `/tmp/swiggy_re/SWIGGY_APK_INSTAMART_FINDINGS.md`.
+
 ## Known limitations / TODO
 
 - Zepto: WORKING since 08-22 (see Zepto specifics above). 24–30 products per
