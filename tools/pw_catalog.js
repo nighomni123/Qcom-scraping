@@ -66,16 +66,22 @@ let CURRENT_LABEL = 'home';
 const SEARCH_URLS = {
   'blinkit':   t => `https://blinkit.com/s/?q=${encodeURIComponent(t)}`,
   'zepto':     t => `https://www.zepto.com/search?query=${encodeURIComponent(t)}`,
-  'instamart': t => `https://www.swiggy.com/instamart/search?query=${encodeURIComponent(t)}`,
+  'instamart': t => `https://instamart.in/search?query=${encodeURIComponent(t)}`,
 };
 
 // Zepto prices arrive in paise (sellingPrice=1600 => ₹16); Blinkit/Instamart
 // use rupees. Normalized in collect() so downstream stays rupee-only.
 const PRICE_DIVISORS = { zepto: 100 };
 
+// Desktop UAs. We deliberately do NOT use mobile emulation: an A/B on
+// 2025-08-30 showed Zepto/Blinkit return byte-identical product JSON under a
+// desktop context (same SKUs, store, ETA, field names) and Instamart's 403
+// login wall is IP/anti-fraud based and unaffected by device profile. A
+// desktop viewport also renders more carousel items per page. See repo thread.
 const UAS = [
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 ];
 
 const num = s => {
@@ -414,6 +420,25 @@ async function clickThroughOnboarding(page) {
 // LOGIN WALL ("Log in with phone number") — catalog + search 403 until a
 // phone login, which we do not do. This flow still completes location
 // onboarding for guest-friendly IPs/networks.
+// Reverse-geocode our anchor to a human locality so we can drive Instamart's own
+// "Add your location" modal. address-widgets/v2 (used on swiggy.com) does NOT
+// fire on instamart.in, so we geocode client-side instead. Keyless BigDataCloud
+// client endpoint; best-effort, returns null on any failure.
+async function reverseGeocode(lat, lon) {
+  try {
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 6000);
+    const r = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
+      { signal: ac.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const term = [j.locality, j.city, j.principalSubdivision].filter(Boolean)[0];
+    return typeof term === 'string' && term.length ? term : null;
+  } catch (_) { return null; }
+}
+
 async function instamartAddressFlow(page, term) {
   const clickLeaf = (src, exact) => page.evaluate(([s, ex]) => {
     const rx = new RegExp(s, 'i');
@@ -435,7 +460,7 @@ async function instamartAddressFlow(page, term) {
     return label;
   }, [src, exact]).catch(() => null);
 
-  let opened = await clickLeaf('^search for an area or address$', true);
+  let opened = await clickLeaf('search for (?:an area|a locality|your locality|an address|a street|locality)', false);
   if (!opened) {
     // Sheet not open (e.g. a prior "Use current location" click closed it):
     // reopen via the location bar, then retry.
@@ -489,12 +514,17 @@ async function main() {
     browser = await chromium.launch({ headless: true });
   }
   try {
+    // Desktop context (no mobile emulation): verified 2025-08-30 that Zepto /
+    // Blinkit return identical intercepted JSON vs a mobile profile, and
+    // Instamart's gate is IP-based, so isMobile/hasTouch buy nothing. The data
+    // comes from intercepted signed API JSON, not the rendered DOM, so a wider
+    // desktop viewport only helps (more carousels render per page).
     const ctx = await browser.newContext({
       userAgent: UAS[Math.floor(Math.random() * UAS.length)],
-      viewport: { width: 390, height: 844 },
-      deviceScaleFactor: 3,
-      isMobile: true,
-      hasTouch: true,
+      viewport: { width: 1366, height: 768 },
+      deviceScaleFactor: 1,
+      isMobile: false,
+      hasTouch: false,
       geolocation: { latitude: LAT, longitude: LON },
       permissions: ['geolocation'],
       locale: 'en-IN',
@@ -617,6 +647,23 @@ async function main() {
     }
     await page.waitForTimeout(1500);
 
+    // Instamart on instamart.in: the default catalog is NON-localized (no
+    // store/ETA). Drive the app's own "Add your location" modal to bind the
+    // anchor's locality so home_v2 returns a specific darkstore + ETA. Runs even
+    // when products already exist (they're the default feed until we localize).
+    let imTerm = null;
+    if (APP === 'instamart') {
+      imTerm = imLocality || await reverseGeocode(LAT, LON);
+      if (imTerm) {
+        console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
+        const ok = await instamartAddressFlow(page, imTerm);
+        if (ok) {
+          console.error('[localize] instamart: location confirmed, waiting for localized feed');
+          await page.waitForTimeout(9000);
+        }
+      }
+    }
+
     // Stuck at zero products? Drive the app's own onboarding/location flow
     // once (Instamart's consent sheet), then grant a fresh wait window.
     if (products.size === 0) {
@@ -629,8 +676,8 @@ async function main() {
       // without a confirm step — which would also hide the "Search for an
       // area or address" entry this flow needs — so it runs second.
       let flowOk = 0;
-      if (APP === 'instamart' && imLocality) {
-        flowOk = await instamartAddressFlow(page, imLocality);
+      if (APP === 'instamart' && imTerm) {
+        flowOk = await instamartAddressFlow(page, imTerm);
       }
       if (flowOk) {
         const deadline3 = Date.now() + Math.min(WAIT, 15000);

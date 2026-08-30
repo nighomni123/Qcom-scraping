@@ -222,23 +222,26 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   app) make `probe_point()` product-bearing — Zepto probes its search route,
   Blinkit/Instamart fire a few staple terms in-session beyond the dairy-first
   home carousels. Deliberately NOT wired into the continuous crawl loop.
-- Instamart: onboarding + LOGIN gated (traced live 08-24). The guest location
-  flow is fully mapped and driven by pw_catalog.js: the stuck-session
-  fallback types the app's own reverse-geocoded locality (from the
-  `address-widgets/v2` response) into its address search, taps the
-  suggestion, then "Confirm Location" (POST `home/select-location/v2` with
-  the full address); geolocation-button CTAs (`clickThroughOnboarding`)
-  remain as fallback. BUT since ~16:00 08-24 our crawl-heavy exit IP gets a
-  LOGIN WALL ("Log in with phone number"): `isOnboarded` stays false,
-  `home/v2` cards carry `items: []`, `/api/instamart/search/v2` returns 403 —
-  even for zero-interference sessions and after location is auto-confirmed.
-  Store + ETA still resolve, so `--store-inventory` keeps capturing
-  instamart STORES (darkstores rows) while products stay empty until the IP
-  cools down or a different network is used. We do NOT log in (no fake
-  accounts). Re-check the gate anytime:
+  As of 08-29 BlinkIt/Zepto `PROBE_TERMS` also include paan-shop / tobacco /
+  convenience SKUs (`paan`, `cigarette`, `gutkha`, `pan masala`, `tobacco`,
+  `condom`, `mukhwas`) so `--store-inventory` captures non-food categories, not
+  just groceries — verified against QuickCommerce API's paan coverage.
+- Instamart: targets **instamart.in** (NOT `www.swiggy.com/instamart`). The
+  swiggy.com SPA is LOGIN WALLED for our crawl-heavy exit IP (`isOnboarded`
+  false, `home/v2` `items:[]`, `/api/instamart/search/v2` 403 — traced 08-24),
+  but `instamart.in` is a separate storefront that serves a default catalog
+  WITHOUT that gate and resolves a localized darkstore once location is set.
+  pw_catalog.js drives the app's own "Add your location" modal: it
+  reverse-geocodes the anchor client-side (BigDataCloud, keyless — the
+  `address-widgets/v2` response does NOT fire on instamart.in), types the
+  locality, taps the first suggestion, then "Confirm Location". The granted
+  browser GEOLOCATION then refines to the nearest store, so each anchor
+  resolves its OWN `podid` + ETA (verified: Andheri→1404909/7min,
+  Goregaon→1392421/6min). Default-catalog harvest still works if the modal is
+  skipped. We do NOT log in (no fake accounts). Re-check / debug anytime:
   `DSH_DEBUG_DIR=/tmp/imdebug node tools/pw_catalog.js --app instamart
-  --url https://www.swiggy.com/instamart --lat <lat> --lon <lon>` then look
-  for items>0 vs the login banner in /tmp/imdebug/stuck.png.
+  --url https://instamart.in/ --lat <lat> --lon <lon>` then inspect
+  /tmp/imdebug (products + store_hint in the last JSON line).
 - Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see

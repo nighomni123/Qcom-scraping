@@ -46,7 +46,7 @@ class Corridor:
 # why we have a deterministic fallback store_id.
 LOCATION_ENDPOINTS = {
     "blinkit": "https://blinkit.com/api/v4/location/page?lat={lat}&lon={lon}",
-    "instamart": "https://www.swiggy.com/api/instamart/v2/location?lat={lat}&lon={lon}",
+    "instamart": "https://instamart.in/api/instamart/v2/location?lat={lat}&lon={lon}",
     "zepto": "https://www.zeptonow.com/api/v2/get_locality?lat={lat}&lon={lon}",
 }
 
