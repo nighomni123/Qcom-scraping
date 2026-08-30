@@ -19,20 +19,19 @@ schedule:
     gate_cooldown_cycles: 4         # cycles to back off a gated app
     blinkit_priority_extra: 1       # extra blinkit passes/cycle while any other app gated
     protected_apps: [blinkit]       # never auto-gate these (the fallback)
+  # Rotating coverage queries for the glitch monitor (deal finder): one is
+  # searched per app per cycle (round-robin), diversifying price_obs beyond
+  # the dairy-first home carousel + honey canaries. [] = off.
+  crawl_terms: ["cigarettes", "chips", "shampoo", "usb drive", "cold drinks", "detergent"]
 
 geo:
   # Mumbai corridor we watch. Each point resolves to the nearest dark store.
   corridor:
-    - { station: "Virar",      lat: 19.456, lon: 72.806 }
-    - { station: "Vasai Road", lat: 19.392, lon: 72.805 }
-    - { station: "Nalasopara", lat: 19.413, lon: 72.79 }
-    - { station: "Mira Road",  lat: 19.282, lon: 72.857 }
-    - { station: "Bhayandar",  lat: 19.231, lon: 72.851 }
-    - { station: "Borivali",   lat: 19.23, lon: 72.856 }
-    - { station: "Kandivali",  lat: 19.207, lon: 72.851 }
-    - { station: "Malad",      lat: 19.186, lon: 72.848 }
-    - { station: "Goregaon",   lat: 19.166, lon: 72.852 }
-    - { station: "Andheri",    lat: 19.119, lon: 72.846 }
+    - { station: "Borivali",  lat: 19.23, lon: 72.856 }
+    - { station: "Kandivali", lat: 19.207, lon: 72.851 }
+    - { station: "Malad",     lat: 19.186, lon: 72.848 }
+    - { station: "Goregaon",  lat: 19.166, lon: 72.852 }
+    - { station: "Andheri",   lat: 19.119, lon: 72.846 }
 adapters:
   # Browser-intercept adapters need Playwright + a chromium build.
   # Set enabled:false if you only want the trackers + engine to run.
@@ -118,7 +117,7 @@ demand:
   # Empty staple_queries => the built-in UNBIASED broad-coverage default list
   # in src/watchlist.py (grocery + paan/tobacco + wellness + adult + electronics
   # + household + pharma). Set a list here to override with your own terms.
-  staple_queries: []
+  staple_queries: ["dark chocolate", "lindt chocolate", "amul dark chocolate", "snickers", "cadbury bournville"]
   # Unbiased harvesting: when true, the builder keeps EVERY discovered SKU
   # (no truncation to the active cap) and never auto-deactivates the overflow.
   # The active cap below only limits what the prober re-probes by search;
@@ -126,13 +125,19 @@ demand:
   unbiased_harvest: true
   watchlist_max_per_store: 4000
   # stock prober (phase 3)
-  probe_interval_sec: 300           # per-store cycle target; jittered, off-peak faster
-  probe_terms_max: 30               # watchlist search terms re-probed per store/cycle
+  probe_interval_sec: 60           # per-store cycle target; jittered, off-peak faster
+  probe_terms_max: 40               # watchlist search terms re-probed per store/cycle
   oos_debounce_snapshots: 6         # consecutive OOS reads before an event opens
   vanished_cycles: 6                # missed successful sweeps before 'vanished'
   stock_canary_queries: ["amul milk", "eggs"]   # must return in-stock items
   suspect_flip_min: 10              # mass-flip soft-block guard: >= N flips...
   suspect_flip_pct: 50              # ...>= % of previously-in-stock seen SKUs
+  # Category-rail de-biasing (watchlist builder + demand prober): QC apps
+  # order their category rail dairy/bread/eggs-first, so a plain "first N
+  # categories" sweep over-samples milk. These case-insensitive substrings
+  # skip matching category labels; freed queue slots go to the NEXT
+  # categories (snacks, personal care, electronics, ...). Empty list = off.
+  skip_categories: ["dairy", "milk", "bread", "bakery", "eggs", "paneer", "curd"]
   # future phases (analysis/heatmap) will read these:
 
 ui:
@@ -143,9 +148,9 @@ ui:
 # keyless server instead, e.g. Ollama: http://127.0.0.1:11434/v1
 ai:
   enabled: true
-  base_url: "https://openrouter.ai/api/v1"                  # empty = https://api.openai.com/v1
-  model: "stealth/ox-alpha"
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"                  # empty = https://api.openai.com/v1
+  model: "gemini-3.5-flash-lite"
   # Reasoning models burn tokens thinking before answering — give them room.
   # If a response still truncates (finish_reason=length), chat() auto-retries
   # once with 4x this budget.
-  max_tokens: 126000
+  max_tokens: 65000

@@ -70,8 +70,10 @@ GLOSSARY.md             plain-English index of ALL jargon/short forms —
 tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
                         signed API calls; deep-sweep visit queue (categories +
                         search terms; --skip filters category labels — the
-                        demand.skip_categories milk de-biasing knob); location
-                        seeding + request rewrite;
+                        demand.skip_categories milk de-biasing knob); --pre
+                        pre-visits gated verticals before the target page
+                        (Blinkit tobacco shelf, "URL::LABEL|..." pairs);
+                        location seeding + request rewrite;
                         DSH_BODY_DIR raw-body dump hook
 src/
   orchestrator.py       glitch-monitor loop (jitter, off-peak speedup)
@@ -213,6 +215,26 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   home serves NO products for fresh sessions → `HEALTH_URL` overrides to the
   search route for health checks.
 
+- **Blinkit Paan-corner structure** (traced 08-30 via raw-body dumps): the catalog is a
+  **layout-engine tree** — `/v1/layout/tag_collections` lists every **grouping** (named shelf)
+  with `collection_filters: [{l1_cat_id: [...]}]`. Paan corner (`hpc_paan corner`) leaves:
+  **15119 'Cigarettes' → l1_cat 1948** (real cigarettes: Marlboro/Gold Flake/Classic),
+  62439 'Cigar' → 3466 (cigars/cigarillos ONLY — don't confuse the two), 383144 'Lighters'
+  → 7778, 11644 'Rolling Needs' → 1982, 127957 'Paan Masala' → 2517. URL shapes:
+  `/cn///cid/<l0>/<l1>` (category page → `/v1/layout/listing[/widgets]/l0_cat/X/l1_cat/Y`),
+  `/dc/<slug>/?collection_uuid=<b64>&collection_group_id=<gid>` (collection route to the same
+  shelf; its `listing_widgets` call returns `is_success:false` for FRESH sessions — works only
+  in browsers with prior state), `/prn/<slug>/prid/<id>` (product detail + related rail).
+  KEY QUIRK: **Blinkit text search (`/s/?q=`) serves NO tobacco** — server-side curated to
+  smoking accessories only (verified across 13 darkstores AND with sessions warmed by the shelf
+  itself), while direct category/product URLs serve the full tobacco assortment **with no age
+  gate**: the "appropriate age / not near schools" interstitial guards ONLY the banner-click
+  path in the UI. Workaround shipped 08-30: `BlinkitAdapter.search()` pre-visits the cigarette
+  shelf via `pw_catalog.js --pre "URL::LABEL"` on tobacco queries (with a wait-for-products +
+  reload-retry loop — a fixed short sleep harvests 0), merges it with the text-search harvest,
+  and `search.match_score(query, name, context)` counts the `pre:Cigarettes` shelf label toward
+  query matching. The age gate is UI-only — do NOT automate clicking it; go straight to the
+  shelf URL.
 - **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
   js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
   wired into this session and its bootstrap is Windows-only): every API call hits
@@ -336,6 +358,12 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   convenience SKUs (`paan`, `cigarette`, `gutkha`, `pan masala`, `tobacco`,
   `condom`, `mukhwas`) so `--store-inventory` captures non-food categories, not
   just groceries — verified against QuickCommerce API's paan coverage.
+  CAVEAT (08-30): on Blinkit those tobacco search terms yield only smoking
+  ACCESSORIES (the text search serves no tobacco — see the Paan-corner quirk
+  above), so q:cigarette watchlist captures are lighters; real Blinkit tobacco
+  coverage in quick price search comes from the `--pre` cigarette-shelf merge
+  in `BlinkitAdapter.search()` instead. Deep sweeps could adopt the same
+  `--pre` visit later if tobacco stock-outs should be tracked.
 - Instamart: targets **instamart.in** (NOT `www.swiggy.com/instamart`). The
   swiggy.com SPA is LOGIN WALLED for our crawl-heavy exit IP (`isOnboarded`
   false, `home/v2` `items:[]`, `/api/instamart/search/v2` 403 — traced 08-24),

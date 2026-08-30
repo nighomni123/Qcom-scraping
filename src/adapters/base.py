@@ -160,13 +160,14 @@ class Adapter:
                                           lat, lon, categories=categories, terms=terms,
                                           skip=skip or None)
 
-    def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None):
+    def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None, pre=None):
         """Compat wrapper returning products only; see _browser_catalog_full."""
-        products, _meta = self._browser_catalog_full(url, store_id, app_label, lat=lat, lon=lon)
+        products, _meta = self._browser_catalog_full(url, store_id, app_label, lat=lat, lon=lon,
+                                                     pre=pre)
         return products
 
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
-                              categories=0, terms=None, skip=None):
+                              categories=0, terms=None, skip=None, pre=None):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -193,13 +194,18 @@ class Adapter:
                "--lat", str(lat if lat is not None else 19.119),
                "--lon", str(lon if lon is not None else 72.846)]
         terms = [t for t in (terms or []) if t]
-        extra_visits = int(categories or 0) + len(terms)
+        extra_visits = int(categories or 0) + len(terms) + len(pre or [])
         if categories:
             cmd += ["--categories", str(int(categories))]
         if terms:
             cmd += ["--terms", "|".join(terms)]
         if skip:
             cmd += ["--skip", "|".join(skip)]
+        if pre:
+            # Verticals to visit BEFORE the target, "URL::LABEL" pairs joined
+            # by '|' — see tools/pw_catalog.js PRE comment (Blinkit tobacco:
+            # text search serves none, direct shelf URLs serve it all).
+            cmd += ["--pre", "|".join(f"{u}::{lab}" for u, lab in pre)]
         timeout_s = 90 + extra_visits * 15
         # Live progress: forward the helper's stderr (per-visit [sweep] lines,
         # onboarding/localize steps) as it works instead of swallowing it until

@@ -1,36 +1,78 @@
 {
   "locality": "current zepto",
-  "generated_ts": 1788027681.938508,
-  "anchor_count": 5,
+  "generated_ts": 1788105594.7234938,
+  "anchor_count": 12,
   "anchors": [
     {
       "label": "current location",
-      "lat": 19.1306,
-      "lon": 72.8347,
+      "lat": 19.0728,
+      "lon": 72.8826,
       "kind": "landmark"
     },
     {
+      "label": "grid r4c5",
+      "lat": 19.06651,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c5",
+      "lat": 19.07909,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c4",
+      "lat": 19.0728,
+      "lon": 72.87595,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c6",
+      "lat": 19.0728,
+      "lon": 72.88925,
+      "kind": "grid"
+    },
+    {
       "label": "grid r4c4",
-      "lat": 19.13329,
-      "lon": 72.83755,
+      "lat": 19.06651,
+      "lon": 72.87595,
       "kind": "grid"
     },
     {
-      "label": "grid r3c4",
-      "lat": 19.12701,
-      "lon": 72.83755,
+      "label": "grid r6c4",
+      "lat": 19.07909,
+      "lon": 72.87595,
       "kind": "grid"
     },
     {
-      "label": "grid r4c3",
-      "lat": 19.13329,
-      "lon": 72.8309,
+      "label": "grid r4c6",
+      "lat": 19.06651,
+      "lon": 72.88925,
       "kind": "grid"
     },
     {
-      "label": "grid r3c3",
-      "lat": 19.12701,
-      "lon": 72.8309,
+      "label": "grid r6c6",
+      "lat": 19.07909,
+      "lon": 72.88925,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c5",
+      "lat": 19.06022,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c5",
+      "lat": 19.08538,
+      "lon": 72.8826,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c3",
+      "lat": 19.0728,
+      "lon": 72.86929,
       "kind": "grid"
     }
   ],
@@ -43,88 +85,104 @@
           "points": [
             {
               "label": "current location",
-              "lat": 19.1306,
-              "lon": 72.8347
+              "lat": 19.0728,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r4c5",
+              "lat": 19.06651,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r6c5",
+              "lat": 19.07909,
+              "lon": 72.8826
+            },
+            {
+              "label": "grid r5c4",
+              "lat": 19.0728,
+              "lon": 72.87595
+            },
+            {
+              "label": "grid r5c6",
+              "lat": 19.0728,
+              "lon": 72.88925
             },
             {
               "label": "grid r4c4",
-              "lat": 19.13329,
-              "lon": 72.83755
-            },
-            {
-              "label": "grid r3c4",
-              "lat": 19.12701,
-              "lon": 72.83755
-            },
-            {
-              "label": "grid r4c3",
-              "lat": 19.13329,
-              "lon": 72.8309
-            },
-            {
-              "label": "grid r3c3",
-              "lat": 19.12701,
-              "lon": 72.8309
+              "lat": 19.06651,
+              "lon": 72.87595
             }
           ],
-          "eta_min": 14
+          "eta_min": 13
         }
       ],
       "history": [
         {
           "label": "current location",
-          "lat": 19.1306,
-          "lon": 72.8347,
+          "lat": 19.0728,
+          "lon": 72.8826,
           "kind": "landmark",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": null,
-          "products": 214,
+          "eta_min": 13,
+          "products": 223,
           "error": null,
-          "sec": 83.2
+          "sec": 74.6
+        },
+        {
+          "label": "grid r4c5",
+          "lat": 19.06651,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 13,
+          "products": 223,
+          "error": null,
+          "sec": 80.7
+        },
+        {
+          "label": "grid r6c5",
+          "lat": 19.07909,
+          "lon": 72.8826,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 13,
+          "products": 223,
+          "error": null,
+          "sec": 82.2
+        },
+        {
+          "label": "grid r5c4",
+          "lat": 19.0728,
+          "lon": 72.87595,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": 13,
+          "products": 223,
+          "error": null,
+          "sec": 85.9
+        },
+        {
+          "label": "grid r5c6",
+          "lat": 19.0728,
+          "lon": 72.88925,
+          "kind": "grid",
+          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
+          "eta_min": null,
+          "products": 194,
+          "error": null,
+          "sec": 78.6
         },
         {
           "label": "grid r4c4",
-          "lat": 19.13329,
-          "lon": 72.83755,
+          "lat": 19.06651,
+          "lon": 72.87595,
           "kind": "grid",
           "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": null,
-          "products": 214,
+          "eta_min": 13,
+          "products": 178,
           "error": null,
-          "sec": 70.9
-        },
-        {
-          "label": "grid r3c4",
-          "lat": 19.12701,
-          "lon": 72.83755,
-          "kind": "grid",
-          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 213,
-          "error": null,
-          "sec": 69.9
-        },
-        {
-          "label": "grid r4c3",
-          "lat": 19.13329,
-          "lon": 72.8309,
-          "kind": "grid",
-          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": null,
-          "products": 213,
-          "error": null,
-          "sec": 70.8
-        },
-        {
-          "label": "grid r3c3",
-          "lat": 19.12701,
-          "lon": 72.8309,
-          "kind": "grid",
-          "resolved_store": "b4dc8d65-ed2e-4142-81b6-373982b13500",
-          "eta_min": 14,
-          "products": 213,
-          "error": null,
-          "sec": 70.9
+          "sec": 77.1
         }
       ]
     }

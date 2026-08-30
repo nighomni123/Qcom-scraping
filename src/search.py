@@ -19,12 +19,22 @@ def _tokens(s):
     return [t for t in re.split(r"[^a-z0-9]+", (s or "").lower()) if t]
 
 
-def match_score(query, name):
-    """Fraction of query tokens present in the product name."""
+def match_score(query, name, context=None):
+    """Fraction of query tokens present in the product name.
+
+    `context` (optional) is extra matching text such as the collection/shelf
+    label a product was harvested under (product dicts carry it as
+    `collections`). Blinkit's text search serves no tobacco — the Paan Shop
+    cigarette shelf is harvested via direct URL instead (adapters/blinkit.py),
+    so a shelf product like "Marlboro Advance" only matches the generic query
+    "cigarette" through its `pre:Cigarettes` shelf label.
+    """
     q = _tokens(query)
     if not q:
         return 0.0
     n = " ".join(_tokens(name))
+    if context:
+        n += " " + " ".join(_tokens(" ".join(str(c) for c in context)))
     hit = sum(1 for t in q if t in n)
     return hit / len(q)
 
@@ -89,7 +99,7 @@ class SearchEngine:
         for platform, prods in raw.items():
             scored = []
             for pr in prods:
-                s = match_score(query, pr.get("name"))
+                s = match_score(query, pr.get("name"), pr.get("collections"))
                 if s >= self.min_score and pr.get("price"):
                     scored.append((s, pr))
             scored.sort(key=lambda x: (-x[0], x[1]["price"]))

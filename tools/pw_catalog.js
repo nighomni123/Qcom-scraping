@@ -60,6 +60,19 @@ const TERMS = (arg('terms', '') || '').split('|').map(s => s.trim()).filter(Bool
 // queue slot for the NEXT category — diversification at zero extra cost.
 const SKIP = (arg('skip', '') || '').split('|').map(s => s.trim().toLowerCase()).filter(Boolean);
 const CAT_WAIT = parseInt(arg('cat-wait-ms', '6500'), 10);
+// Pre-visits ("URL::LABEL|URL2::LABEL2"): verticals visited BEFORE the target
+// page, same browser session, products labeled `pre:<LABEL>`. Exists because
+// Blinkit's TEXT SEARCH serves no tobacco (server-side curated to smoking
+// accessories — verified 08-30 even in sessions warmed by the shelf itself),
+// while its catalog APIs serve the full Paan Shop shelves to DIRECT navigation
+// with no age gate: the "are you of appropriate age" interstitial guards only
+// the banner-click path in the UI. Quick price search (adapters/blinkit.py)
+// pre-visits the cigarette shelf on tobacco queries and merges it with the
+// text-search harvest; search.py counts the ::LABEL toward match scoring.
+const PRE = (arg('pre', '') || '').split('|').map(s => {
+  const i = s.indexOf('::');
+  return i >= 0 ? { url: s.slice(0, i).trim(), label: s.slice(i + 2).trim() || 'shelf' } : null;
+}).filter(Boolean);
 
 // Label attached to everything intercepted while visiting the current page.
 let CURRENT_LABEL = 'home';
@@ -659,6 +672,44 @@ async function main() {
         }
       }
     }
+
+    // --pre verticals: visit BEFORE the target so their harvest carries the
+    // `pre:<LABEL>` collection (see the PRE comment up top). Same session =
+    // one chromium launch, every intercepted call stays signed/natural. Note
+    // instamart's products.clear() below would drop pre products — instamart
+    // never uses pre (its catalog has no age-gated vertical).
+    for (const p of PRE) {
+      CURRENT_LABEL = `pre:${p.label}`;
+      const before = products.size;
+      try {
+        await page.goto(p.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
+        // Same wait-for-products rule as the target page below: the first
+        // listing API fires a few seconds after domcontentloaded (visibility
+        // call -> store bind -> layout listing), and a fixed short sleep
+        // harvests nothing (observed 08-30: [pre] 0 SKUs at 6.5s).
+        const pdeadline = Date.now() + WAIT;
+        while (Date.now() < pdeadline && products.size === before) {
+          await page.waitForTimeout(1500);
+        }
+        // Listing APIs arrive in waves (widgets + listing); give both a
+        // settle window before deciding the visit is done.
+        await page.waitForTimeout(3000);
+        if (products.size === before) {
+          // Cold-start race: nothing intercepted yet — reload once, wait again
+          // (same trick as the awswaf reload on the target page).
+          try {
+            await page.reload({ timeout: 25000, waitUntil: 'domcontentloaded' });
+            const rdeadline = Date.now() + WAIT;
+            while (Date.now() < rdeadline && products.size === before) {
+              await page.waitForTimeout(1500);
+            }
+            await page.waitForTimeout(2000);
+          } catch (_) {}
+        }
+        console.error(`[pre] ${p.label} -> +${products.size - before} SKUs (cumulative ${products.size})`);
+      } catch (_) {}
+    }
+    CURRENT_LABEL = 'home';
 
     // Drop warm-up homepage products so only the TARGET page's products remain
     // (and receive the correct collection label below). The store context set
