@@ -12,6 +12,8 @@ Two features in one tool:
    build a chronological demand-pressure heatmap. See `DEMAND_RADAR.md`.
 
 See `ARCHITECTURE.md` for the design and the anti-block strategy.
+New to the vocabulary (OOS, DPI, darkstore, honey pot, WAF…)? `GLOSSARY.md`
+is a plain-English index of every jargon term in this repo.
 
 ## Demand Radar (phases 0–3 live)
 
