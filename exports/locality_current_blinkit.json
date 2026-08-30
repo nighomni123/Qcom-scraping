@@ -1,78 +1,36 @@
 {
   "locality": "current blinkit",
-  "generated_ts": 1787639413.441236,
-  "anchor_count": 12,
+  "generated_ts": 1788027229.503595,
+  "anchor_count": 5,
   "anchors": [
     {
       "label": "current location",
-      "lat": 19.0728,
-      "lon": 72.8826,
+      "lat": 19.1306,
+      "lon": 72.8347,
       "kind": "landmark"
     },
     {
-      "label": "grid r4c5",
-      "lat": 19.06651,
-      "lon": 72.8826,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r6c5",
-      "lat": 19.07909,
-      "lon": 72.8826,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r5c4",
-      "lat": 19.0728,
-      "lon": 72.87595,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r5c6",
-      "lat": 19.0728,
-      "lon": 72.88925,
-      "kind": "grid"
-    },
-    {
       "label": "grid r4c4",
-      "lat": 19.06651,
-      "lon": 72.87595,
+      "lat": 19.13329,
+      "lon": 72.83755,
       "kind": "grid"
     },
     {
-      "label": "grid r6c4",
-      "lat": 19.07909,
-      "lon": 72.87595,
+      "label": "grid r3c4",
+      "lat": 19.12701,
+      "lon": 72.83755,
       "kind": "grid"
     },
     {
-      "label": "grid r4c6",
-      "lat": 19.06651,
-      "lon": 72.88925,
+      "label": "grid r4c3",
+      "lat": 19.13329,
+      "lon": 72.8309,
       "kind": "grid"
     },
     {
-      "label": "grid r6c6",
-      "lat": 19.07909,
-      "lon": 72.88925,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r3c5",
-      "lat": 19.06022,
-      "lon": 72.8826,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r7c5",
-      "lat": 19.08538,
-      "lon": 72.8826,
-      "kind": "grid"
-    },
-    {
-      "label": "grid r5c3",
-      "lat": 19.0728,
-      "lon": 72.86929,
+      "label": "grid r3c3",
+      "lat": 19.12701,
+      "lon": 72.8309,
       "kind": "grid"
     }
   ],
@@ -80,171 +38,100 @@
     "blinkit": {
       "stores": [
         {
-          "store_id": "41649",
-          "label": "blinkit store 41649",
+          "store_id": "33684",
+          "label": "blinkit store 33684",
           "points": [
             {
               "label": "current location",
-              "lat": 19.0728,
-              "lon": 72.8826
-            },
-            {
-              "label": "grid r6c5",
-              "lat": 19.07909,
-              "lon": 72.8826
-            },
-            {
-              "label": "grid r5c4",
-              "lat": 19.0728,
-              "lon": 72.87595
+              "lat": 19.1306,
+              "lon": 72.8347
             },
             {
               "label": "grid r4c4",
-              "lat": 19.06651,
-              "lon": 72.87595
+              "lat": 19.13329,
+              "lon": 72.83755
             },
             {
-              "label": "grid r6c4",
-              "lat": 19.07909,
-              "lon": 72.87595
-            }
-          ],
-          "eta_min": 10
-        },
-        {
-          "store_id": "35002",
-          "label": "blinkit store 35002",
-          "points": [
-            {
-              "label": "grid r4c5",
-              "lat": 19.06651,
-              "lon": 72.8826
+              "label": "grid r3c4",
+              "lat": 19.12701,
+              "lon": 72.83755
             },
             {
-              "label": "grid r4c6",
-              "lat": 19.06651,
-              "lon": 72.88925
-            }
-          ],
-          "eta_min": 10
-        },
-        {
-          "store_id": "30860",
-          "label": "blinkit store 30860",
-          "points": [
-            {
-              "label": "grid r5c6",
-              "lat": 19.0728,
-              "lon": 72.88925
-            },
-            {
-              "label": "grid r6c6",
-              "lat": 19.07909,
-              "lon": 72.88925
+              "label": "grid r4c3",
+              "lat": 19.13329,
+              "lon": 72.8309
             }
           ],
           "eta_min": 8
+        },
+        {
+          "store_id": "47578",
+          "label": "blinkit store 47578",
+          "points": [
+            {
+              "label": "grid r3c3",
+              "lat": 19.12701,
+              "lon": 72.8309
+            }
+          ],
+          "eta_min": 9
         }
       ],
       "history": [
         {
           "label": "current location",
-          "lat": 19.0728,
-          "lon": 72.8826,
+          "lat": 19.1306,
+          "lon": 72.8347,
           "kind": "landmark",
-          "resolved_store": "41649",
-          "eta_min": 10,
-          "products": 211,
+          "resolved_store": "33684",
+          "eta_min": 8,
+          "products": 309,
           "error": null,
-          "sec": 37.5
-        },
-        {
-          "label": "grid r4c5",
-          "lat": 19.06651,
-          "lon": 72.8826,
-          "kind": "grid",
-          "resolved_store": "35002",
-          "eta_min": 10,
-          "products": 216,
-          "error": null,
-          "sec": 32.4
-        },
-        {
-          "label": "grid r6c5",
-          "lat": 19.07909,
-          "lon": 72.8826,
-          "kind": "grid",
-          "resolved_store": "41649",
-          "eta_min": 10,
-          "products": 211,
-          "error": null,
-          "sec": 34.4
-        },
-        {
-          "label": "grid r5c4",
-          "lat": 19.0728,
-          "lon": 72.87595,
-          "kind": "grid",
-          "resolved_store": "41649",
-          "eta_min": 10,
-          "products": 211,
-          "error": null,
-          "sec": 31.5
-        },
-        {
-          "label": "grid r5c6",
-          "lat": 19.0728,
-          "lon": 72.88925,
-          "kind": "grid",
-          "resolved_store": "30860",
-          "eta_min": 10,
-          "products": 202,
-          "error": null,
-          "sec": 37.3
+          "sec": 93.7
         },
         {
           "label": "grid r4c4",
-          "lat": 19.06651,
-          "lon": 72.87595,
+          "lat": 19.13329,
+          "lon": 72.83755,
           "kind": "grid",
-          "resolved_store": "41649",
-          "eta_min": 10,
-          "products": 211,
-          "error": null,
-          "sec": 36.2
-        },
-        {
-          "label": "grid r6c4",
-          "lat": 19.07909,
-          "lon": 72.87595,
-          "kind": "grid",
-          "resolved_store": "41649",
-          "eta_min": 10,
-          "products": 211,
-          "error": null,
-          "sec": 34.8
-        },
-        {
-          "label": "grid r4c6",
-          "lat": 19.06651,
-          "lon": 72.88925,
-          "kind": "grid",
-          "resolved_store": "35002",
-          "eta_min": 10,
-          "products": 216,
-          "error": null,
-          "sec": 37.8
-        },
-        {
-          "label": "grid r6c6",
-          "lat": 19.07909,
-          "lon": 72.88925,
-          "kind": "grid",
-          "resolved_store": "30860",
+          "resolved_store": "33684",
           "eta_min": 8,
-          "products": 202,
+          "products": 308,
           "error": null,
-          "sec": 35.0
+          "sec": 83.8
+        },
+        {
+          "label": "grid r3c4",
+          "lat": 19.12701,
+          "lon": 72.83755,
+          "kind": "grid",
+          "resolved_store": "33684",
+          "eta_min": 8,
+          "products": 286,
+          "error": null,
+          "sec": 86.0
+        },
+        {
+          "label": "grid r4c3",
+          "lat": 19.13329,
+          "lon": 72.8309,
+          "kind": "grid",
+          "resolved_store": "33684",
+          "eta_min": 9,
+          "products": 308,
+          "error": null,
+          "sec": 84.0
+        },
+        {
+          "label": "grid r3c3",
+          "lat": 19.12701,
+          "lon": 72.8309,
+          "kind": "grid",
+          "resolved_store": "47578",
+          "eta_min": 9,
+          "products": 302,
+          "error": null,
+          "sec": 87.4
         }
       ]
     }

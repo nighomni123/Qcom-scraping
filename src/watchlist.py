@@ -21,15 +21,61 @@ import time
 from .geo import Corridor
 from .locality import QC_APPS
 
-# High-velocity staples: searchable, fast-moving, OOS-prone. Override via
-# config demand.staple_queries (list). These double as the probe set's seed
-# queries — a SKU findable by search is cheap to re-probe later.
+# Unbiased, broad-coverage seed queries: we want to index as many SKUs as
+# possible across every department (grocery, paan/tobacco, wellness,
+# personal care, household, beauty, baby, ready-to-eat) — not just fast
+# grocery staples. Override via config demand.staple_queries (list). These
+# double as the probe set's seed queries — a SKU findable by search is
+# cheap to re-probe later.
 DEFAULT_STAPLES = [
-    "amul milk", "bread", "eggs", "atta", "rice", "toor dal", "maggi",
-    "curd", "paneer", "butter", "banana", "onion", "potato", "tomato",
-    "cold drinks", "chips", "biscuits", "chocolate", "tea", "coffee",
-    "cooking oil", "sugar", "salt", "detergent", "dishwash", "soap",
-    "shampoo", "toothpaste", "diapers", "bisleri water",
+    # Dairy, Breakfast & Staples
+    "amul milk", "bread", "eggs", "atta", "rice", "toor dal", "sugar", "salt",
+    "curd", "paneer", "butter", "ghee", "poha", "oats", "cornflakes", "honey",
+    "besan", "maida", "rava", "wheat", "muesli", "cereal",
+    # Produce & Fresh
+    "banana", "onion", "potato", "tomato", "apple", "coconut", "lemon",
+    "garlic", "ginger", "cucumber", "carrot", "spinach", "mango", "grapes",
+    "pomegranate", "capsicum", "cauliflower", "cabbage", "mint", "coriander",
+    # Snacks & Beverages
+    "maggi", "chips", "biscuits", "chocolate", "cold drinks", "tea", "coffee",
+    "juice", "energy drink", "namkeen", "cake", "ice cream", "popcorn",
+    "cookie", "soda", "water", "buttermilk", "lassi", "smoothie",
+    "kurkure", "nachos", "wafer", "bhelpuri", "sev", "mathri",
+    # Paan Corner & Tobacco (high-demand impulse items)
+    "cigarette", "lighter", "rolling paper", "mouth freshener", "pan masala",
+    "supari", "tobacco", "vape", "gutka", "mint", "gum", "paan", "betel leaf",
+    "zarda", "khaini", "bidi", "e-cigarette", "hookah",
+    # Personal Care, Wellness & Intimate / Contraceptives
+    "condom", "lubricant", "sanitary pad", "tampon", "shampoo", "soap",
+    "toothpaste", "toothbrush", "deodorant", "perfume", "face wash",
+    "hair oil", "skincare", "razor", "shaving cream", "diapers", "baby food",
+    "wet wipes", "body wash", "lotion", "sunscreen", "mask", "hand sanitizer",
+    "pregnancy test", "contraceptive pill", "morning after pill",
+    "viagra", "fertility test", "vaginal wash", "menstrual cup",
+    # Beauty & Grooming
+    "lipstick", "nail polish", "foundation", "eyeliner", "perfume",
+    "beard oil", "hair gel", "comb", "hair color", "sunscreen",
+    # Household & Cleaning
+    "cooking oil", "detergent", "dishwash", "floor cleaner", "toilet cleaner",
+    "tissue paper", "garbage bags", "mosquito repellent", "bulb", "battery",
+    "mop", "sponge", "brush", "air freshener", "phenyl", "bleach",
+    "laundry detergent", "stain remover", "insect spray",
+    # Instant Foods & Ready-to-Eat
+    "pasta", "noodles", "soup", "frozen food", "ketchup", "sauce",
+    "mayonnaise", "pizza", "burger", "sandwich", "instant mix", "idli mix",
+    "dosa batter", "pav bhaji", "ready meal", "biryani", "pulao",
+    # Pet Care
+    "cat food", "dog food", "pet treats", "litter", "pet shampoo",
+    # Pharma & OTC (non-prescription)
+    "crocin", "paracetamol", "antiseptic", "bandage", "ointment",
+    "cough syrup", "vitamin", "electral", "ORS", "digestive tablets",
+    "pain relief", "antacid", "antihistamine",
+    # Electronics & Misc convenience
+    "phone charger", "earphones", "cable", "power bank", "usb",
+    "candle", "matches", "envelope", "gift wrap", "balloon",
+    # Adult & Recreational (to avoid blind spots in demand analytics)
+    "beer", "wine", "whisky", "vodka", "gin", "rum", "alcopop",
+    "rolling tray", "grinder", "bong", "glass pipe",
 ]
 
 
@@ -41,6 +87,9 @@ class WatchlistBuilder:
         self.categories = int(dem.get("categories_per_store", 6))
         self.staples = list(dem.get("staple_queries") or DEFAULT_STAPLES)
         self.default_cap = int(dem.get("watchlist_max_per_store", 300))
+        # Unbiased harvesting: keep every discovered SKU and never prune the
+        # overflow so the catalog is as complete as the app exposes.
+        self.unbiased = bool(dem.get("unbiased_harvest", False))
 
     def _make_adapter(self, app):
         corridor = Corridor(self.cfg.get("geo", {}).get("corridor", []) or [])
@@ -96,15 +145,24 @@ class WatchlistBuilder:
                 "score": round(score, 2),
             }
         ranked = sorted(agg.values(), key=lambda r: (-r["score"], str(r["name"])))
-        for i, r in enumerate(ranked):
-            r["active"] = i < cap
-        self.db.upsert_watchlist(app, store_id, ranked)
-        self.db.deactivate_watchlist_except(app, store_id, [r["sku_key"] for r in ranked])
+        if self.unbiased:
+            # Keep ALL discovered SKUs active so the full catalog is indexed;
+            # the prober will still prioritize by score but observations are
+            # never lost. No deactivation of overflow.
+            for r in ranked:
+                r["active"] = True
+            self.db.upsert_watchlist(app, store_id, ranked)
+        else:
+            for i, r in enumerate(ranked):
+                r["active"] = i < cap
+            self.db.upsert_watchlist(app, store_id, ranked)
+            self.db.deactivate_watchlist_except(app, store_id, [r["sku_key"] for r in ranked])
         n_oos = sum(1 for r in ranked if r["in_stock"] is False)
         n_stock_known = sum(1 for r in ranked if r["in_stock"] is not None)
+        active_n = sum(1 for r in ranked if r["active"])
         print(f"[watchlist] {app}/{store_id}: {len(ranked)} SKUs seen "
               f"({n_stock_known} stock-stamped, {n_oos} OOS at build) -> "
-              f"active={min(cap, len(ranked))} · {time.time() - t0:.0f}s")
+              f"active={active_n} · {time.time() - t0:.0f}s")
         for r in ranked[:8]:
             flag = "OOS" if r["in_stock"] is False else "ok " if r["in_stock"] else "?  "
             print(f"    [{flag}] {str(r['name'])[:52]:<54} ₹{r['price']}  "

@@ -1,0 +1,4273 @@
+{
+  "paan": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 20,
+      "products": [
+        {
+          "name": "Banarasi Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Mitha Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 220,
+          "offer": 194,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Paan Mouth Freshener Shots",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Dizzle",
+          "mrp": 170,
+          "offer": 130,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Bel Patra (Belachi Paan)",
+          "brand": "Freshbury",
+          "mrp": 22,
+          "offer": 19,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Choco Paan Dates",
+          "brand": "Paancho",
+          "mrp": 50,
+          "offer": 47,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "PK's Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 190,
+          "offer": 190,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Paan Mouth Freshener Combo",
+          "brand": "Swad",
+          "mrp": 697,
+          "offer": 499,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Thanda Paan Mouth Spray",
+          "brand": "Spraymintt",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Pure Chaitri Roses Gulkand",
+          "brand": "The Little Farm Co.",
+          "mrp": 260,
+          "offer": 224,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Amla Gulkand",
+          "brand": "Aazol",
+          "mrp": 374,
+          "offer": 340,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Honey Gulkand",
+          "brand": "Mittal Organics",
+          "mrp": 450,
+          "offer": 299,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Rose Petal Gulkand",
+          "brand": "Urban Platter",
+          "mrp": 250,
+          "offer": 233,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Organic Gulkand",
+          "brand": "Kapiva",
+          "mrp": 515,
+          "offer": 470,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugar Free Gulkand",
+          "brand": "Vistevia",
+          "mrp": 339,
+          "offer": 299,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Elaichi Mouth Freshener",
+          "brand": "Rajnigandha Silver Pearl",
+          "mrp": 75,
+          "offer": 68,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Peppermint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Saunf Elaichi Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 11,
+      "products": [
+        {
+          "name": "Calcutta Paan Mukhwas",
+          "brand": "Joyspoon",
+          "mrp": 219.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sfb Elaichai",
+          "brand": "BABA",
+          "mrp": 150.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "5in1 Mix Mouth Freshener & Digestives",
+          "brand": "Joyspoon",
+          "mrp": 299.0,
+          "offer": 150.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasshehanshai Paan Mix",
+          "brand": "Chandan",
+          "mrp": 180.0,
+          "offer": 140.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sugar Free Strip | Elachimint",
+          "brand": "MOUNTAIN BREEZE",
+          "mrp": 150.0,
+          "offer": 144.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasevergreen Paan Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 104.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Elaichi Souf",
+          "brand": "Chandan",
+          "mrp": 50.0,
+          "offer": 44.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Pudina Vati",
+          "brand": "Chandan",
+          "mrp": 190.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Sweety Imli",
+          "brand": "Chandan",
+          "mrp": 155.0,
+          "offer": 149.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Kashmiri Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 123.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Futura 28 Cm Dosa Tava Non Stick Dosa Tawa Small Dosa Tawa - Black",
+          "brand": "Hawkins",
+          "mrp": 1575.0,
+          "offer": 1417.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 17,
+      "products": [
+        {
+          "name": "Desi Rajwadi Mix Mukhwas",
+          "brand": "Non-brand",
+          "mrp": "250",
+          "offer": "119",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Rajwadi Saunf Mixture",
+          "brand": "On1y",
+          "mrp": "199",
+          "offer": "169",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Choco Dates Paan",
+          "brand": "Paancho",
+          "mrp": "50",
+          "offer": "50",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Rose Gulkand Jar",
+          "brand": "The Betel Leaf Co",
+          "mrp": "250",
+          "offer": "219",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Nicotine Gums Ultra Mint Flavour 2Mg",
+          "brand": "Nicotex",
+          "mrp": "184",
+          "offer": "136",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Nicotine Gums Ultra Mint Flavour 2Mg",
+          "brand": "Nicotex",
+          "mrp": "92",
+          "offer": "68",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Big Lozenges Mint Plus 2MG",
+          "brand": "Nicotex",
+          "mrp": "94",
+          "offer": "86",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Paan Nawaabi Ice Cream Tub",
+          "brand": "Amul",
+          "mrp": "215",
+          "offer": "215",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Desi Adrak Pachak",
+          "brand": "Non-brand",
+          "mrp": "350",
+          "offer": "163",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Desi Amrit harad",
+          "brand": "Non-brand",
+          "mrp": "150",
+          "offer": "77",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Perforated Wide Tips / Roach",
+          "brand": "Raw",
+          "mrp": "50",
+          "offer": "50",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Nicotine Gums-Paan Bliss Tobacco Control Aid Sugar Free",
+          "brand": "Nicosure",
+          "mrp": "101",
+          "offer": "86",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Nicotine Gums-Paan Bliss Tobacco Control Aid Sugar Free",
+          "brand": "Nicosure",
+          "mrp": "505",
+          "offer": "379",
+          "avail": false,
+          "store": "1135721"
+        },
+        {
+          "name": "Nicotine Gums-Paan Bliss Tobacco Control Aid Sugar Free",
+          "brand": "Nicosure",
+          "mrp": "303",
+          "offer": "243",
+          "avail": false,
+          "store": "1135721"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Round Glass Ashtray",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "399",
+          "offer": "144",
+          "avail": true,
+          "store": "1135721"
+        },
+        {
+          "name": "Smokey Lust  Silicon Hookah Chillum (Colour May Vary)",
+          "brand": "STASH PRO",
+          "mrp": "400",
+          "offer": "219",
+          "avail": true,
+          "store": "1135721"
+        }
+      ]
+    }
+  },
+  "cigarette": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 15,
+      "products": [
+        {
+          "name": "Jetty Windproof Lighter",
+          "brand": "Stash Pro",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Reusable Lighter",
+          "brand": "Clipper",
+          "mrp": 70,
+          "offer": 70,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Black Lighter",
+          "brand": "Cocoyaya",
+          "mrp": 40,
+          "offer": 30,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Printed Lighter (Print May Vary)",
+          "brand": "Cocoyaya",
+          "mrp": 40,
+          "offer": 30,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Gas Lighter (Stainless Steel)",
+          "brand": "Quick Click Goods",
+          "mrp": 199,
+          "offer": 149,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Refillable & Reusable Clipper Lighter",
+          "brand": "Clipper",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Techno Arc Dual Plasma Rechargeable Electric Lighter",
+          "brand": "Blaze Up",
+          "mrp": 700,
+          "offer": 599,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Flinto Lighter",
+          "brand": "Bongchie",
+          "mrp": 50,
+          "offer": 35,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Stashy Lighter",
+          "brand": "Stash Pro",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "E-Grip Lighter (Colour may Vary)",
+          "brand": "Stash Pro",
+          "mrp": 100,
+          "offer": 100,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Rechargeable Electric Gas Lighter (Stainless Steel)",
+          "brand": "Makbro",
+          "mrp": 599,
+          "offer": 235,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Maxi Lighter (Colour may Vary)",
+          "brand": "Stash Pro",
+          "mrp": 95,
+          "offer": 95,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Gas Lighter (Stainless Steel)",
+          "brand": "Fackelmann",
+          "mrp": 299,
+          "offer": 119,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "USB Plasma Rechargeable Electric Lighter",
+          "brand": "Lazer",
+          "mrp": 499,
+          "offer": 259,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Cyber Baddie Rechargeable Dual Arc Lighter",
+          "brand": "Blaze Up",
+          "mrp": 900,
+          "offer": 599,
+          "avail": true,
+          "store": 39527
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 21,
+      "products": [
+        {
+          "name": "Orange Lite Smoking Cigarettes Filter",
+          "brand": "Cigibud",
+          "mrp": 70.0,
+          "offer": 70.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "NicofreeCigarette Smoking Filter",
+          "brand": "TRP ESSENTIALS",
+          "mrp": 80.0,
+          "offer": 80.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Prm Blue Fresh Mint Cigarette",
+          "brand": "Gold Flake",
+          "mrp": 115.0,
+          "offer": 115.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Refined Taste Cigarette (Ultra Mild)",
+          "brand": "Classic",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Indie Mint cigarette",
+          "brand": "Gold Flake",
+          "mrp": 115.0,
+          "offer": 115.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Fuse Beyond Cigarettes | Double Switch",
+          "brand": "Marlboro",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Connect Cigarette",
+          "brand": "Classic",
+          "mrp": 390.0,
+          "offer": 390.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Super Star",
+          "brand": "Gold Flake",
+          "mrp": 79.0,
+          "offer": 79.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Ice Burst Fresh Mint Cigarettes",
+          "brand": "Classic",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "King's Blue Cigarette (Gold Flake Lights)",
+          "brand": "Gold Flake",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mint Up",
+          "brand": "Focus",
+          "mrp": 60.0,
+          "offer": 60.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Balanced Taste Cigarette (Classic Mild)",
+          "brand": "Classic",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Balanced Taste Cigarette (Classic Mild)",
+          "brand": "Classic",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Gold Light",
+          "brand": "Marlboro",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Duos Double Shift",
+          "brand": "Stellar",
+          "mrp": 390.0,
+          "offer": 390.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Filter Black Kretek",
+          "brand": "Marlboro",
+          "mrp": 270.0,
+          "offer": 270.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Gold Advance Cigarettes",
+          "brand": "Marlboro",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Gold Smooth",
+          "brand": "Cavanders",
+          "mrp": 58.0,
+          "offer": 58.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Vista Forest Fusion Cigarettes",
+          "brand": "Marlboro",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Kings Red Cigarette (Gold Flake Kings)",
+          "brand": "Gold Flake",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Crush Cigarettes",
+          "brand": "Four Square",
+          "mrp": 105.0,
+          "offer": 105.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 22,
+      "products": [
+        {
+          "name": "Booklet of 32 Brown Leaves and 32 Tips (King Sized)",
+          "brand": "Original Gangster",
+          "mrp": "90",
+          "offer": "90",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Classic King Size Slim White Rolling Paper",
+          "brand": "Raw",
+          "mrp": "80",
+          "offer": "80",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pro|Smoking Filter To Reduce Tar And Harmful Substances Green",
+          "brand": "Cigibud",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Easy, Round Glass Ashtray",
+          "brand": "Bongchie",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "165",
+          "offer": "99",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "110",
+          "offer": "66",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "55",
+          "offer": "33",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Jungle Blend",
+          "brand": "Chimp x Herbs",
+          "mrp": "690",
+          "offer": "690",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Whisky Smoke Eau De Perfume",
+          "brand": "Beardo",
+          "mrp": "399",
+          "offer": "300",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Whisky Smoke Eau De Perfume",
+          "brand": "Beardo",
+          "mrp": "699",
+          "offer": "450",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Liquid Smoke Mesquite",
+          "brand": "COLGIN",
+          "mrp": "1200",
+          "offer": "1200",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "236 Reg Black Crackle",
+          "brand": "Zippo",
+          "mrp": "3749",
+          "offer": "2999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "20",
+          "offer": "15",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pork Breakfast Bacon | Cured & Smoked Imported Pork | India's No.1 Bacon",
+          "brand": "Prasuma",
+          "mrp": "420",
+          "offer": "378",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pork Breakfast Bacon | Cured & Smoked Imported Pork | India's No.1 Bacon",
+          "brand": "Prasuma",
+          "mrp": "840",
+          "offer": "756",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Bourbon Whisky Smoke Perfume For Men Oriental Woody Leathery",
+          "brand": "Beardo",
+          "mrp": "999",
+          "offer": "283",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Naagin Sauce - Smoking Hot Bhoot Chips",
+          "brand": "Too Yumm!",
+          "mrp": "40",
+          "offer": "30",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Naagin Sauce - Smoking Hot Bhoot Chips",
+          "brand": "Too Yumm!",
+          "mrp": "60",
+          "offer": "45",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Smoked Chicken Cocktail Sausage",
+          "brand": "Buffet",
+          "mrp": "180",
+          "offer": "162",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Smoked Tofu (Firm & coal smoked)",
+          "brand": "Health on Plants",
+          "mrp": "185",
+          "offer": "157",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Cheese Smoked Cheddar",
+          "brand": "Nutoras",
+          "mrp": "265",
+          "offer": "257",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "gutkha": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 6,
+      "products": [
+        {
+          "name": "Mix Tobacco-Free Gutkha Alternative Granules",
+          "brand": "Smotect Azaadi",
+          "mrp": 500,
+          "offer": 390,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Banarasi Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Mitha Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 220,
+          "offer": 194,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Paan Mouth Freshener Shots",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Dizzle",
+          "mrp": 170,
+          "offer": 130,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 3,
+      "products": [
+        {
+          "name": "Sfb Elaichai",
+          "brand": "BABA",
+          "mrp": 150.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Calcutta Mitha Paan Tower",
+          "brand": "Chandan",
+          "mrp": 220.0,
+          "offer": 193.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sugar Free Strip | Elachimint",
+          "brand": "MOUNTAIN BREEZE",
+          "mrp": 150.0,
+          "offer": 144.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 1,
+      "products": [
+        {
+          "name": "24k Gold-Plated Red & White AD-Studded & Beige Beaded Handcrafted Maang Tikka",
+          "brand": "Aatmana",
+          "mrp": "2249",
+          "offer": "609",
+          "avail": false,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "pan masala": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 15,
+      "products": [
+        {
+          "name": "Elaichi Mouth Freshener",
+          "brand": "Rajnigandha Silver Pearl",
+          "mrp": 75,
+          "offer": 68,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Calcutta Mitha Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 220,
+          "offer": 194,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Banarasi Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Paan Mouth Freshener Shots",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Dizzle",
+          "mrp": 170,
+          "offer": 130,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Peppermint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Saunf Elaichi Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Star 5 in 1 Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 280,
+          "offer": 169,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugar Free Mint Candies (Fresh Mints)",
+          "brand": "Impact",
+          "mrp": 150,
+          "offer": 150,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Lemonmint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 48,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Anardana Punch Anardana Goli",
+          "brand": "Chandan",
+          "mrp": 160,
+          "offer": 144,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mouth Spray - Instant Fresh Breath (SCO)",
+          "brand": "Perfora",
+          "mrp": 159,
+          "offer": 159,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Aam Papad",
+          "brand": "Chandan",
+          "mrp": 190,
+          "offer": 143,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Cool Mint Breath Strips Pocketpaks",
+          "brand": "Listerine",
+          "mrp": 365,
+          "offer": 365,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 13,
+      "products": [
+        {
+          "name": "Elaichi Souf",
+          "brand": "Chandan",
+          "mrp": 50.0,
+          "offer": 44.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Pudina Vati",
+          "brand": "Chandan",
+          "mrp": 190.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasshehanshai Paan Mix",
+          "brand": "Chandan",
+          "mrp": 180.0,
+          "offer": 140.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Sweety Imli",
+          "brand": "Chandan",
+          "mrp": 155.0,
+          "offer": 149.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Calcutta Paan Mukhwas",
+          "brand": "Joyspoon",
+          "mrp": 219.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Kashmiri Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 123.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasevergreen Paan Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 104.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "5in1 Mix Mouth Freshener & Digestives",
+          "brand": "Joyspoon",
+          "mrp": 299.0,
+          "offer": 150.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Calcutta Mitha Paan Tower",
+          "brand": "Chandan",
+          "mrp": 220.0,
+          "offer": 193.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Chocorich Eclairs Chocolate Party Pack",
+          "brand": "Luvit",
+          "mrp": 134.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Paneer Masala Maggi",
+          "brand": "Zepto Cafe",
+          "mrp": 169.0,
+          "offer": 139.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sourzzz | Shockingly Sour Candy | Free Toy inside",
+          "brand": "Candyman",
+          "mrp": 50.0,
+          "offer": 45.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Pan Masala Flavour Cigars",
+          "brand": "Luvin",
+          "mrp": 120.0,
+          "offer": 120.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 15,
+      "products": [
+        {
+          "name": "Meetha Pan Masala",
+          "brand": "Rajnigandha",
+          "mrp": "300",
+          "offer": "300",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Flavoured Pan Masala",
+          "brand": "Rajnigandha",
+          "mrp": "350",
+          "offer": "350",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Saffron Pan Masala",
+          "brand": "Rajnigandha",
+          "mrp": "350",
+          "offer": "350",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Natural Paan Artisan Gulkand",
+          "brand": "Praakritik",
+          "mrp": "339",
+          "offer": "313",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rose Gulkand Jar",
+          "brand": "The Betel Leaf Co",
+          "mrp": "250",
+          "offer": "219",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Mint",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Original",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH PREMIUM BLACK PIPE WITH STELL MOUTH",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "500",
+          "offer": "316",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Booklet of 32 Brown Leaves and 32 Tips (King Sized)",
+          "brand": "Original Gangster",
+          "mrp": "90",
+          "offer": "90",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Classic King Size Slim White Rolling Paper",
+          "brand": "Raw",
+          "mrp": "80",
+          "offer": "80",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pro|Smoking Filter To Reduce Tar And Harmful Substances Green",
+          "brand": "Cigibud",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rubber Tube",
+          "brand": "Hakuna",
+          "mrp": "350",
+          "offer": "347",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Ajowan Goli Candy",
+          "brand": "Jaina Silpa Mandir",
+          "mrp": "220",
+          "offer": "220",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Easy, Round Glass Ashtray",
+          "brand": "Bongchie",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "tobacco": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 15,
+      "products": [
+        {
+          "name": "Mix Tobacco-Free Gutkha Alternative Granules",
+          "brand": "Smotect Azaadi",
+          "mrp": 500,
+          "offer": 390,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Aayush Herbal Masala - No Tobacco & Supari (60 Sachets)",
+          "brand": "Aayush Wellness",
+          "mrp": 720,
+          "offer": 499,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Jetty Windproof Lighter",
+          "brand": "Stash Pro",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Reusable Lighter",
+          "brand": "Clipper",
+          "mrp": 70,
+          "offer": 70,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Black Lighter",
+          "brand": "Cocoyaya",
+          "mrp": 40,
+          "offer": 30,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Printed Lighter (Print May Vary)",
+          "brand": "Cocoyaya",
+          "mrp": 40,
+          "offer": 30,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Gas Lighter (Stainless Steel)",
+          "brand": "Quick Click Goods",
+          "mrp": 199,
+          "offer": 149,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Refillable & Reusable Clipper Lighter",
+          "brand": "Clipper",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Techno Arc Dual Plasma Rechargeable Electric Lighter",
+          "brand": "Blaze Up",
+          "mrp": 700,
+          "offer": 599,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Flinto Lighter",
+          "brand": "Bongchie",
+          "mrp": 50,
+          "offer": 35,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Stashy Lighter",
+          "brand": "Stash Pro",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "E-Grip Lighter (Colour may Vary)",
+          "brand": "Stash Pro",
+          "mrp": 100,
+          "offer": 100,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Rechargeable Electric Gas Lighter (Stainless Steel)",
+          "brand": "Makbro",
+          "mrp": 599,
+          "offer": 235,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Maxi Lighter (Colour may Vary)",
+          "brand": "Stash Pro",
+          "mrp": 95,
+          "offer": 95,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Gas Lighter (Stainless Steel)",
+          "brand": "Fackelmann",
+          "mrp": 299,
+          "offer": 119,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 12,
+      "products": [
+        {
+          "name": "Stash Pro Ufo Grinder Crusher Pink",
+          "brand": "Stash-Pro",
+          "mrp": 1600.0,
+          "offer": 1600.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stash Pro Ufo Grinder Crusher Black",
+          "brand": "Stash-Pro",
+          "mrp": 1600.0,
+          "offer": 1280.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stash-Pro Silicon Grinder Crusher| Large",
+          "brand": "STASH PRO",
+          "mrp": 1400.0,
+          "offer": 1035.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Ice Burst Fresh Mint Cigarettes",
+          "brand": "Classic",
+          "mrp": 240.0,
+          "offer": 240.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Classic Fine Taste Low Smell",
+          "brand": "Wills",
+          "mrp": 480.0,
+          "offer": 480.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stash-Pro Tower Grinder Crusher",
+          "brand": "STASH PRO",
+          "mrp": 1149.0,
+          "offer": 1053.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Odonil Blissful Citrus Zipper Air Freshener",
+          "brand": "Dabur Home Care",
+          "mrp": 60.0,
+          "offer": 55.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Italian Mandarin Gel Pocket",
+          "brand": "Freshzap",
+          "mrp": 60.0,
+          "offer": 49.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Odonil Mystic Rose Air Freshener Blocks",
+          "brand": "Dabur Home Care",
+          "mrp": 58.0,
+          "offer": 55.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Magai Paan Herbal Molasses (Tobacco Free) Hookah Flavour",
+          "brand": "Soex",
+          "mrp": 100.0,
+          "offer": 100.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Watermelon Herbal Molasses Hookah Flavour (Tobacco Free)",
+          "brand": "Soex",
+          "mrp": 100.0,
+          "offer": 100.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Chief Commissioner Herbal Molasses (Tobacco Free) Hookah Flavour",
+          "brand": "Soex",
+          "mrp": 100.0,
+          "offer": 100.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 22,
+      "products": [
+        {
+          "name": "Booklet of 32 Brown Leaves and 32 Tips (King Sized)",
+          "brand": "Original Gangster",
+          "mrp": "90",
+          "offer": "90",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Jungle Blend",
+          "brand": "Chimp x Herbs",
+          "mrp": "690",
+          "offer": "690",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pro|Smoking Filter To Reduce Tar And Harmful Substances Green",
+          "brand": "Cigibud",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Easy, Round Glass Ashtray",
+          "brand": "Bongchie",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Cheese Smoked Cheddar",
+          "brand": "Nutoras",
+          "mrp": "265",
+          "offer": "257",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Whisky Smoke Eau De Perfume",
+          "brand": "Beardo",
+          "mrp": "399",
+          "offer": "300",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Whisky Smoke Eau De Perfume",
+          "brand": "Beardo",
+          "mrp": "699",
+          "offer": "450",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Burning Tobacco For Men",
+          "brand": "French Connection",
+          "mrp": "1499",
+          "offer": "998",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "165",
+          "offer": "99",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "110",
+          "offer": "66",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "55",
+          "offer": "33",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Aroma Swing Combo: Blue Aqua, Black Amber, Anti Tobacco and Lavish Green Car perfume | Essential Oils in Glass Bottle with Wooden Diffuser Lid",
+          "brand": "Airganic",
+          "mrp": "1996",
+          "offer": "291",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pork Breakfast Bacon | Cured & Smoked Imported Pork | India's No.1 Bacon",
+          "brand": "Prasuma",
+          "mrp": "420",
+          "offer": "378",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pork Breakfast Bacon | Cured & Smoked Imported Pork | India's No.1 Bacon",
+          "brand": "Prasuma",
+          "mrp": "840",
+          "offer": "756",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Bourbon Whisky Smoke Perfume For Men Oriental Woody Leathery",
+          "brand": "Beardo",
+          "mrp": "999",
+          "offer": "283",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Smoked Chicken Cocktail Sausage",
+          "brand": "Buffet",
+          "mrp": "180",
+          "offer": "162",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Too Yumm Smoking Hot Bhoot Potato Chips, No Palm Oil Healthy Spicy Chips, 35% Less Saturated Fats",
+          "brand": "Too Yumm!",
+          "mrp": "20",
+          "offer": "15",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "236 Reg Black Crackle",
+          "brand": "Zippo",
+          "mrp": "3749",
+          "offer": "2999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Naagin Sauce - Smoking Hot Bhoot Chips",
+          "brand": "Too Yumm!",
+          "mrp": "40",
+          "offer": "30",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Naagin Sauce - Smoking Hot Bhoot Chips",
+          "brand": "Too Yumm!",
+          "mrp": "60",
+          "offer": "45",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Smoked Tofu (Firm & coal smoked)",
+          "brand": "Health on Plants",
+          "mrp": "185",
+          "offer": "157",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "bidi": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 1,
+      "products": [
+        {
+          "name": "Showerproof Battery Powered Male Body Trimmer with Bidirectional Blade",
+          "brand": "Philips",
+          "mrp": 1645,
+          "offer": 1099,
+          "avail": false,
+          "store": 39527
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 20,
+      "products": [
+        {
+          "name": "Stone Bindi No.2 | Beauty Accessory",
+          "brand": "Se7en",
+          "mrp": 47.0,
+          "offer": 32.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Maroon Bindi | 6 mm | Traditional Wear",
+          "brand": "Se7en",
+          "mrp": 41.0,
+          "offer": 26.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Red | 1 Flap | Size 7 Diameter 4 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 30.0,
+          "offer": 28.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Bindi Light Maroon | 1 Flap | Size 11 Diameter 1.5 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 30.0,
+          "offer": 27.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Multicolor Bindi | 2 Flaps |Size 4 & 6 Diameter 6 mm & 4.2 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 60.0,
+          "offer": 52.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Maroon Bindi - 8 mm",
+          "brand": "Se7en",
+          "mrp": 41.0,
+          "offer": 26.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stone Bindi No.1 | Beauty Accessory",
+          "brand": "Se7en",
+          "mrp": 39.0,
+          "offer": 27.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Black Bindi No.2 | Beauty Accessory",
+          "brand": "Se7en",
+          "mrp": 41.0,
+          "offer": 26.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Chand Range Saas Waterproof Bindi | Medium Size | Maroon",
+          "brand": "The Opal Factory",
+          "mrp": 29.0,
+          "offer": 28.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Bindi Dark Maroon | 1 Flap | Size 1 Diameter 13 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 30.0,
+          "offer": 27.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Multicolor Bindi | 2 Flaps |Size 6 & 7 Diameter 4.2 mm & 4 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 60.0,
+          "offer": 52.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Black Bindi | 1 Flap | Size 1 Diameter 13 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 30.0,
+          "offer": 27.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Bindi Dark Maroon & Black | 2 Flaps |Size -10 Diameter 13 mm| Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 60.0,
+          "offer": 51.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Multicolor Bindi | 1 Flap | Size 3 Diameter 8 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 30.0,
+          "offer": 29.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Multi Color Bindi - 6 mm",
+          "brand": "Se7en",
+          "mrp": 47.0,
+          "offer": 32.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Bindi Dark Maroon | 2 Flaps |Size 9Diameter 2 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 60.0,
+          "offer": 51.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Waterproof Bindi | Maroon Black Multi - 7 mm",
+          "brand": "The Opal Factory",
+          "mrp": 29.0,
+          "offer": 28.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stone Bindi For Women | Golden | 1 Flap",
+          "brand": "PERPAA",
+          "mrp": 50.0,
+          "offer": 46.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Bindi Dark Maroon & Black | 2 Flaps |Size 11Diameter 1.5 mm | Round Kumkum Bindi for women",
+          "brand": "PERPAA",
+          "mrp": 60.0,
+          "offer": 50.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Stone Bindi - No.3",
+          "brand": "Se7en",
+          "mrp": 47.0,
+          "offer": 30.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 8,
+      "products": [
+        {
+          "name": "Easy, Round Glass Ashtray",
+          "brand": "Bongchie",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pro|Smoking Filter To Reduce Tar And Harmful Substances Green",
+          "brand": "Cigibud",
+          "mrp": "350",
+          "offer": "350",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "236 Reg Black Crackle",
+          "brand": "Zippo",
+          "mrp": "3749",
+          "offer": "2999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Booklet of 32 Brown Leaves and 32 Tips (King Sized)",
+          "brand": "Original Gangster",
+          "mrp": "90",
+          "offer": "90",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Jungle Blend",
+          "brand": "Chimp x Herbs",
+          "mrp": "690",
+          "offer": "690",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Smokey Lust  Silicon Hookah Chillum (Colour May Vary)",
+          "brand": "STASH PRO",
+          "mrp": "400",
+          "offer": "219",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Classic King Size Slim White Rolling Paper",
+          "brand": "Raw",
+          "mrp": "80",
+          "offer": "80",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "mouth freshener": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 36,
+      "products": [
+        {
+          "name": "Thanda Paan Mouth Spray",
+          "brand": "Spraymintt",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Wave Sugarfree Mint Chewing Gum 18 Pcs",
+          "brand": "Happydent",
+          "mrp": 50,
+          "offer": 47,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Saunf Elaichi Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Peppermint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "SaunfShiver Mouth Spray",
+          "brand": "Spraymintt",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Star 5 in 1 Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 280,
+          "offer": 169,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mouth Spray - Instant Fresh Breath (SCO)",
+          "brand": "Perfora",
+          "mrp": 159,
+          "offer": 159,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Elaichi Mouth Freshener",
+          "brand": "Rajnigandha Silver Pearl",
+          "mrp": 75,
+          "offer": 68,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "BreezBerry Mouth Spray",
+          "brand": "Spraymintt",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Regal Rose Mix Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 160,
+          "offer": 137,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "PK's Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugar Free Mint Candies (Fresh Mints)",
+          "brand": "Impact",
+          "mrp": 150,
+          "offer": 150,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Elaichill Mouth Spray",
+          "brand": "Spraymintt",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Lemonmint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 48,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Anardana Punch Anardana Goli",
+          "brand": "Chandan",
+          "mrp": 160,
+          "offer": 144,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Aam Papad",
+          "brand": "Chandan",
+          "mrp": 190,
+          "offer": 143,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Minty Mix Mouth Freshener",
+          "brand": "Pass Pass",
+          "mrp": 120,
+          "offer": 92,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Cool Mint Breath Strips Pocketpaks",
+          "brand": "Listerine",
+          "mrp": 365,
+          "offer": 365,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Banarasi Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Sweet & Sour Dried Mango Slices",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Spearmint Flavour Sugar Free Chewing Gum",
+          "brand": "Orbit",
+          "mrp": 100,
+          "offer": 93,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Minty Burst Mint Candies",
+          "brand": "Tic Tac",
+          "mrp": 90,
+          "offer": 86,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Jeera Goli",
+          "brand": "Chandan",
+          "mrp": 45,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Calcutta Mitha Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 220,
+          "offer": 194,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Spearmint Sugarfree Chewing Gum",
+          "brand": "Orbit",
+          "mrp": 150,
+          "offer": 128,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Hing Peda & Mouth Freshener Goli",
+          "brand": "Shadani",
+          "mrp": 276,
+          "offer": 276,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Paan Mouth Freshener Shots",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Aam Chaska Mango Candy",
+          "brand": "Chaska Bite",
+          "mrp": 300,
+          "offer": 195,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Special Masala Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugandhi Khajoor Mouth Freshener",
+          "brand": "Milan",
+          "mrp": 300,
+          "offer": 300,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Rajasthani Mukhwas Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 264,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Handmade Ginger Chatpata Mouth Freshener",
+          "brand": "Maharana",
+          "mrp": 430,
+          "offer": 395,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Calcutta Paan Mouth Freshener",
+          "brand": "Dizzle",
+          "mrp": 170,
+          "offer": 130,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Mint Saunf Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Jaljeera Shots",
+          "brand": "Mr. Merchant",
+          "mrp": 280,
+          "offer": 279,
+          "avail": true,
+          "store": 39527
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 19,
+      "products": [
+        {
+          "name": "Elaichi Souf",
+          "brand": "Chandan",
+          "mrp": 50.0,
+          "offer": 44.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Alcohol Free Watermelon Mint Mouthwash with Vitamin C & Hyaluronic Acid For Fresh Breath",
+          "brand": "Dr.Dento",
+          "mrp": 200.0,
+          "offer": 164.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "(Elaichi) Mouth Freshener Spray",
+          "brand": "Spraymintt",
+          "mrp": 99.0,
+          "offer": 90.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Alcohol Free Cucumber Mint Mouthwash with Vitamin C & Hyaluronic Acid For Fresh Breath",
+          "brand": "Dr.Dento",
+          "mrp": 200.0,
+          "offer": 164.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "s Sugar Free Fresh",
+          "brand": "Impact Mint",
+          "mrp": 150.0,
+          "offer": 150.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Alcohol Free Mouthwash (with Probiotics)",
+          "brand": "Perfora",
+          "mrp": 219.0,
+          "offer": 201.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Calcutta Paan Mukhwas",
+          "brand": "Joyspoon",
+          "mrp": 219.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouthwash Complete Protection+ (0% Alcohol) for All Round Protection",
+          "brand": "Sensodyne",
+          "mrp": 130.0,
+          "offer": 99.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "5in1 Mix Mouth Freshener & Digestives",
+          "brand": "Joyspoon",
+          "mrp": 299.0,
+          "offer": 150.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwascoated Fennel Mix",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 129.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Saunf Delight Mix Mouth Freshener",
+          "brand": "Pass Pass",
+          "mrp": 120.0,
+          "offer": 98.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Saunf Delight Mix Mouth Freshener Combo",
+          "brand": "Pass Pass",
+          "mrp": 240.0,
+          "offer": 192.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Pudina Vati",
+          "brand": "Chandan",
+          "mrp": 190.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Clove Mouth Pulling Oil | Ayurvedic Mouthwash with Coconut For Fresh Breath",
+          "brand": "Blue Nectar",
+          "mrp": 575.0,
+          "offer": 415.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sugar Free Strip | Elachimint",
+          "brand": "MOUNTAIN BREEZE",
+          "mrp": 150.0,
+          "offer": 144.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "s Sugar Free Ice",
+          "brand": "Impact Mint",
+          "mrp": 150.0,
+          "offer": 128.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Sfb Elaichai",
+          "brand": "BABA",
+          "mrp": 150.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "(Thandapan) Mouth Freshener Spray",
+          "brand": "Spraymintt",
+          "mrp": 99.0,
+          "offer": 90.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasshehanshai Paan Mix",
+          "brand": "Chandan",
+          "mrp": 180.0,
+          "offer": 140.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 27,
+      "products": [
+        {
+          "name": "White Sugarfree Spearmint Chewing Gum Pb",
+          "brand": "Happydent",
+          "mrp": "50",
+          "offer": "47",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Marshmelts Veg Marshmallow Vanilla Mist",
+          "brand": "Kandee Factory",
+          "mrp": "209",
+          "offer": "208",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Wave Sugarfree Mint Flavour Chewing Gum PB",
+          "brand": "Happydent",
+          "mrp": "100",
+          "offer": "84",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Wave Sugarfree Mint Flavour Chewing Gum PB",
+          "brand": "Happydent",
+          "mrp": "200",
+          "offer": "180",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Wave Sugarfree Mint Flavour Chewing Gum PB",
+          "brand": "Happydent",
+          "mrp": "50",
+          "offer": "45",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Marshmelts Smores Pack",
+          "brand": "Kandee Factory",
+          "mrp": "359",
+          "offer": "358",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pure Fresh Sugarfree Spearmint Chewing Gum Pb",
+          "brand": "Mentos",
+          "mrp": "200",
+          "offer": "170",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pure Fresh Sugarfree Spearmint Chewing Gum Pb",
+          "brand": "Mentos",
+          "mrp": "100",
+          "offer": "92",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Original",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Mint",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Natural Paan Artisan Gulkand",
+          "brand": "Praakritik",
+          "mrp": "339",
+          "offer": "313",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Organic Saunf /Fennel",
+          "brand": "Organeekz",
+          "mrp": "124",
+          "offer": "94",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Organic Saunf /Fennel",
+          "brand": "Organeekz",
+          "mrp": "62",
+          "offer": "47",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rose Gulkand Jar",
+          "brand": "The Betel Leaf Co",
+          "mrp": "250",
+          "offer": "219",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Minto Fresh Hard Candy for Instant Minty Freshness",
+          "brand": "Candyman",
+          "mrp": "200",
+          "offer": "146",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Minto Fresh Hard Candy for Instant Minty Freshness",
+          "brand": "Candyman",
+          "mrp": "100",
+          "offer": "73",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Desi Amrit harad",
+          "brand": "Non-brand",
+          "mrp": "150",
+          "offer": "77",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Saunf Big (Fennel Big)",
+          "brand": "Supreme Harvest",
+          "mrp": "380",
+          "offer": "150",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Saunf Big (Fennel Big)",
+          "brand": "Supreme Harvest",
+          "mrp": "190",
+          "offer": "75",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Ajowan Goli Candy",
+          "brand": "Jaina Silpa Mandir",
+          "mrp": "220",
+          "offer": "220",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Cinnamon Mint Mouth Wash",
+          "brand": "Marvis",
+          "mrp": "3000",
+          "offer": "3000",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Fennel Seeds ( Saunf )",
+          "brand": "On1y",
+          "mrp": "129",
+          "offer": "111",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Mixed Fruit Sugarfree Chewing Gum Pot",
+          "brand": "Orbit",
+          "mrp": "135",
+          "offer": "108",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Mixed Fruit Sugarfree Chewing Gum Pot",
+          "brand": "Orbit",
+          "mrp": "270",
+          "offer": "216",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Mints Sf Xylitol Gum Lime & Mint Flavour",
+          "brand": "Impact",
+          "mrp": "120",
+          "offer": "120",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Mint Chewy Candy Stick",
+          "brand": "Mentos",
+          "mrp": "40",
+          "offer": "40",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Mint Chewy Candy Stick",
+          "brand": "Mentos",
+          "mrp": "20",
+          "offer": "20",
+          "avail": false,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "mukhwas": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 21,
+      "products": [
+        {
+          "name": "Minty Mix Mouth Freshener",
+          "brand": "Pass Pass",
+          "mrp": 120,
+          "offer": 92,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mint Saunf Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Special Masala Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Star 5 in 1 Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 280,
+          "offer": 169,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Handmade Ginger Chatpata Mouth Freshener",
+          "brand": "Maharana",
+          "mrp": 430,
+          "offer": 395,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Saunf Elaichi Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 50,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Regal Rose Mix Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 160,
+          "offer": 137,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Anardana Punch Anardana Goli",
+          "brand": "Chandan",
+          "mrp": 160,
+          "offer": 144,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugandhi Khajoor Mouth Freshener",
+          "brand": "Milan",
+          "mrp": 300,
+          "offer": 300,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Aam Papad",
+          "brand": "Chandan",
+          "mrp": 190,
+          "offer": 143,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Jeera Goli",
+          "brand": "Chandan",
+          "mrp": 45,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Calcutta Mitha Paan Mouth Freshener",
+          "brand": "Chandan",
+          "mrp": 220,
+          "offer": 194,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Banarasi Paan Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 265,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Mitha Amla Candy",
+          "brand": "Chandan",
+          "mrp": 60,
+          "offer": 60,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Rajasthani Mukhwas Mouth Freshener",
+          "brand": "Mr. Merchant",
+          "mrp": 265,
+          "offer": 264,
+          "avail": true,
+          "store": 39527
+        },
+        {
+          "name": "Choco Paan Dates",
+          "brand": "Paancho",
+          "mrp": 50,
+          "offer": 47,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Elaichi Mouth Freshener",
+          "brand": "Rajnigandha Silver Pearl",
+          "mrp": 75,
+          "offer": 68,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Peppermint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 50,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Sugar Free Mint Candies (Fresh Mints)",
+          "brand": "Impact",
+          "mrp": 150,
+          "offer": 150,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Lemonmint Chewy Mint Candies",
+          "brand": "Wrigley's Doublemint",
+          "mrp": 50,
+          "offer": 48,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mouth Spray - Instant Fresh Breath (SCO)",
+          "brand": "Perfora",
+          "mrp": 159,
+          "offer": 159,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 16,
+      "products": [
+        {
+          "name": "Elaichi Souf",
+          "brand": "Chandan",
+          "mrp": 50.0,
+          "offer": 44.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Calcutta Paan Mukhwas",
+          "brand": "Joyspoon",
+          "mrp": 219.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwascoated Fennel Mix",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 129.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "5in1 Mix Mouth Freshener & Digestives",
+          "brand": "Joyspoon",
+          "mrp": 299.0,
+          "offer": 150.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Pudina Vati",
+          "brand": "Chandan",
+          "mrp": 190.0,
+          "offer": 146.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Saunf Delight Mix Mouth Freshener",
+          "brand": "Pass Pass",
+          "mrp": 120.0,
+          "offer": 98.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Saunf Delight Mix Mouth Freshener Combo",
+          "brand": "Pass Pass",
+          "mrp": 240.0,
+          "offer": 192.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasshehanshai Paan Mix",
+          "brand": "Chandan",
+          "mrp": 180.0,
+          "offer": 140.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Chocorich Eclairs Chocolate Party Pack",
+          "brand": "Luvit",
+          "mrp": 134.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Sweety Imli",
+          "brand": "Chandan",
+          "mrp": 155.0,
+          "offer": 149.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "(Elaichi) Mouth Freshener Spray",
+          "brand": "Spraymintt",
+          "mrp": 99.0,
+          "offer": 90.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mouth Freshener - Kashmiri Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 123.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Kings Mix 5in1",
+          "brand": "On1y",
+          "mrp": 280.0,
+          "offer": 219.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Anardana Goli",
+          "brand": "On1y",
+          "mrp": 159.0,
+          "offer": 140.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "(Thandapan) Mouth Freshener Spray",
+          "brand": "Spraymintt",
+          "mrp": 99.0,
+          "offer": 90.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mukhwasevergreen Paan Mukhwas",
+          "brand": "Chandan",
+          "mrp": 160.0,
+          "offer": 104.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 6,
+      "products": [
+        {
+          "name": "Paan Betel Leaf Sip - Original",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Mint",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Desi Amrit harad",
+          "brand": "Non-brand",
+          "mrp": "150",
+          "offer": "77",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Natural Paan Artisan Gulkand",
+          "brand": "Praakritik",
+          "mrp": "339",
+          "offer": "313",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rose Gulkand Jar",
+          "brand": "The Betel Leaf Co",
+          "mrp": "250",
+          "offer": "219",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "236 Reg Black Crackle",
+          "brand": "Zippo",
+          "mrp": "3749",
+          "offer": "2999",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "condom": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 36,
+      "products": [
+        {
+          "name": "Naturals Smooth Glide Condom",
+          "brand": "Durex",
+          "mrp": 650,
+          "offer": 438,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Xotic Extra Dotted Condom - Strawberry Flavour",
+          "brand": "Manforce",
+          "mrp": 99,
+          "offer": 97,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mutual Pleasure Climax Delay Dotted Condom",
+          "brand": "Bold Care",
+          "mrp": 229,
+          "offer": 140,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Skin-on-Skin Real Feel Condom",
+          "brand": "Durex",
+          "mrp": 199,
+          "offer": 190,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Ultra Thin Delay Condom",
+          "brand": "Bold Care",
+          "mrp": 119,
+          "offer": 99,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Pleasure Long Lasting Raspberry Condom",
+          "brand": "Manforce Epic",
+          "mrp": 80,
+          "offer": 59,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mutual Pleasure Climax Delay Dotted Condom",
+          "brand": "Bold Care",
+          "mrp": 119,
+          "offer": 110,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Time Longer Lasting Condom",
+          "brand": "Durex",
+          "mrp": 144,
+          "offer": 128,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "002 Japan’s Non Latex & Ultra Thin Condom",
+          "brand": "Okamoto",
+          "mrp": 229,
+          "offer": 217,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Xotic Dotted Condom - Chocolate Flavour",
+          "brand": "Manforce",
+          "mrp": 99,
+          "offer": 90,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "002 Japan’s Non Latex & Ultra Thin Condom",
+          "brand": "Okamoto",
+          "mrp": 599,
+          "offer": 569,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Air Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 144,
+          "offer": 128,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Mutual Climax Ribbed and Dotted Condom",
+          "brand": "Durex",
+          "mrp": 499,
+          "offer": 425,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Dots Condom",
+          "brand": "Durex",
+          "mrp": 99,
+          "offer": 99,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Xtra Pleasure Extra Time Extra Dotted Condom",
+          "brand": "Manforce",
+          "mrp": 150,
+          "offer": 120,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Air Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 356,
+          "offer": 314,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "King Dotted Condom",
+          "brand": "Manforce",
+          "mrp": 150,
+          "offer": 110,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Time Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 450,
+          "offer": 383,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Playmax Climax Delay Ultra Thin Condom",
+          "brand": "Manforce Epic",
+          "mrp": 500,
+          "offer": 359,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Skin-on-Skin Real Feel Condom",
+          "brand": "Durex",
+          "mrp": 650,
+          "offer": 520,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Xtra Passion Extra Time Ultra Thin Condom",
+          "brand": "Manforce",
+          "mrp": 150,
+          "offer": 120,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Invisible Super Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 180,
+          "offer": 171,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "ThinX Overloaded Extra Lube Ultra Thin Condom",
+          "brand": "Manforce Epic",
+          "mrp": 500,
+          "offer": 325,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Desire Super Thin Silk Chocolate Condom",
+          "brand": "Manforce Epic",
+          "mrp": 80,
+          "offer": 72,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Thin X Ultra-thin Condom",
+          "brand": "Manforce Epic",
+          "mrp": 500,
+          "offer": 275,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Nano Thin Condom (50 microns)",
+          "brand": "Bold Care",
+          "mrp": 149,
+          "offer": 109,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Time Longer Lasting Condom",
+          "brand": "Durex",
+          "mrp": 356,
+          "offer": 321,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Not Out Dotted Condom",
+          "brand": "Skore",
+          "mrp": 135,
+          "offer": 79,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Thin Wild Strawberry Condom",
+          "brand": "Durex",
+          "mrp": 216,
+          "offer": 206,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Extra Time Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 135,
+          "offer": 129,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "003 Japan’s Platinum Ultra Thin Latex Condom",
+          "brand": "Okamoto",
+          "mrp": 599,
+          "offer": 551,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "2x Lubricated Delay Condom",
+          "brand": "Bold Care",
+          "mrp": 249,
+          "offer": 159,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Assorted Condom Pack",
+          "brand": "Durex",
+          "mrp": 590,
+          "offer": 481,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Invisible Super Ultra Thin Condom",
+          "brand": "Durex",
+          "mrp": 550,
+          "offer": 484,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "003 Japan’s Real Fit Ultra Thin Condom",
+          "brand": "Okamoto",
+          "mrp": 199,
+          "offer": 183,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Super Raised Dots Condom",
+          "brand": "Bold Care",
+          "mrp": 225,
+          "offer": 139,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 22,
+      "products": [
+        {
+          "name": "Xotic Extra Dotted Strawberry Flavoured Condoms",
+          "brand": "Manforce",
+          "mrp": 99.0,
+          "offer": 97.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Extra Time Ultra Thin Condom | Safe & Comfortable",
+          "brand": "Durex",
+          "mrp": 450.0,
+          "offer": 382.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Xotic 2 in 1 | Contoured, Dotted Chocolate Flavoured Condoms",
+          "brand": "Manforce",
+          "mrp": 99.0,
+          "offer": 90.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "404 Variety Pack Condoms | Ultra Thin, Multi-Textured, Nano Thin | Chocolate & Strawberry",
+          "brand": "Bold Care",
+          "mrp": 119.0,
+          "offer": 87.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Not Out Condoms | Climax Delay & Dotted",
+          "brand": "Skore",
+          "mrp": 135.0,
+          "offer": 79.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "King Dot | Spiral-Dotted Condom for Enhanced Pleasure",
+          "brand": "Manforce",
+          "mrp": 150.0,
+          "offer": 110.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Ultra Thin Delay Condoms with Benzocaine 4.5%",
+          "brand": "Bold Care",
+          "mrp": 199.0,
+          "offer": 129.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Real Feel Condoms For Men For Real Skin On Skin Feeling Latex Free",
+          "brand": "Durex",
+          "mrp": 199.0,
+          "offer": 189.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Real Feel Condoms For Men | For Real Skin On Skin Feeling Latex Free",
+          "brand": "Durex",
+          "mrp": 599.0,
+          "offer": 497.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Super Ultra Thin Chocolate Flavour Condoms | Only 60 Microns Thin | Electronically Tested",
+          "brand": "Bold Care",
+          "mrp": 59.0,
+          "offer": 49.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Epic Thin-X Overloaded Ultra-Thin Extra Lube Condom",
+          "brand": "Manforce",
+          "mrp": 160.0,
+          "offer": 106.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Extra Time Ultra Thin Condom | Safe & Comfortable",
+          "brand": "Durex",
+          "mrp": 135.0,
+          "offer": 128.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Extra Time Longer Lasting Condom",
+          "brand": "Durex",
+          "mrp": 427.0,
+          "offer": 363.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Mutual Climax Condom | Long Lasting Dotted Condoms",
+          "brand": "Durex",
+          "mrp": 499.0,
+          "offer": 414.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Extra Dotted | 1740 Dots Litchi Flavoured Condoms",
+          "brand": "Manforce",
+          "mrp": 130.0,
+          "offer": 104.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Epic Thin-X Overloaded Ultra-Thin Extra Lube Condom",
+          "brand": "Manforce",
+          "mrp": 500.0,
+          "offer": 325.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "JOYMAX Last Long Delay Condoms | For Climax Delay & Comfort",
+          "brand": "Formen",
+          "mrp": 160.0,
+          "offer": 149.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Ultra Feel Super Thin Bubble Gum Flavoured Condom With Thickness Of 0.05mm",
+          "brand": "Manforce",
+          "mrp": 150.0,
+          "offer": 111.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Cocktail Condoms with Dotted-Rings Hazelnut & Chocolate Flavoured",
+          "brand": "Manforce",
+          "mrp": 99.0,
+          "offer": 83.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "Cipla Health Unfold Strawberry Dotted Condoms",
+          "brand": "unfold",
+          "mrp": 90.0,
+          "offer": 81.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "5 in 1 Pleasure Pack | Assorted Condoms",
+          "brand": "Durex",
+          "mrp": 590.0,
+          "offer": 481.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        },
+        {
+          "name": "404 By Bold Care Strawberry Flavoured Condoms",
+          "brand": "Bold Care",
+          "mrp": 199.0,
+          "offer": 123.0,
+          "avail": true,
+          "store": "37b900f0-25c0-448b-825a-74d62c8ceb41"
+        }
+      ]
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 46,
+      "products": [
+        {
+          "name": "Kamasutra Extra Dotted Strawberry Condoms",
+          "brand": "Kama Sutra",
+          "mrp": "150",
+          "offer": "135",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Volcano Massager For Men",
+          "brand": "Secret Vibes",
+          "mrp": "899",
+          "offer": "674",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Kamasutra Extra Dotted Chocolate Condoms",
+          "brand": "Kama Sutra",
+          "mrp": "150",
+          "offer": "135",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Kamasutra Skinfeel Chocolate Condoms for Men",
+          "brand": "Kama Sutra",
+          "mrp": "60",
+          "offer": "60",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Kamasutra Skinfeel Strawberry Condoms for Men",
+          "brand": "Kama Sutra",
+          "mrp": "60",
+          "offer": "60",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Hair Removal Spray with Aloe Vera and Lemon extracts for Fast & Painless Hair Removal in 6-8 Minutes",
+          "brand": "Bold Care",
+          "mrp": "738",
+          "offer": "421",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "A-Game",
+          "brand": "Durex",
+          "mrp": "2999",
+          "offer": "2145",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Masterstroke Personal Massager",
+          "brand": "Bold Care",
+          "mrp": "1499",
+          "offer": "1131",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Playthings - Hands Off Handcuff",
+          "brand": "Durex",
+          "mrp": "3499",
+          "offer": "2118",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Lockdown Soft Fur Handcuff",
+          "brand": "Bold Care",
+          "mrp": "699",
+          "offer": "649",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Playthings - Turn On Card Game For Couples",
+          "brand": "Durex",
+          "mrp": "1999",
+          "offer": "1379",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Jack Stroker: Ribbed, Flexible, Ultra-Soft Rubber Sleeve",
+          "brand": "MyMuse",
+          "mrp": "1999",
+          "offer": "999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anchor Kit",
+          "brand": "BoldEdge",
+          "mrp": "1799",
+          "offer": "1619",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "9W LED Bulb, Cool Day Light (6500K), B22 Base, Energy-Efficient, 4kV Surge Protection, Long-Lasting Durability",
+          "brand": "Eveready",
+          "mrp": "140",
+          "offer": "59",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Chain Lube Spray (High-Performance Lubrication, Reduces Friction and Wear, Rust Protection)",
+          "brand": "Vista Auto Care",
+          "mrp": "650",
+          "offer": "453",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Baby Diaper (L, 9-14 Kg, 12 Hours Protection)",
+          "brand": "Luvlap",
+          "mrp": "949",
+          "offer": "563",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Baby Diaper (L, 9-14 Kg, 12 Hours Protection)",
+          "brand": "Luvlap",
+          "mrp": "1898",
+          "offer": "1068",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Decathlon Inesis Umbrella (24 inch, Auto Open, Non-Folding, UV Protection, UPF50+, Black)",
+          "brand": "Decathlon - Inesis",
+          "mrp": "1399",
+          "offer": "1199",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anti Bird Net (8x10 feet, White Mesh Pigeon Net for Home and Balcony Protection)",
+          "brand": "Nurturing Green",
+          "mrp": "699",
+          "offer": "379",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Baby Diaper (M, 7-12 Kg, 12 Hours Protection)",
+          "brand": "Luvlap",
+          "mrp": "949",
+          "offer": "644",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Baby Diaper (M, 7-12 Kg, 12 Hours Protection)",
+          "brand": "Luvlap",
+          "mrp": "1898",
+          "offer": "1232",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "WCDV 22.5W Dual Port Charger with 22.5W Power Delivery Support, 18W Quick Charge 3.0 & Smart IC Protection-White",
+          "brand": "boAt",
+          "mrp": "2490",
+          "offer": "599",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (M, 7-12 Kg, 76 Pieces, All-Round Protection, Anti-Rash Blanket)",
+          "brand": "Pampers",
+          "mrp": "1399",
+          "offer": "1116",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (M, 7-12 Kg, 76 Pieces, All-Round Protection, Anti-Rash Blanket)",
+          "brand": "Pampers",
+          "mrp": "2798",
+          "offer": "2093",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "45W GaN Charger w/ 2 Output Ports,PD,PPS & QC 3.0,GaN Chip,Heat & Corrosion Resistant,Smart IC Protection(Ash Grey)",
+          "brand": "boAt",
+          "mrp": "2999",
+          "offer": "1099",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Super Soft Pant Diaper (XL, 12-17 Kg, 54 Pieces, Gentle Protection, Supersoft)",
+          "brand": "MBD",
+          "mrp": "983",
+          "offer": "511",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "(Lp E10) Lithium-Ion Rechargeable Battery For Dslr Camera, 7.4V 860Mah, Multi Protection, Compatible With Canon Eos",
+          "brand": "Digitek",
+          "mrp": "1050",
+          "offer": "584",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Extra Absorb (S, Long-Lasting Protection)",
+          "brand": "Mamypoko",
+          "mrp": "499",
+          "offer": "434",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Taft Power Hold 5 Hair Spray for Heat Protection, Gives Cashmere like Softness",
+          "brand": "Schwarzkopf",
+          "mrp": "749",
+          "offer": "487",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (M, 7-12 Kg, 152 Pieces, Anti-Rash Blanket, All Round Protection)",
+          "brand": "Pampers",
+          "mrp": "2956",
+          "offer": "1685",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Ultra Glow Serum Sunscreen SPF 60+ PA++++ for Men 50g|UVA/UVB Protection|Lightweight|No Whitecast",
+          "brand": "Beardo",
+          "mrp": "449",
+          "offer": "341",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "By Lenskart|Full Rim Premium Stylish Sunglasses|Polarized And 100% Uv Protection|Unisex|Geometric|Wide|Black & Brown",
+          "brand": "John Jacobs",
+          "mrp": "6000",
+          "offer": "1999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anti Rash Blanket Lotion with Aloe Diaper Pants (NB), 86 Count",
+          "brand": "Pampers",
+          "mrp": "2318",
+          "offer": "1912",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anti Rash Blanket Lotion with Aloe Diaper Pants (NB), 86 Count",
+          "brand": "Pampers",
+          "mrp": "1159",
+          "offer": "979",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anti Rash Blanket Lotion with Aloe Diaper Pants (SM), 86 Count",
+          "brand": "Pampers",
+          "mrp": "2498",
+          "offer": "1800",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Anti Rash Blanket Lotion with Aloe Diaper Pants (SM), 86 Count",
+          "brand": "Pampers",
+          "mrp": "1249",
+          "offer": "925",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Strawberry Water Based Lubricant | Edible, Non-Sticky, No Side Effects",
+          "brand": "NottyBoy",
+          "mrp": "799",
+          "offer": "615",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Full Rim Wayfarer Sunglasses - Blue Light Protection, Unisex, Medium - Ocean Blue",
+          "brand": "Lenskart Hustlr",
+          "mrp": "3500",
+          "offer": "901",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (L, 9-14 kg, 36 Pieces, All-Round Protection)",
+          "brand": "Pampers",
+          "mrp": "700",
+          "offer": "602",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Sunscreen Body Lotion SPF 50 Broad Spectrum PA+++ UVA & UVB Protection, No White Cast",
+          "brand": "WishCare",
+          "mrp": "499",
+          "offer": "399",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Sunscreen Body Lotion SPF 50 Broad Spectrum PA+++ UVA & UVB Protection, No White Cast",
+          "brand": "WishCare",
+          "mrp": "998",
+          "offer": "798",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (L, 9-14 Kg, 24 Pieces, Extra Absorb, Long-Lasting Protection)",
+          "brand": "Mamypoko",
+          "mrp": "499",
+          "offer": "351",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (XL, 12-17 Kg, 56 Pieces, All-Round Protection)",
+          "brand": "Pampers",
+          "mrp": "1399",
+          "offer": "1182",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (XL, 12-17 Kg, 56 Pieces, All-Round Protection)",
+          "brand": "Pampers",
+          "mrp": "2798",
+          "offer": "2309",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Rust-O-Fix Multi-Use Spray (Rust Protection, Lubricates, Cleans and Moisture Removal)",
+          "brand": "Asian Paints",
+          "mrp": "360",
+          "offer": "309",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Pant Diaper (M, 7-12 Kg, 6 Pieces, All-Round Protection, Anti Rash Blanket)",
+          "brand": "Pampers",
+          "mrp": "98",
+          "offer": "98",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  },
+  "betel leaf": {
+    "BlinkIt": {
+      "status": "success",
+      "total": 15,
+      "products": [
+        {
+          "name": "Areca Nuts & Betel Leaves",
+          "brand": "Freshbury",
+          "mrp": 25,
+          "offer": 21,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Betel Leaves (Vidyachi Paan)",
+          "brand": "Freshbury",
+          "mrp": 18,
+          "offer": 15,
+          "avail": false,
+          "store": 33684
+        },
+        {
+          "name": "Varalakshmi Flower Mix Pooja Basket",
+          "brand": "Freshbury",
+          "mrp": 249,
+          "offer": 201,
+          "avail": false,
+          "store": 33684
+        },
+        {
+          "name": "Mango Leaves (Aam Patra)",
+          "brand": "Freshbury",
+          "mrp": 24,
+          "offer": 21,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "White Chrysanthemum Flowers (Pandhare Shevanti)",
+          "brand": "Freshbury",
+          "mrp": 40,
+          "offer": 35,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Yellow Chrysanthemum Flowers (Pivli Shevanti)",
+          "brand": "Freshbury",
+          "mrp": 54,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Pink Lotus Flower (Kamal)",
+          "brand": "Freshbury",
+          "mrp": 68,
+          "offer": 59,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Rose (Flowers & Petals)",
+          "brand": "Freshbury",
+          "mrp": 47,
+          "offer": 39,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Fresh Garland - Orange Marigold (Zhendu Maal)",
+          "brand": "Freshbury",
+          "mrp": 56,
+          "offer": 45,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Holy Tulsi (Tulas)",
+          "brand": "Freshbury",
+          "mrp": 18,
+          "offer": 15,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Wheat Grass",
+          "brand": "Freshbury",
+          "mrp": 47,
+          "offer": 41,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Yellaki Banana (Elaichi Keli)",
+          "brand": "",
+          "mrp": 75,
+          "offer": 64,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Nendran Banana (Keli)",
+          "brand": "",
+          "mrp": 95,
+          "offer": 76,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Organically Grown Raw Banana (Kachi Keli)",
+          "brand": "Shatayushi Farms",
+          "mrp": 27,
+          "offer": 22,
+          "avail": true,
+          "store": 33684
+        },
+        {
+          "name": "Brown Coconut (Naral)",
+          "brand": "",
+          "mrp": 59,
+          "offer": 51,
+          "avail": true,
+          "store": 33684
+        }
+      ]
+    },
+    "Zepto": {
+      "status": "success",
+      "total": 0,
+      "products": []
+    },
+    "Swiggy": {
+      "status": "success",
+      "total": 28,
+      "products": [
+        {
+          "name": "Phulwaa Betel Leaves",
+          "brand": "Fruits and Vegetables",
+          "mrp": "34",
+          "offer": "17",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Button Roses",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "100",
+          "offer": "80",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Button Roses",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "50",
+          "offer": "40",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Phulwaa Fresh Shevanti White",
+          "brand": "Fruits and Vegetables",
+          "mrp": "55",
+          "offer": "22",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Coconut",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "66",
+          "offer": "53",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Coconut",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "63",
+          "offer": "50",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Shevanti Flower Mix",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "66",
+          "offer": "53",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Shevanti Flower Mix",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "132",
+          "offer": "106",
+          "avail": false,
+          "store": "1398452"
+        },
+        {
+          "name": "Phulwaa Fresh Durva",
+          "brand": "Fruits and Vegetables",
+          "mrp": "35",
+          "offer": "16",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Fresh Turmeric",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "38",
+          "offer": "30",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Banana Flower",
+          "brand": "Fruits and Vegetables",
+          "mrp": "41",
+          "offer": "33",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Button Roses & Coconut",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "116",
+          "offer": "93",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Kale Leaf",
+          "brand": "Fruits and Vegetables",
+          "mrp": "55",
+          "offer": "44",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Mint",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Sweet Corn (Makai)",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "56",
+          "offer": "45",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rosemary",
+          "brand": "Fruits and Vegetables",
+          "mrp": "35",
+          "offer": "28",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Betel Leaf Sip - Original",
+          "brand": "The Betel Leaf Co",
+          "mrp": "280",
+          "offer": "139",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Booklet of 32 Brown Leaves and 32 Tips (King Sized)",
+          "brand": "Original Gangster",
+          "mrp": "90",
+          "offer": "90",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Rose Gulkand Jar",
+          "brand": "The Betel Leaf Co",
+          "mrp": "250",
+          "offer": "219",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Raw Groundnut (Olya Bhuimugachya Shenga)",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "260",
+          "offer": "206",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Raw Groundnut (Olya Bhuimugachya Shenga)",
+          "brand": "Fruits & Vegetables Category",
+          "mrp": "130",
+          "offer": "104",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Natural Paan Artisan Gulkand",
+          "brand": "Praakritik",
+          "mrp": "339",
+          "offer": "313",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Classic King Size Slim White Rolling Paper",
+          "brand": "Raw",
+          "mrp": "80",
+          "offer": "80",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Tadaa Pani Puri Sweet Corn Kernels",
+          "brand": "Fruits and Vegetables",
+          "mrp": "99",
+          "offer": "47",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Paan Nawaabi Ice Cream Tub",
+          "brand": "Amul",
+          "mrp": "215",
+          "offer": "215",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "HOOKAH TITAN",
+          "brand": "The Rolling Stone Co.",
+          "mrp": "4999",
+          "offer": "3499",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "236 Reg Black Crackle",
+          "brand": "Zippo",
+          "mrp": "3749",
+          "offer": "2999",
+          "avail": true,
+          "store": "1398452"
+        },
+        {
+          "name": "Jungle Blend",
+          "brand": "Chimp x Herbs",
+          "mrp": "690",
+          "offer": "690",
+          "avail": true,
+          "store": "1398452"
+        }
+      ]
+    }
+  }
+}

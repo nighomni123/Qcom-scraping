@@ -19,8 +19,10 @@ class ZeptoAdapter(Adapter):
     # checks and any product probing go through the search route.
     HEALTH_URL = "https://www.zepto.com/search?query=milk"
     PROBE_URL = HEALTH_URL
-    # Breadth beyond the first search: staples + non-food, same browser session.
-    PROBE_TERMS = ("atta", "shampoo")
+    # Breadth beyond the first search: staples + non-food / paan-shop SKUs, same
+    # browser session, so --store-inventory captures convenience + tobacco too.
+    PROBE_TERMS = ("atta", "shampoo", "paan", "cigarette", "gutkha",
+                   "pan masala", "tobacco", "condom", "mukhwas")
 
     def search(self, query, lat=None, lon=None):
         url = "https://www.zepto.com/search?query=" + urllib.parse.quote_plus(query)

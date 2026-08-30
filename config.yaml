@@ -15,15 +15,14 @@ geo:
   corridor:
     - { station: "Virar",      lat: 19.456, lon: 72.806 }
     - { station: "Vasai Road", lat: 19.392, lon: 72.805 }
-    - { station: "Nalasopara", lat: 19.413, lon: 72.790 }
+    - { station: "Nalasopara", lat: 19.413, lon: 72.79 }
     - { station: "Mira Road",  lat: 19.282, lon: 72.857 }
     - { station: "Bhayandar",  lat: 19.231, lon: 72.851 }
-    - { station: "Borivali",   lat: 19.230, lon: 72.856 }
+    - { station: "Borivali",   lat: 19.23, lon: 72.856 }
     - { station: "Kandivali",  lat: 19.207, lon: 72.851 }
     - { station: "Malad",      lat: 19.186, lon: 72.848 }
     - { station: "Goregaon",   lat: 19.166, lon: 72.852 }
     - { station: "Andheri",    lat: 19.119, lon: 72.846 }
-
 adapters:
   # Browser-intercept adapters need Playwright + a chromium build.
   # Set enabled:false if you only want the trackers + engine to run.
@@ -85,29 +84,37 @@ codes_file: "codes.yaml"      # delivery fees + offers knowledge base
 demand:
   enabled: true
   locality:
-    # edited via dashboard 25-08 11:32
-    name: "Andheri West"
+    # edited via dashboard 29-08 01:47
+    name: "Corridor · Goregaon"
     bbox:
-      min_lat: 19.14244
-      max_lat: 19.18736
-      min_lon: 72.81922
-      max_lon: 72.86678
+      min_lat: 19.14354
+      max_lat: 19.18846
+      min_lon: 72.82822
+      max_lon: 72.87578
     grid_step_m: 700
     landmarks:
       # explicit form — resolves exactly, no preset matching:
-      - { name: "Andheri West center", lat: 19.1649, lon: 72.843 }
+      - { name: "Corridor · Goregaon center", lat: 19.166, lon: 72.852 }
   # discovery sweep tuning
   min_points_before_early_stop: 6   # probes before saturation-stop may trigger
   saturation_stop: 4                # stop app sweep after N probes w/o new store
   # watchlist builder (phase 2)
-  categories_per_store: 6           # DOM category pages visited per store
-  staple_queries: ["earbuds", "power bank", "usb c cable", "phone charger", "led bulb", "aa batteries", "smart watch", "bluetooth speaker", "extension board", "phone case"]                # empty = built-in high-velocity defaults
-  watchlist_max_per_store: 300
+  categories_per_store: 30          # DOM category pages visited per store (broad)
+  # Empty staple_queries => the built-in UNBIASED broad-coverage default list
+  # in src/watchlist.py (grocery + paan/tobacco + wellness + adult + electronics
+  # + household + pharma). Set a list here to override with your own terms.
+  staple_queries: []
+  # Unbiased harvesting: when true, the builder keeps EVERY discovered SKU
+  # (no truncation to the active cap) and never auto-deactivates the overflow.
+  # The active cap below only limits what the prober re-probes by search;
+  # passive category/home observations still capture the full catalog.
+  unbiased_harvest: true
+  watchlist_max_per_store: 4000
   # stock prober (phase 3)
-  probe_interval_sec: 600           # per-store cycle target; jittered, off-peak faster
+  probe_interval_sec: 300           # per-store cycle target; jittered, off-peak faster
   probe_terms_max: 30               # watchlist search terms re-probed per store/cycle
-  oos_debounce_snapshots: 3         # consecutive OOS reads before an event opens
-  vanished_cycles: 4                # missed successful sweeps before 'vanished'
+  oos_debounce_snapshots: 6         # consecutive OOS reads before an event opens
+  vanished_cycles: 6                # missed successful sweeps before 'vanished'
   stock_canary_queries: ["amul milk", "eggs"]   # must return in-stock items
   suspect_flip_min: 10              # mass-flip soft-block guard: >= N flips...
   suspect_flip_pct: 50              # ...>= % of previously-in-stock seen SKUs
@@ -126,4 +133,4 @@ ai:
   # Reasoning models burn tokens thinking before answering — give them room.
   # If a response still truncates (finish_reason=length), chat() auto-retries
   # once with 4x this budget.
-  max_tokens: 3000
+  max_tokens: 126000
