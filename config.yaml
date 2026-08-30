@@ -9,6 +9,16 @@ schedule:
   quiet_hours:
     start: "23:30"
     end: "07:30"
+  # WAF failover (Blinkit-as-fallback): when Zepto/Instamart get WAF-gated
+  # (consecutive empty/errored crawls), back them off and lean on Blinkit by
+  # giving it extra per-station passes so coverage doesn't crater. Blinkit is
+  # the resilient source — its APK has no AWS WAF and no request signature.
+  waf_failover:
+    enabled: true
+    empty_strikes_to_gate: 3        # consecutive empty/err crawls => app gated
+    gate_cooldown_cycles: 4         # cycles to back off a gated app
+    blinkit_priority_extra: 1       # extra blinkit passes/cycle while any other app gated
+    protected_apps: [blinkit]       # never auto-gate these (the fallback)
 
 geo:
   # Mumbai corridor we watch. Each point resolves to the nearest dark store.

@@ -328,6 +328,16 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   `DSH_DEBUG_DIR=/tmp/imdebug node tools/pw_catalog.js --app instamart
   --url https://instamart.in/ --lat <lat> --lon <lon>` then inspect
   /tmp/imdebug (products + store_hint in the last JSON line).
+- WAF failover (08-30, #2 follow-on): the monitor loop leans on Blinkit when
+  Zepto/Instamart get WAF-gated. `src/orchestrator.py` keeps a per-app strike
+  ledger (`WafFailover`): N consecutive empty/errored crawls gates an app for
+  `gate_cooldown_cycles` (it is then SKIPPED to avoid deepening the ban), and
+  while any *other* app is gated, Blinkit gets `blinkit_priority_extra` extra
+  per-station passes/cycle so coverage doesn't crater. Blinkit is in
+  `protected_apps` (never auto-gated) — it's the resilient fallback because its
+  APK has no AWS WAF and no request signature. Tunables live under
+  `schedule.waf_failover` in config.yaml. Failover events emit `fkind="gate" |
+  "skip" | "boost"` on the live event bus (`/status` shows them).
 - Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see
