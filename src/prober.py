@@ -14,7 +14,11 @@ Per (app, store) cycle:
        - any 1-read closes the open event (restock) and clears the streak.
        - 'vanished': an ACTIVE watchlist SKU unseen for >= vanished_cycles
          SUCCESSFUL sweeps opens an open-ended vanished event (delisting is
-         not a stock-out, but it must not stay invisible either).
+         not a stock-out, but it must not stay invisible either). The same
+         absence rule also RECONCILES stale 'oos' events on SKUs outside the
+         active set (e.g. search-passed items that fell out of coverage):
+         the oos event is closed at the LAST OBSERVED reading — durations
+         never fabricate unseen time — and re-opened honestly as 'vanished'.
   4. Health guards (canaries): configured canary queries must return at least
      one in-stock item, and a mass in-stock->OOS flip within one cycle is the
      classic soft-block signature. Suspect cycles still RECORD observations
@@ -185,15 +189,39 @@ class StockProber:
                 if r["in_stock"] is not None:
                     self.last_state[key] = r["in_stock"]
 
-            # 3) vanished detection over ACTIVE set (successful sweeps only)
-            for sku in active_skus:
+            # 3) vanished detection (successful sweeps only). Covers the
+            #    ACTIVE watchlist set PLUS every SKU with an open 'oos'
+            #    event: apps hide OOS items from listings, so a SKU that
+            #    stops being sighted for vanished_cycles sweeps is delisting
+            #    masquerading as infinite OOS — left alone its event never
+            #    closes and DPI inflates with unseen time (observed 08-30:
+            #    search-surfaced SKUs outside the watchlist held open oos
+            #    events for 5 days). Close it at the LAST OBSERVED reading
+            #    (durations never fabricate evidence) and re-open honestly
+            #    as 'vanished'.
+            open_oos = {sku for sku, _ in self.db.open_events_for_store(app, sid, "oos")}
+            for sku in set(active_skus) | open_oos:
                 key = (app, sid, sku)
                 if sku in seen:
                     self.absence[key] = 0
                     continue
                 miss = self.absence.get(key, 0) + 1
                 self.absence[key] = miss
-                if miss >= self.vanished_after and not self.db.open_event_state(app, sid, sku):
+                if miss < self.vanished_after:
+                    continue
+                ev = self.db.open_event_state(app, sid, sku)
+                if ev and ev[0] == "oos":
+                    last = self.db.last_obs_ts(app, sid, sku) or time.time()
+                    self.db.close_oos_event(app, sid, sku, snapshots=miss,
+                                            kinds=("oos",), ended_at=last)
+                    self.db.open_oos_event(app, sid, sku, started_at=last,
+                                           kind="vanished")
+                    opened += 1
+                    closed += 1
+                    print(f"[prober] {app}/{sid}: {sku} oos-event stale after "
+                          f"{miss} sweeps — closed at last evidence, "
+                          f"logged vanished")
+                elif not ev:
                     self.db.open_oos_event(app, sid, sku, kind="vanished")
                     opened += 1
                     print(f"[prober] {app}/{sid}: {sku} VANISHED from listings "

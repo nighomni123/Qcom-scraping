@@ -226,10 +226,22 @@ def demand_digest(db_path):
                  f"active={s['active_skus']} open_oos={s['open_oos']} vanished={s['vanished']} eta={s['eta_min']}")
     L.append("== DPI top (demand pressure index = recency-weighted OOS min/day) ==")
     L += [_fmt_dpi(dpi)] if dpi else ["(no oos_events yet)"]
-    L.append("== onset heatmap top cells (hour×sku) ==")
-    L.append(json.dumps(hm)[:600] if hm else "(none)")
-    L.append("== ETA curve by hour ==")
-    L.append(json.dumps(eta)[:400])
+    # Compact, COMPLETE heatmap/ETA renderings. The old raw-JSON dumps were
+    # truncated mid-structure ([:600]/[:400]) — the model then "saw" only the
+    # first hours of the 24-hour ETA curve and reported the rest as zero,
+    # inventing a data-quality problem that didn't exist.
+    L.append("== onset heatmap (OOS onsets by hour, top SKUs) ==")
+    hm_lines = [f"{str(s['name'])[:38]} ({s['sku_key'][:12]}): "
+                + ", ".join(f"h{h}x{c}" for h, c in enumerate(s["by_hour"]) if c)
+                for s in hm.get("skus", []) if s["total"]]
+    L += hm_lines[:8] or ["(no onsets yet)"]
+    if hm.get("peak_hour") is not None:
+        L.append(f"peak_hour={hm['peak_hour']}")
+    L.append("== ETA curve by local hour (hours with no line = prober never "
+             "ran then; absence is a SCHEDULING gap, not missing data) ==")
+    live = [e for e in eta if e["n"]]
+    L.append("; ".join(f"h{e['hour']}:n={e['n']},avg={e['avg']}" for e in live)
+             or "(no ETA observations yet)")
     return "\n".join(L)
 
 

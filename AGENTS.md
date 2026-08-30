@@ -230,7 +230,11 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   (`Store.trailing_oos_streak`) each sweep; `started_at` is the FIRST zero
   read, never the moment the threshold was crossed.
 - **Vanished ≠ OOS.** An active watchlist SKU missing from `vanished_cycles`
-  successful sweeps opens `kind='vanished'`, not `kind='oos'`.
+  successful sweeps opens `kind='vanished'`, not `kind='oos'`. The same
+  absence rule also RECONCILES stale `oos` events on SKUs outside the active
+  set (08-30 zombie fix: search-passed SKUs that fell out of coverage held
+  open events for days and inflated DPI): close at the LAST OBSERVED reading
+  — durations never fabricate unseen time — and re-open as `vanished`.
 - **Suspect cycles freeze the machine.** Canary queries returning only-OOS or
   a mass in-stock→OOS flip ⇒ record observations, open/close nothing.
 - **One browser session per store per sweep.** Home → categories → searches

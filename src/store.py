@@ -323,6 +323,24 @@ class Store:
         ).fetchone()
         return row if row else None
 
+    def open_events_for_store(self, app, store_id, kind="oos"):
+        """Open events of one kind for a single store: [(sku_key, started_at)].
+        Used by the prober's stale-event reconciliation."""
+        return self.conn.execute(
+            "SELECT sku_key, started_at FROM oos_events WHERE app=? AND store_id=? "
+            "AND kind=? AND ended_at IS NULL",
+            (app, store_id, kind),
+        ).fetchall()
+
+    def last_obs_ts(self, app, store_id, sku_key):
+        """Timestamp of the last recorded observation of a SKU at a store,
+        or None if never seen. The honest horizon for event durations."""
+        row = self.conn.execute(
+            "SELECT MAX(ts) FROM stock_obs WHERE app=? AND store_id=? AND sku_key=?",
+            (app, store_id, sku_key),
+        ).fetchone()
+        return row[0] if row and row[0] is not None else None
+
     def trailing_oos_streak(self, app, store_id, sku_key, lookback=12):
         """
         Reconstruct an OOS streak from recorded observations (restart-proof

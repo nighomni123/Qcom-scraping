@@ -39,9 +39,21 @@ def _recency_weight(ts, now):
 
 
 def _name_map(db, store_id=None):
+    """sku_key -> best known product name. Watchlist first; price_obs
+    (glitch-monitor crawls + inventory captures, newest wins) as fallback —
+    the prober records stock for SKUs it merely passes by in search results,
+    which never land in the watchlist and would otherwise show anonymous
+    in the DPI table / AI digests."""
     q = "SELECT sku_key, name FROM watchlist" + (" WHERE store_id=?" if store_id else "")
     rows = db.conn.execute(q, (store_id,) if store_id else ()).fetchall()
-    return {r[0]: r[1] for r in rows}
+    names = {r[0]: r[1] for r in rows if r[1]}
+    fallback = {}
+    for sku, name in db.conn.execute(
+            "SELECT sku_key, name FROM price_obs WHERE name IS NOT NULL ORDER BY ts"):
+        fallback[sku] = name              # ascending ts -> newest wins
+    for sku, name in fallback.items():
+        names.setdefault(sku, name)
+    return names
 
 
 def observation_span_days(db, store_id=None):
