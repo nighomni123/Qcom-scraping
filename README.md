@@ -12,6 +12,8 @@ Two features in one tool:
    build a chronological demand-pressure heatmap. See `DEMAND_RADAR.md`.
 
 See `ARCHITECTURE.md` for the design and the anti-block strategy.
+First time here? `GETTING_STARTED.md` walks you through what to run, in
+what order, and how to interpret every result.
 New to the vocabulary (OOS, DPI, darkstore, honey pot, WAF…)? `GLOSSARY.md`
 is a plain-English index of every jargon term in this repo.
 

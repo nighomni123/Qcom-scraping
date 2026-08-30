@@ -63,6 +63,8 @@ run.py                  entrypoint; ALL CLI flags live here (--check --demo
                         args parsed by _flag_* helpers)
 config.yaml             every tunable; secrets go in .env only
 codes.yaml              delivery fees + offer codes (user-editable)
+GETTING_STARTED.md      end-to-end first-run guide: what to run in what
+                        order + how to interpret each output
 GLOSSARY.md             plain-English index of ALL jargon/short forms —
                         link new contributors here before the other docs
 tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
