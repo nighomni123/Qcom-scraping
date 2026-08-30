@@ -190,6 +190,19 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   home serves NO products for fresh sessions → `HEALTH_URL` overrides to the
   search route for health checks.
 
+- **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
+  js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
+  wired into this session and its bootstrap is Windows-only): every API call hits
+  `bff-gateway.zepto.com` and is signed client-side per-request with
+  `request-signature` (SHA-256 hex), `x-csrf-secret`, `x-xsrf-token`, `x-api-key`,
+  plus `device_id`/`session_id`/`store_id` UUIDs and an `x-timezone` hash. The
+  signing code lives in bundle chunk `89411-*.js` (the `XMLHttpRequest.open`
+  wrapper) + `88682-*.js`. Our in-browser crawl harvests the **already-signed**
+  responses, so **no forging is needed**; the signature binds to the session's own
+  `device_id`/`session_id` (from the app's cookies), making this robust to signature
+  gating. The only hard gate observed is IP-reputation (403 login wall — see
+  Instamart note), not signature validation.
+
 ## Demand Radar invariants (do not break)
 
 - **NULL ≠ OOS.** A failed parse/crawl records `in_stock=NULL`; it must never
