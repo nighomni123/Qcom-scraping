@@ -146,14 +146,40 @@ class StockProber:
             print(f"[prober] {app}/{sid}: SUSPECT cycle — {why}; observations "
                   f"recorded, event machine frozen")
 
+        # Voucher detection keywords (matches watchlist logic in store.py)
+        voucher_keywords = [
+            "voucher", "instant voucher", "gift card", "subscription voucher",
+            "roblox", "steam", "valorant", "domino", "amazon prime",
+            "blinkit gift", "xbox game pass", "starbucks", "hamleys",
+            "shoppers stop", "reliance jio", "croma", "ajio",
+        ]
+        def _voucher_type(name):
+            n = (name or "").lower()
+            if any(k in n for k in voucher_keywords):
+                if "subscription" in n or "game pass" in n or "prime" in n:
+                    return "subscription"
+                if "gift" in n:
+                    return "gift_card"
+                return "digital"
+            return None
+
         # 1) observations (always, even suspect cycles — honest data)
-        rows = [{
-            "sku_key": p["sku_key"],
-            "in_stock": p.get("in_stock"),
-            "price": p.get("price"),
-            "mrp": p.get("mrp"),
-            "source": self._source_of(p.get("collections")),
-        } for p in products]
+        rows = []
+        for p in products:
+            vt = _voucher_type(p.get("name", ""))
+            # Catalog version from adapter meta (timestamp/hash of response)
+            cat_ver = meta.get("catalog_version") if meta.get("catalog_version") else None
+            rows.append({
+                "sku_key": p["sku_key"],
+                "in_stock": p.get("in_stock"),
+                "price": p.get("price"),
+                "mrp": p.get("mrp"),
+                "source": self._source_of(p.get("collections")),
+                "voucher_type": vt,
+                "restock_trigger": None,  # set at restock (close_oos_event)
+                "promotional_context": meta.get("promotional_context"),
+                "catalog_version": cat_ver,
+            })
         n = self.db.record_stock_obs(app, sid, rows, eta_min=meta.get("eta_min"))
         summary["obs"] = n
         seen = {r["sku_key"] for r in rows}
@@ -180,8 +206,13 @@ class StockProber:
                         opened += 1
                     self.streaks[key] = st
                 elif r["in_stock"] is True:
+                    # If this is a digital voucher restock, record the trigger
+                    restock_trig = r.get("voucher_type") and ("voucher_code_replenished" if r["voucher_type"] in ("digital", "gift_card", "subscription") else None)
+                    if restock_trig is None and r.get("voucher_type"):
+                        restock_trig = "voucher_code_replenished"
                     if self.db.close_oos_event(app, sid, r["sku_key"],
-                                               snapshots=max(st["count"], 1)):
+                                               snapshots=max(st["count"], 1),
+                                               restock_trigger=restock_trig):
                         closed += 1
                     self.streaks[key] = {"count": 0, "first_ts": now}
                     self.absence[key] = 0

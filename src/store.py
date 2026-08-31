@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS price_obs (
     name TEXT,
     price REAL,
     mrp REAL,
-    url TEXT
+    url TEXT,
+    category TEXT,
+    catalog_version TEXT DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_obs ON price_obs(app, store_id, sku_key, ts);
 CREATE TABLE IF NOT EXISTS alerts (
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS watchlist (
     last_seen_ts REAL,
     score REAL DEFAULT 0,      -- curation rank (higher = keep)
     active INTEGER DEFAULT 1,  -- probe-set membership (phase-3 prober reads this)
+    is_digital_voucher INTEGER DEFAULT 0,
     PRIMARY KEY (app, store_id, sku_key)
 );
 CREATE INDEX IF NOT EXISTS idx_wl_active ON watchlist(app, store_id, active);
@@ -73,7 +76,11 @@ CREATE TABLE IF NOT EXISTS stock_obs (
     price REAL,
     mrp REAL,
     eta_min REAL,
-    source TEXT                -- 'home' | 'collection' | 'search'
+    source TEXT,               -- 'home' | 'collection' | 'search'
+    restock_trigger TEXT DEFAULT NULL,
+    voucher_type TEXT DEFAULT NULL,
+    promotional_context TEXT DEFAULT NULL,
+    catalog_version TEXT DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_so ON stock_obs(store_id, sku_key, ts);
 CREATE TABLE IF NOT EXISTS oos_events (
@@ -84,7 +91,8 @@ CREATE TABLE IF NOT EXISTS oos_events (
     kind TEXT DEFAULT 'oos',   -- 'oos' | 'vanished'
     started_at REAL,
     ended_at REAL,             -- NULL = ongoing
-    snapshots INTEGER          -- consecutive OOS obs when open/closed
+    snapshots INTEGER,          -- consecutive OOS obs when open/closed
+    restock_trigger TEXT DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_oos ON oos_events(store_id, sku_key, started_at);
 CREATE TABLE IF NOT EXISTS searches (
@@ -146,6 +154,22 @@ class Store:
             self.conn.execute("ALTER TABLE price_obs ADD COLUMN category TEXT")
         except Exception:
             pass  # already exists
+        # migration: expanded tracking parameters for digital vouchers / restock triggers
+        migrations = [
+            ("stock_obs", "restock_trigger", "TEXT DEFAULT NULL"),
+            ("stock_obs", "voucher_type", "TEXT DEFAULT NULL"),
+            ("stock_obs", "promotional_context", "TEXT DEFAULT NULL"),
+            ("stock_obs", "catalog_version", "TEXT DEFAULT NULL"),
+            ("watchlist", "is_digital_voucher", "INTEGER DEFAULT 0"),
+            ("oos_events", "restock_trigger", "TEXT DEFAULT NULL"),
+            ("price_obs", "catalog_version", "TEXT DEFAULT NULL"),
+        ]
+        for table, col, col_type in migrations:
+            try:
+                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass  # already exists
+        self.conn.commit()
         self.conn.commit()
         self._backfill_categories()
 
@@ -210,20 +234,30 @@ class Store:
         Upserts everything seen; `active` is set by the caller's curation
         decision (top-N = 1, overflow = 0). Never deletes history.
         """
+        voucher_keywords = [
+            "voucher", "instant voucher", "gift card", "subscription voucher",
+            "roblox", "steam", "valorant", "domino", "amazon prime",
+            "blinkit gift", "xbox game pass", "starbucks", "hamleys",
+            "shoppers stop", "reliance jio", "croma", "ajio",
+        ]
         now = time.time()
         for r in rows:
+            name_lower = (r.get("name") or "").lower()
+            is_voucher = 1 if any(k in name_lower for k in voucher_keywords) else 0
             self.conn.execute(
                 "INSERT INTO watchlist(app,store_id,sku_key,name,collections,last_price,"
-                "last_in_stock,last_seen_ts,score,active) VALUES(?,?,?,?,?,?,?,?,?,?) "
+                "last_in_stock,last_seen_ts,score,active,is_digital_voucher) VALUES(?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(app, store_id, sku_key) DO UPDATE SET name=excluded.name, "
                 "collections=excluded.collections, last_price=COALESCE(excluded.last_price, watchlist.last_price), "
                 "last_in_stock=COALESCE(excluded.last_in_stock, watchlist.last_in_stock), "
-                "last_seen_ts=excluded.last_seen_ts, score=excluded.score, active=excluded.active",
+                "last_seen_ts=excluded.last_seen_ts, score=excluded.score, active=excluded.active, "
+                "is_digital_voucher=excluded.is_digital_voucher",
                 (app, store_id, r["sku_key"], r.get("name"),
                  ",".join(r.get("collections") or []),
                  r.get("price"),
                  None if r.get("in_stock") is None else int(r["in_stock"]),
-                 now, r.get("score", 0), 1 if r.get("active", True) else 0),
+                 now, r.get("score", 0), 1 if r.get("active", True) else 0,
+                 is_voucher),
             )
         self.conn.commit()
 
@@ -269,17 +303,22 @@ class Store:
 
     # ---- Demand Radar: stock observations + OOS events (phase 3) ----
     def record_stock_obs(self, app, store_id, rows, eta_min=None, ts=None):
-        """rows: [{sku_key, in_stock(bool|None), price, mrp, source}]"""
+        """rows: [{sku_key, in_stock(bool|None), price, mrp, source,
+                   restock_trigger, voucher_type, promotional_context, catalog_version}]"""
         now = ts if ts is not None else time.time()
-        payload = [
-            (now, app, store_id, r["sku_key"],
-             None if r.get("in_stock") is None else int(r["in_stock"]),
-             r.get("price"), r.get("mrp"), eta_min, r.get("source", "sweep"))
-            for r in rows
-        ]
+        payload = []
+        for r in rows:
+            payload.append((
+                now, app, store_id, r["sku_key"],
+                None if r.get("in_stock") is None else int(r["in_stock"]),
+                r.get("price"), r.get("mrp"), eta_min, r.get("source", "sweep"),
+                r.get("restock_trigger"), r.get("voucher_type"),
+                r.get("promotional_context"), r.get("catalog_version"),
+            ))
         self.conn.executemany(
-            "INSERT INTO stock_obs(ts,app,store_id,sku_key,in_stock,price,mrp,eta_min,source) "
-            "VALUES(?,?,?,?,?,?,?,?,?)", payload,
+            "INSERT INTO stock_obs(ts,app,store_id,sku_key,in_stock,price,mrp,eta_min,source,"
+            "restock_trigger,voucher_type,promotional_context,catalog_version) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", payload,
         )
         self.conn.commit()
         return len(payload)
@@ -303,7 +342,8 @@ class Store:
         return cur.lastrowid
 
     def close_oos_event(self, app, store_id, sku_key, snapshots=1,
-                        kinds=("oos", "vanished"), ended_at=None):
+                        kinds=("oos", "vanished"), ended_at=None,
+                         restock_trigger=None):
         t = ended_at if ended_at is not None else time.time()
         qmarks = ",".join("?" * len(kinds))
         cur = self.conn.execute(
@@ -311,6 +351,12 @@ class Store:
             f"AND sku_key=? AND ended_at IS NULL AND kind IN ({qmarks})",
             [t, snapshots, app, store_id, sku_key] + list(kinds),
         )
+        if restock_trigger and cur.rowcount > 0:
+            cur2 = self.conn.execute(
+                "UPDATE oos_events SET restock_trigger=? WHERE app=? AND store_id=? "
+                "AND sku_key=? AND ended_at=?",
+                (restock_trigger, app, store_id, sku_key, t),
+            )
         self.conn.commit()
         return cur.rowcount
 
@@ -504,6 +550,12 @@ class Store:
             (str(chat_id), kw),
         )
         self.conn.commit()
+        if restock_trigger and cur.rowcount > 0:
+            cur2 = self.conn.execute(
+                "UPDATE oos_events SET restock_trigger=? WHERE app=? AND store_id=? "
+                "AND sku_key=? AND ended_at=?",
+                (restock_trigger, app, store_id, sku_key, t),
+            )
         return cur.rowcount > 0
 
     def watches_for_chat(self, chat_id):
