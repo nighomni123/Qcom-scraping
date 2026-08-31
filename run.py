@@ -83,7 +83,7 @@ def main():
     if "--check" in sys.argv:
         print("config ok; stations:", len(corridor.anchors()))
         for a in adapters:
-            label = "browser-intercept" if a.name in ("blinkit", "instamart", "zepto") else (
+            label = "browser-intercept" if getattr(a, "APP_URL", None) else (
                 "demo (simulated)" if a.name == "demo" else "http trackers")
             print(f"  adapter {a.name}: enabled ({label})")
         return

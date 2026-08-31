@@ -41,10 +41,17 @@ adapters:
   # QC-first focus (08-22): amazon/flipkart tracking off by default.
   # Flip back to true to resume e-commerce price tracking.
   trackers:  { enabled: false }
-  bigbasket: { enabled: true,  app: "bigbasket" }
-  jiomart:   { enabled: true,  app: "jiomart" }
-  amazon_now: { enabled: true, app: "amazon_now" }
-  dmart:     { enabled: true,  app: "dmart" }
+  # Expansion (08-31): wired + routes verified via tinyfish/curl, but live
+  # --qc-status probes show they are NOT crawl-ready yet: bigbasket/jiomart/
+  # dmart return 0 products (their client-side location caches need app-specific
+  # seeding in pw_catalog.js; DMart web also login-gates), amazon_now harvests
+  # 34 products but without stock/store fields (needs DSH_BODY_DIR field
+  # re-discovery). Flip to true ONLY after the seeding/extraction work lands —
+  # see README "Adapter expansion" + AGENTS.md Known limitations.
+  bigbasket: { enabled: false, app: "bigbasket" }
+  jiomart:   { enabled: false, app: "jiomart" }
+  amazon_now: { enabled: false, app: "amazon_now" }
+  dmart:     { enabled: false, app: "dmart" }
 
 anti_block:
   # Rotate these per cycle to defeat simple rate fingerprints.

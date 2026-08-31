@@ -17,6 +17,7 @@ what order, and how to interpret every result.
 New to the vocabulary (OOS, DPI, darkstore, honey pot, WAF…)? `GLOSSARY.md`
 is a plain-English index of every jargon term in this repo.
 
+
 ## Demand Radar (phases 0–3 live)
 
     python3 run.py --map-locality                    # discover Andheri West darkstores
@@ -250,9 +251,9 @@ Real-time view of everything the process does, plus the exit switch:
   per-hour ETA curve.
 - **■ STOP ALL** — gracefully ends the dashboard and everything it manages.
 
-## Adapter expansion — 4 new quick-commerce apps (added 2025)
+## Adapter expansion — 4 new quick-commerce apps (added 08-31, default-OFF)
 
-New adapter modules (`src/adapters/*.py`) added for broader tracking:
+New adapter modules (`src/adapters/*.py`) for broader tracking:
 
 - `bigbasket` → `BigbasketAdapter` (`name = "bigbasket"`)
 - `jiomart` → `JiomartAdapter` (`name = "jiomart"`)
@@ -262,29 +263,49 @@ New adapter modules (`src/adapters/*.py`) added for broader tracking:
 All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 `PROBE_TERMS`, `search()`, `crawl()`) and are registered in:
 
-- `config.yaml` (`adapters:` section, `enabled: true`)
+- `config.yaml` (`adapters:` section — **`enabled: false` until crawl-ready**, see below)
 - `src/search.py` (adapter maker dict)
 - `src/locality.py` (`QC_APPS`)
 - `src/orchestrator.py` (`build_adapters()`)
 - `src/pricing.py` (`DEFAULT_FEES` — delivery-fee defaults)
 - `src/dashboard.py` (`/qc` endpoint loops)
 
-Initial adapter URLs (verified via `curl -L --max-time 10`):
+**Route verification** (per workspace rules: `monid` + the `tinyfish` provider —
+`XDG_CONFIG_HOME="/Users/Mitesh Gada/Documents/Projects/.monid/xdg" monid run
+--provider tinyfish --endpoint /search --query '{"query":"…","domain_type":"web"}'
+--wait 90 -j`, free — plus `curl` route probes). Verified shapes:
 
-| App | Verified URL | Status |
+| App | Home | Search route | Evidence |
+|---|---|---|---|
+| BigBasket | `bigbasket.com/` (200) | `/ps/?q=<query>` (200; `/search?q=` **403s**) | tinyfish: official site; curl probe |
+| JioMart | `jiomart.com/` (200) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
+| Amazon Now | `amazon.in/alm/storefront?almBrandId=ctnow` (`/fresh` 301s here) | `/10-minutes-delivery/s?k=<query>` (200; bare path 404s) | tinyfish: aboutamazon.in confirms the brand; curl probe |
+| DMart | `dmart.in/` (`dmartready.com` 301s here) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
+
+**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart,amazon_now,dmart`, Goregaon anchor, 08-31):**
+
+| App | Verdict | Detail |
 |---|---|---|
-| BigBasket | `https://www.bigbasket.com/` | 200 OK |
-| JioMart | `https://www.jiomart.com/` | 200 OK |
-| Amazon Now (Amazon Fresh) | `https://www.amazon.in/alm/storefront` (redirect from `/fresh`) | 200 (redirect) |
-| DMart Ready | `https://www.dmart.in/` (redirect from `dmartready.com`) | 200 (redirect) |
+| bigbasket | EMPTY | 0 products — needs app-specific location-cache seeding in `pw_catalog.js` |
+| jiomart | EMPTY | 0 products — same |
+| amazon_now | PARTIAL | **34 products** harvested, but 0 stock-stamped, no store id / ETA — needs `DSH_BODY_DIR` field re-discovery |
+| dmart | EMPTY | 0 products — DMart web additionally login-gates (`?login=required`) |
 
-**URL verification attempts (per user request):**
-- `curl` head requests executed for all 4 apps (results above).
-- `monid discover -q "grocery"` and `-q "quick commerce"`: CLI installed (`v0.1.6`) but returned `EPERM` on config-dir access (`/Users/Mitesh Gada/.config/monid/` missing); no endpoint results retrieved.
-- `tinyfish` skill: **unavailable** in current session.
-- `web_search` (external API): **authentication error** (`invalid API key`).
+So the apps are **wired but disabled by default**: the generic GPS seeding +
+request rewrite in `pw_catalog.js` covers Blinkit/Zepto/Instamart key names
+only, and AGENTS.md forbids trusting un-enforced locations (wrong-city stores
+silently served). Flip an adapter to `enabled: true` only after (a) its
+client-side location cache keys are seeded/flushed in `pw_catalog.js`, (b)
+stock/store/ETA fields are re-discovered from raw-body dumps, and (c) a
+`--store-inventory --apps <app> --max-points 2` run (ALONE) resolves stores
+with products. DMart additionally needs a login-wall decision (we do NOT
+create accounts — may stay web-limited or be dropped).
 
-Adapter URLs were updated based on redirect results (`amazon_now` uses Amazon Fresh storefront `alm/storefront`; `dmart` uses `dmart.in` domain). Search routes also updated. **Note:** these URLs are initial guesses — before relying on live crawls, replicate per-app location-seeding + request-rewrite rules in `tools/pw_catalog.js` (see AGENTS.md: location is enforced via `localStorage.location` + cookie/lat-lon rewrite + request-body rewrites). Verify with `python3 run.py --store-inventory --max-points 2` (run ALONE) and `python3 run.py --qc-status --apps ...`.
+*Process note:* an earlier revision of this section claimed monid was broken
+(`EPERM`) and tinyfish unavailable — both wrong: the EPERM is the documented
+`~/.config` sandbox issue fixed by the `XDG_CONFIG_HOME` override above, and
+tinyfish is a monid **provider**, not a skill. The built-in `web_search` tool
+is banned by the workspace instructions; do not use it here.
 
 ## Voucher / digital tracking documentation (`docs/tracking_expansion_vouchers.md`)
 

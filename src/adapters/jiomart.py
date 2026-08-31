@@ -1,9 +1,10 @@
 """jiomart.py — JioMart adapter.
 
-Initial adapter for JioMart quick-commerce. Browser-intercept pattern; URL
-routes are initial guesses. Replicate location seeding (localStorage.location,
-cookie/lat-lon rewrite) in pw_catalog.js once exact JioMart endpoints are
-verified. See AGENTS.md invariants: NULL ≠ OOS, debounce, streaks.
+Initial adapter for JioMart quick-commerce. Browser-intercept pattern; jiomart.com +
+/search?q= verified 200 via curl 08-31 (tinyfish confirmed the domain). Replicate
+location seeding (localStorage.location, cookie/lat-lon rewrite) in
+pw_catalog.js before trusting live crawls. See AGENTS.md invariants:
+NULL ≠ OOS, debounce, streaks.
 """
 from __future__ import annotations
 import urllib.parse

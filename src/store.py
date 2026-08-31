@@ -170,7 +170,6 @@ class Store:
             except Exception:
                 pass  # already exists
         self.conn.commit()
-        self.conn.commit()
         self._backfill_categories()
 
     def _backfill_categories(self):
@@ -550,12 +549,6 @@ class Store:
             (str(chat_id), kw),
         )
         self.conn.commit()
-        if restock_trigger and cur.rowcount > 0:
-            cur2 = self.conn.execute(
-                "UPDATE oos_events SET restock_trigger=? WHERE app=? AND store_id=? "
-                "AND sku_key=? AND ended_at=?",
-                (restock_trigger, app, store_id, sku_key, t),
-            )
         return cur.rowcount > 0
 
     def watches_for_chat(self, chat_id):

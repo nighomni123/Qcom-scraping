@@ -2,9 +2,9 @@
 
 DMart Ready (quick-commerce / grocery delivery) adapter. Uses the same
 browser-intercept strategy as existing QC apps: load the real mobile web app,
-intercept signed catalog responses, replicate location seeding. URL routes
-are initial guesses; verify via --store-inventory / --qc-status before
-relying on these paths for live crawls.
+intercept signed catalog responses, replicate location seeding. Routes
+verified 08-31: dmartready.com 301s to www.dmart.in; /search?q= serves 200.
+Implement pw_catalog.js location seeding before trusting live crawls.
 """
 from __future__ import annotations
 import urllib.parse
