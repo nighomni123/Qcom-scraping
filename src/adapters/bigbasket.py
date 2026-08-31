@@ -1,10 +1,13 @@
 """bigbasket.py — BigBasket adapter.
 
-Initial adapter for BigBasket (bbnow). Uses browser-intercept path like
-existing QC adapters: real mobile web app, geolocation anchored per point,
-mirrors signed catalog calls. Routes verified 08-31: home bigbasket.com serves 200; the search route is
-/ps/?q=<query> (200) — /search?q= 403s. Replicate location seeding + lat/lon
-rewrite in pw_catalog.js before trusting live crawls (see AGENTS.md).
+Browser-intercept pattern like the other QC adapters. Routes verified 08-31:
+home bigbasket.com serves 200 to curl; the search route is /ps/?q=<query>
+(/search?q= 403s). STAYS DISABLED: Akamai Bot Manager 403s our headless
+Chromium on EVERY route + UA (curl passes, real browsers don't — JS-sensor
+detection), and no bbnow/alt domain resolves. This is an ENVIRONMENTAL block,
+not a location-seeding gap — revisit only with a residential proxy or a
+real-Chrome fingerprint (see AGENTS.md "Expansion apps" + README "Adapter
+expansion"). Invariants still apply: NULL ≠ OOS, debounce, streaks.
 """
 from __future__ import annotations
 import urllib.parse

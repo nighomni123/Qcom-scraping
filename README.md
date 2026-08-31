@@ -290,21 +290,27 @@ All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 | BigBasket | `bigbasket.com/` (200) | `/ps/?q=<query>` (200; `/search?q=` **403s**) | tinyfish: official site; curl probe |
 | JioMart | `jiomart.com/` (200) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
 
-**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart`, Goregaon anchor, 08-31):**
+**Live verdict after deep tracing (08-31, raw-body dumps + wire inspection;
+probes ran via `--qc-status --apps …` overrides and direct `pw_catalog.js`
+runs from the machine's approximate location):**
 
-| App | Verdict | Detail |
+| App | Verdict | Root cause (evidence) |
 |---|---|---|
-| bigbasket | EMPTY | 0 products — needs app-specific location-cache seeding in `pw_catalog.js` |
-| jiomart | EMPTY | 0 products — same |
+| bigbasket | **Akamai-blocked** | `www.bigbasket.com` returns `403 Access Denied` (`errors.edgesuite.net`) to our headless Chromium on **every route and UA** (curl passes, real browsers don't → JS-sensor bot detection). No `bbnow`/alt domain resolves. Not fixable in code from here — needs a residential proxy or real-Chrome fingerprint. |
+| jiomart | **extraction works, but IP-locked** | `pw_catalog.js` now harvests **12+ products** (name, price, `price.effective.min`, MRP via `price.marked.min`, `in_stock_variant`, `store_ids[]`, ETA `eta_mins`) from the `ext/vertex/.../products` API. BUT the QC darkstore is resolved **server-side from the request IP**: `delivery-promise` returned the same store at an identical `820.3851 m` across runs whose `app_geolocation` cookie held three different values, and even on the first call before any geo cookie existed. No client-side seed steers it. Search endpoint also rate-limits hard (~4 rapid probes → empty, ~2.5 min recovery). |
 
-So the apps are **wired but disabled by default**: the generic GPS seeding +
-request rewrite in `pw_catalog.js` covers Blinkit/Zepto/Instamart key names
-only, and AGENTS.md forbids trusting un-enforced locations (wrong-city stores
-silently served). Flip an adapter to `enabled: true` only after (a) its
-client-side location cache keys are seeded/flushed in `pw_catalog.js`, (b)
-stock/store/ETA fields are re-discovered from raw-body dumps, and (c) a
-`--store-inventory --apps <app> --max-points 2` run (ALONE) resolves stores
-with products.
+So both stay **wired but `enabled: false`**. JioMart's blocker is fundamental to
+the repo's "location is enforced, not assumed" invariant — it cannot be driven
+to Demand-Radar anchors, so it is at best a machine-location `--store-inventory`
+source (and even that is rate-limit-fragile). BigBasket needs an infra change
+(proxy/fingerprint) before any of this is revisited. The earlier "needs
+location-cache seeding" guess in this section was **wrong** — seeding does not
+move either app's store; the blockers are the Akamai edge (bigbasket) and
+server-side IP geolocation (jiomart).
+
+DROPPED the same day (see top of section): `dmart` (login wall) and
+`amazon_now` (app-only). The jiomart **extraction** fixes in `pw_catalog.js`
+are kept regardless — they're correct and serve any future machine-location use.
 
 *Process note:* an earlier revision of this section claimed monid was broken
 (`EPERM`) and tinyfish unavailable — both wrong: the EPERM is the documented

@@ -120,7 +120,11 @@ const num = s => {
 const STOCK_KEYS = ['in_stock', 'instock', 'is_available', 'available', 'availability',
                     'out_of_stock', 'outofstock', 'oos', 'stock', 'sold_out',
                     'stock_status', 'inventory', 'is_sold_out', 'product_state',
-                    'isavail', 'issoldout'];
+                    'isavail', 'issoldout',
+                    // JioMart vertex items: true per-variant stock flag
+                    // (traced 08-31; 'sellable' deliberately NOT added — it
+                    // means pincode-serviceable, not in-stock).
+                    'in_stock_variant'];
 const STOCK_INVERT = new Set(['out_of_stock', 'outofstock', 'oos', 'sold_out', 'is_sold_out']);
 const BADGE_KEYS = ['only_few_left', 'few_left', 'fast_selling', 'selling_fast', 'low_stock'];
 
@@ -194,6 +198,12 @@ function extractMeta(node, depth) {
   if (Array.isArray(node)) { for (const v of node) extractMeta(v, depth + 1); return; }
   for (const [k, v] of Object.entries(node)) {
     const lk = String(k).toLowerCase();
+    // JioMart vertex items carry store_ids: [3442] — an ARRAY of darkstore
+    // uids (traced 08-31). Feed each element through the normal candidate
+    // pipeline instead of letting looksLikeId() drop the array.
+    if (lk === 'store_ids' && Array.isArray(v)) {
+      for (const x of v) addStoreCandidate('store_id', x, null);
+    }
     if (STORE_KEY_PRIORITY.includes(lk)) {
       if (v && typeof v === 'object' && !Array.isArray(v)) {
         addStoreCandidate(lk.endsWith('_id') ? lk : lk + '_id',
@@ -234,9 +244,9 @@ function collect(node, out, depth) {
       // Blinkit {text|value}, Instamart google-money style
       // ({offerPrice:{units:"18"}}), or plain wrapper objects.
       price = price.value ?? price.amount ?? price.offerPrice ?? price.sellingPrice ??
-              price.finalPrice ?? null;
+              price.finalPrice ?? price.effective ?? null;   // jiomart: {effective:{min,max}}
       if (price && typeof price === 'object') {
-        price = price.units ?? price.unitAmount ?? price.text ?? null;
+        price = price.units ?? price.unitAmount ?? price.text ?? price.min ?? null;
       }
     }
     price = num(price);
@@ -248,6 +258,11 @@ function collect(node, out, depth) {
       // Instamart nests mrp inside the price object: price.mrp.{units}
       const m2 = node[priceKey].mrp;
       if (m2) mrp = num(typeof m2 === 'object' ? (m2.units ?? m2.value ?? m2.text) : m2);
+      // JioMart: price.marked.{min} is the MRP (traced 08-31).
+      if (mrp === null && node[priceKey].marked) {
+        const m3 = node[priceKey].marked;
+        mrp = num(typeof m3 === 'object' ? (m3.min ?? m3.max) : m3);
+      }
     }
     if (mrp !== null && PRICE_DIVISORS[APP]) mrp = mrp / PRICE_DIVISORS[APP];
     if (name && typeof name === 'string' && Number.isFinite(price) && price > 0) {
@@ -552,7 +567,7 @@ async function main() {
       locale: 'en-IN',
       timezoneId: 'Asia/Kolkata',
     });
-    await ctx.addInitScript(([lat, lon]) => {
+    await ctx.addInitScript(([lat, lon, jm]) => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       window.chrome = window.chrome || { runtime: {} };
       // Location seeding: these apps cache their serving location client-side
@@ -571,6 +586,14 @@ async function main() {
         ck('gr_1_lon', lon, true);
         ck('gr_1_locality', '', false);
       } catch (_) {}
+      // NOTE (traced 08-31): JioMart is deliberately NOT seeded here. Its QC
+      // darkstore is resolved SERVER-SIDE from the request IP (delivery-promise
+      // returned the same store at an identical 820.3851 m across runs whose
+      // app_geolocation cookie held three different values, and even on the
+      // first call before any geo cookie existed). No client-side seed steers
+      // it, so we harvest whatever store the machine's IP resolves — correct
+      // for --store-inventory (real location, no spoofing), useless for
+      // per-anchor Demand Radar. See AGENTS.md "Expansion apps".
     }, [LAT, LON]);
     const page = await ctx.newPage();
 
@@ -916,6 +939,12 @@ async function main() {
       } catch (_) {}
       try {
         fs.writeFileSync(`${BODY_DIR}/_cookies.json`, JSON.stringify(await ctx.cookies(), null, 2));
+      } catch (_) {}
+      // Full request lines (URL + headers + POST body) for every API-ish call
+      // — the vector we need when a server resolves location from something
+      // other than the obvious params (added 08-31 during JioMart tracing).
+      try {
+        fs.writeFileSync(`${BODY_DIR}/_api_hits.json`, JSON.stringify(apiHits.slice(0, 200), null, 2));
       } catch (_) {}
     }
 

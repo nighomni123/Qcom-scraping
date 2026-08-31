@@ -41,11 +41,19 @@ adapters:
   # QC-first focus (08-22): amazon/flipkart tracking off by default.
   # Flip back to true to resume e-commerce price tracking.
   trackers:  { enabled: false }
-  # Expansion (08-31): wired + routes verified via tinyfish/curl, but live
-  # --qc-status probes show they are NOT crawl-ready yet: bigbasket/jiomart
-  # return 0 products (their client-side location caches need app-specific
-  # seeding in pw_catalog.js). Flip to true ONLY after the seeding/extraction
-  # work lands — see README "Adapter expansion" + AGENTS.md Known limitations.
+  # Expansion (08-31): wired + routes verified, then traced live. Both stay
+  # OFF — the blockers are ENVIRONMENTAL (not fixable in code from here):
+  #  - bigbasket: Akamai Bot Manager 403s our headless browser on EVERY route
+  #    and UA (curl passes, real browsers don't). No bbnow/alt domain exists.
+  #    Needs a residential proxy or a real-Chrome fingerprint to revisit.
+  #  - jiomart: extraction WORKS (12+ products, stock, mrp, store ids — see
+  #    pw_catalog.js), but the QC darkstore is resolved SERVER-SIDE from the
+  #    request IP (delivery-promise returned the same store at an identical
+  #    820.3851 m across runs whose app_geolocation cookie held 3 different
+  #    values, and even pre-cookie). So it CANNOT be steered to Demand-Radar
+  #    anchors (violates "location is enforced, not assumed"); and its search
+  #    endpoint rate-limits hard (~4 rapid probes -> empty, ~2.5 min recovery).
+  #    Usable ONLY for machine-location --store-inventory if ever enabled.
   # DROPPED 08-31 (evidence, do not re-add blindly): dmart (web login-gates;
   # no fake accounts) and amazon_now (Amazon Now is app-only — web routes
   # serve generic search or the empty legacy Fresh shell; would pollute

@@ -94,7 +94,7 @@ src/
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible
   geo.py                corridor anchors + store resolver (glitch monitor)
-  adapters/             blinkit / zepto / instamart / amazon_now / bigbasket /
+  adapters/             blinkit / zepto / instamart / bigbasket /
                          jiomart / amazon / flipkart / trackers / demo;
                         base.py holds the browser machinery
   detect.py alert.py honey.py events.py dashboard.py search.py pricing.py
@@ -396,16 +396,27 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   proxy/IP coherence, per-store anchor rotation) still pending — see
   DEMAND_RADAR.md.
 - Expansion apps (08-31): `bigbasket` / `jiomart` adapters are WIRED (search,
-  QC_APPS, orchestrator, pricing, dashboard) but `enabled: false` in
-  config.yaml until crawl-ready. Live `--qc-status` verdict: both EMPTY
-  (generic pw_catalog.js location seeding does not cover their client-side
-  caches). Routes verified via monid+tinyfish & curl: BigBasket search is
-  `/ps/?q=` (`/search?q=` 403s!), JioMart = `jiomart.com/search?q=`. Enable
-  per-app only after seeding + field re-discovery + a solo
-  `--store-inventory --apps <app> --max-points 2` smoke. DROPPED the same day
-  with evidence: `dmart` (web login-gates; no fake accounts) and `amazon_now`
-  (Amazon Now is APP-ONLY — web routes serve generic search or the empty
-  legacy Fresh shell; would pollute price_obs). Full detail: README
-  "Adapter expansion".
+  QC_APPS, orchestrator, pricing, dashboard) but stay `enabled: false` — the
+  blockers are ENVIRONMENTAL, not code (an earlier "needs location seeding"
+  guess was wrong; tracing proved otherwise):
+  * bigbasket: Akamai Bot Manager 403s our headless Chromium on EVERY route +
+    UA (curl passes, browsers don't; `errors.edgesuite.net`). No bbnow/alt
+    domain resolves. Revisit only with a residential proxy or real-Chrome
+    fingerprint.
+  * jiomart: extraction WORKS now (pw_catalog.js harvests 12+ products with
+    price `effective.min`, MRP `marked.min`, `in_stock_variant`, `store_ids[]`,
+    ETA `eta_mins` — all added 08-31). BUT the QC store is resolved SERVER-SIDE
+    from the request IP (delivery-promise returned the same store at an
+    identical 820.3851 m across runs whose app_geolocation cookie held 3
+    different values, and pre-cookie too) → NOT anchor-steerable, so it
+    violates "location is enforced, not assumed" and can't feed Demand Radar
+    per-anchor mapping; at best a machine-location --store-inventory source,
+    and its search endpoint rate-limits hard (~4 rapid probes → empty, ~2.5 min
+    recovery). Do NOT add client-side location seeding for jiomart — it does
+    nothing (see the NOTE in pw_catalog.js's init script).
+  DROPPED the same day with evidence: `dmart` (web login-gates; no fake
+  accounts) and `amazon_now` (Amazon Now is APP-ONLY — web routes serve generic
+  search or the empty legacy Fresh shell; would pollute price_obs). Full
+  detail: README "Adapter expansion".
 - Demand numbers are a stock-out-intensity PROXY for demand, never order
   volumes. Keep volumes modest; research only; no fake accounts/orders.

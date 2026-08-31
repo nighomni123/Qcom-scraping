@@ -1,10 +1,16 @@
 """jiomart.py — JioMart adapter.
 
-Initial adapter for JioMart quick-commerce. Browser-intercept pattern; jiomart.com +
-/search?q= verified 200 via curl 08-31 (tinyfish confirmed the domain). Replicate
-location seeding (localStorage.location, cookie/lat-lon rewrite) in
-pw_catalog.js before trusting live crawls. See AGENTS.md invariants:
-NULL ≠ OOS, debounce, streaks.
+Browser-intercept pattern; jiomart.com + /search?q= verified 08-31.
+EXTRACTION WORKS (pw_catalog.js harvests products with price/MRP/stock/
+store_ids from the ext/vertex products API — field names traced 08-31 from
+DSH_BODY_DIR dumps). But the QC darkstore is resolved SERVER-SIDE from the
+request IP (delivery-promise returned the same store at an identical
+distance across runs whose app_geolocation cookie held different values), so
+it CANNOT be steered to Demand-Radar anchors — client-side seeding does
+nothing, don't add it. Stays `enabled: false` (see AGENTS.md "Expansion
+apps" + README "Adapter expansion"): at best a machine-location
+--store-inventory source, and its search endpoint rate-limits hard.
+Invariants still apply: NULL ≠ OOS, debounce, streaks.
 """
 from __future__ import annotations
 import urllib.parse
