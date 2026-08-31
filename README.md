@@ -249,3 +249,50 @@ Real-time view of everything the process does, plus the exit switch:
 - **Demand Radar panels** — platform health, DPI ranking, onset heatmap,
   per-hour ETA curve.
 - **■ STOP ALL** — gracefully ends the dashboard and everything it manages.
+
+## Adapter expansion — 4 new quick-commerce apps (added 2025)
+
+New adapter modules (`src/adapters/*.py`) added for broader tracking:
+
+- `bigbasket` → `BigbasketAdapter` (`name = "bigbasket"`)
+- `jiomart` → `JiomartAdapter` (`name = "jiomart"`)
+- `amazon_now` → `AmazonNowAdapter` (`name = "amazon_now"`)
+- `dmart` → `DmartAdapter` (`name = "dmart"`)
+
+All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
+`PROBE_TERMS`, `search()`, `crawl()`) and are registered in:
+
+- `config.yaml` (`adapters:` section, `enabled: true`)
+- `src/search.py` (adapter maker dict)
+- `src/locality.py` (`QC_APPS`)
+- `src/orchestrator.py` (`build_adapters()`)
+- `src/pricing.py` (`DEFAULT_FEES` — delivery-fee defaults)
+- `src/dashboard.py` (`/qc` endpoint loops)
+
+Initial adapter URLs (verified via `curl -L --max-time 10`):
+
+| App | Verified URL | Status |
+|---|---|---|
+| BigBasket | `https://www.bigbasket.com/` | 200 OK |
+| JioMart | `https://www.jiomart.com/` | 200 OK |
+| Amazon Now (Amazon Fresh) | `https://www.amazon.in/alm/storefront` (redirect from `/fresh`) | 200 (redirect) |
+| DMart Ready | `https://www.dmart.in/` (redirect from `dmartready.com`) | 200 (redirect) |
+
+**URL verification attempts (per user request):**
+- `curl` head requests executed for all 4 apps (results above).
+- `monid discover -q "grocery"` and `-q "quick commerce"`: CLI installed (`v0.1.6`) but returned `EPERM` on config-dir access (`/Users/Mitesh Gada/.config/monid/` missing); no endpoint results retrieved.
+- `tinyfish` skill: **unavailable** in current session.
+- `web_search` (external API): **authentication error** (`invalid API key`).
+
+Adapter URLs were updated based on redirect results (`amazon_now` uses Amazon Fresh storefront `alm/storefront`; `dmart` uses `dmart.in` domain). Search routes also updated. **Note:** these URLs are initial guesses — before relying on live crawls, replicate per-app location-seeding + request-rewrite rules in `tools/pw_catalog.js` (see AGENTS.md: location is enforced via `localStorage.location` + cookie/lat-lon rewrite + request-body rewrites). Verify with `python3 run.py --store-inventory --max-points 2` (run ALONE) and `python3 run.py --qc-status --apps ...`.
+
+## Voucher / digital tracking documentation (`docs/tracking_expansion_vouchers.md`)
+
+A design document (`docs/tracking_expansion_vouchers.md`) and matching additive schema changes (`src/store.py` + `src/prober.py`) document a tracking gap: digital voucher SKUs (Roblox, Steam, Valorant, Domino's, Amazon Prime, Blinkit Gift, Xbox Game Pass, etc.) have zero `price_obs` entries and zero ended restock events (`restock_trigger` = `None`), leaving `mean_restock_min` as `NULL`. The document proposes (and commits implement) additive `ALTER TABLE` columns:
+
+- `stock_obs`: `restock_trigger`, `voucher_type`, `promotional_context`, `catalog_version`
+- `watchlist`: `is_digital_voucher`
+- `oos_events`: `restock_trigger`
+- `price_obs`: `catalog_version`
+
+Schema remains backward-compatible (historical rows keep `NULL` defaults). See `docs/tracking_expansion_vouchers.md` for full problem analysis, root cause, recommended next steps, and verification from `deals.db`.

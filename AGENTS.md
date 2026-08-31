@@ -94,8 +94,9 @@ src/
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible
   geo.py                corridor anchors + store resolver (glitch monitor)
-  adapters/             blinkit / zepto / instamart / amazon / flipkart /
-                        trackers / demo; base.py holds the browser machinery
+  adapters/             blinkit / zepto / instamart / amazon_now / bigbasket /
+                         jiomart / dmart / amazon / flipkart / trackers / demo;
+                        base.py holds the browser machinery
   detect.py alert.py honey.py events.py dashboard.py search.py pricing.py
                         tgbot.py miniyaml.py (stdlib YAML fallback)
 exports/                locality mapping JSON (rotation pools per store)
