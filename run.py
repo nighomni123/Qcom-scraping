@@ -230,10 +230,11 @@ def reset_demo_db(cfg):
 def print_demo_report(store):
     rows = store.recent_alerts(limit=10)
     print(f"\n=== DEMO RESULT: {len(rows)} glitch(es) detected & alerted ===")
-    for ts, app, store_id, reason, price, score in rows:
+    for ts, app, store_id, reason, price, score, mrp in rows:
         import datetime
         t = datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
-        print(f"  [{t}] {app} @ {store_id}  ₹{price:.0f}  {reason}  (score {score})")
+        ref = f" (MRP ₹{mrp:.0f})" if mrp else ""
+        print(f"  [{t}] {app} @ {store_id}  ₹{price:.0f}{ref}  {reason}  (score {score})")
     print("\nFull alert log:")
     try:
         logf = "deals.log"

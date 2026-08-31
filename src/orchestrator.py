@@ -165,8 +165,13 @@ def _crawl_and_process(ad, station, lat, lon, store, alert, honey, cfg,
             app_honey, name=p.get("name"),
         )
         if is_glitch and not store.last_alerted(ad.name, store_id, sku):
-            store.record_alert(ad.name, store_id, sku, reason, price, score)
-            alert.send(ad.name, store_label, p.get("name"), price, reason, score, p.get("url", ""))
+            # Reference price for the alert: catalog MRP plus the (store,sku)'s
+            # usual recent price (median BEFORE this obs — record() above
+            # already inserted it, so usual_price() skips the newest row).
+            usual = store.usual_price(ad.name, store_id, sku)
+            store.record_alert(ad.name, store_id, sku, reason, price, score, mrp)
+            alert.send(ad.name, store_label, p.get("name"), price, reason, score,
+                       p.get("url", ""), mrp=mrp, usual=usual)
 
     # Proactive keyword watches: match this crawl batch against
     # /watch registrations and push under alert.rate_cap. Best-effort:

@@ -8,6 +8,7 @@ are local, so a global baseline would cry wolf constantly.
 from __future__ import annotations
 
 import sqlite3
+import statistics
 import threading
 import time
 import os
@@ -38,7 +39,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     sku_key TEXT,
     reason TEXT,
     price REAL,
-    score REAL
+    score REAL,
+    mrp REAL                  -- 09-02: reference price shown on alerts (NULL = unknown)
 );
 CREATE TABLE IF NOT EXISTS darkstores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -163,6 +165,7 @@ class Store:
             ("watchlist", "is_digital_voucher", "INTEGER DEFAULT 0"),
             ("oos_events", "restock_trigger", "TEXT DEFAULT NULL"),
             ("price_obs", "catalog_version", "TEXT DEFAULT NULL"),
+            ("alerts", "mrp", "REAL"),          # 09-02: MRP/usual shown on alerts
         ]
         for table, col, col_type in migrations:
             try:
@@ -199,12 +202,30 @@ class Store:
         )
         self.conn.commit()
 
-    def record_alert(self, app, store_id, sku_key, reason, price, score):
+    def record_alert(self, app, store_id, sku_key, reason, price, score, mrp=None):
         self.conn.execute(
-            "INSERT INTO alerts(ts,app,store_id,sku_key,reason,price,score) VALUES(?,?,?,?,?,?,?)",
-            (time.time(), app, store_id, sku_key, reason, price, score),
+            "INSERT INTO alerts(ts,app,store_id,sku_key,reason,price,score,mrp) "
+            "VALUES(?,?,?,?,?,?,?,?)",
+            (time.time(), app, store_id, sku_key, reason, price, score, mrp),
         )
         self.conn.commit()
+
+    def usual_price(self, app, store_id, sku_key,
+                    span_seconds=7 * 24 * 3600, limit=200):
+        """Median of this (store,sku)'s recent price_obs EXCLUDING the newest row.
+
+        The newest observation is the one that just triggered the alert, so it
+        must not define its own 'usual'. None when there is no prior history
+        (then alerts fall back to MRP only)."""
+        rows = self.conn.execute(
+            "SELECT price FROM price_obs WHERE app=? AND store_id=? AND sku_key=? "
+            "AND ts > ? ORDER BY ts DESC LIMIT ?",
+            (app, store_id, sku_key, time.time() - span_seconds, limit + 1),
+        ).fetchall()
+        hist = [r[0] for r in rows[1:] if r[0] and r[0] > 0]
+        if not hist:
+            return None
+        return statistics.median(hist)
 
     def upsert_darkstore(self, app, store_id, label, lat, lon, eta_min=None):
         """Demand Radar: register/refresh a resolved darkstore for an app."""
@@ -432,7 +453,7 @@ class Store:
 
     def recent_alerts(self, limit=20):
         return self.conn.execute(
-            "SELECT ts,app,store_id,reason,price,score FROM alerts ORDER BY ts DESC LIMIT ?",
+            "SELECT ts,app,store_id,reason,price,score,mrp FROM alerts ORDER BY ts DESC LIMIT ?",
             (limit,),
         ).fetchall()
 

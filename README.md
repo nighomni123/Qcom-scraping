@@ -192,8 +192,11 @@ Never commit `.env`. The old repo accidentally had a Gmail app-password in
 
 ## Output
 
-- macOS notification + optional Telegram push.
-- `deals.log` — every alert.
+- macOS notification + optional Telegram push — each shows the deal price
+  **with its reference price**: catalog MRP when the app provides one, else the
+  "usual" price (median of that item's recent prices at that store, excluding
+  the triggering observation).
+- `deals.log` — every alert, including `mrp` and `usual` fields.
 - `deals.db` — full price history + alerts + the complete search archive
   (`searches` / `search_results` tables; every bot/UI/CLI search lands there,
   tagged with `src/categories.py` product categories for future analysis),
@@ -243,7 +246,9 @@ Real-time view of everything the process does, plus the exit switch:
   same data is available as JSON: `GET /db`, `GET /db/<db>/<table>`.
 - **Live feed** — every crawl, cycle, alert, and Telegram query as it happens.
   **Click any row** for details: full ranked results of a search (with codes,
-  delivery, links), sample products of a crawl, or an alert's reason/store.
+  delivery, links), sample products of a crawl, or an alert's reason/store —
+  alert rows carry an inline "was ₹X" chip (MRP, else store-usual) and the
+  detail modal breaks out price / MRP / usual with the discount %.
 - **Product categories covered** — all crawled products grouped by category.
 - **Search history** — every archived search; click to reopen its stored
   results from `deals.db` anytime.

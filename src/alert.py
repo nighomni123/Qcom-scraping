@@ -82,14 +82,41 @@ class Alert:
         except Exception:
             pass
 
-    def send(self, app, store_label, name, price, reason, score, url=""):
+    def send(self, app, store_label, name, price, reason, score, url="",
+             mrp=None, usual=None):
+        """Fan out one glitch alert.
+
+        mrp   — catalog MRP/usual from the crawl payload (may be None)
+        usual — median of this (store,sku)'s recent prices BEFORE this
+                observation (may be None); the honest "was" price when the
+                catalog carries no MRP.
+        """
         if not self._ratelimit_ok():
             return
+        # Reference "was" price: prefer MRP, fall back to recent-store usual.
+        # The live feed + modal fall back per-field so partial data still shows.
+        was = mrp if mrp and mrp > 0 else usual
         title = f"🔥 {app} · {store_label}"
-        msg = f"₹{price:.0f} — {name} | {reason} (score {score})"
+        msg = f"₹{price:.0f}"
+        if was and was > 0 and was > price:
+            msg += f" (was ₹{was:.0f})"
+        msg += f" — {name} | {reason} (score {score})"
+        # Desktop keeps the one-liner; Telegram gets a structured breakdown.
         self._desktop(title, msg)
-        self._telegram(f"{title}\n{msg}\n{url}".strip())
-        self._log(f"{title} | {msg} | {url}")
+        tg = f"{title}\n₹{price:.0f}"
+        if mrp and mrp > 0 and mrp > price:
+            tg += f" · MRP ₹{mrp:.0f}"
+        if usual and usual > 0 and usual > price:
+            tg += f" · usual ₹{usual:.0f}"
+        tg += f"\n{name} | {reason} (score {score})\n{url}".rstrip()
+        self._telegram(tg)
+        # Log line keeps machine-parseable order: price, mrp, usual.
+        log_msg = (f"₹{price:.0f} | mrp ₹{mrp:.0f} | usual ₹{usual:.0f}"
+                   if mrp and usual
+                   else f"₹{price:.0f}" + (f" | mrp ₹{mrp:.0f}" if mrp else "")
+                   + (f" | usual ₹{usual:.0f}" if usual else ""))
+        self._log(f"{title} | {log_msg} — {name} | {reason} (score {score}) | {url}")
         events.bump("alerts")
         events.emit("alert", f"{name} ₹{price:.0f}", platform=app,
-                    store=store_label, reason=reason, url=url)
+                    store=store_label, reason=reason, url=url,
+                    price=price, mrp=mrp, usual=usual)

@@ -433,10 +433,18 @@ async function refresh(){
       lastCount = s.events.length;
       document.getElementById('feed').innerHTML = s.events.map(e => {
         const rich = RICH.has(e.kind) && (e.results?.length || e.samples?.length || e.reason || e.text);
+        // price alerts: inline "was ₹X" (MRP, else recent-store usual) right on the feed row
+        const wasRef = e.kind === 'alert'
+          ? (typeof e.mrp === 'number' && e.mrp > 0 ? e.mrp
+            : (typeof e.usual === 'number' && e.usual > 0 ? e.usual : null))
+          : null;
+        const wasTxt = wasRef && typeof e.price === 'number' && wasRef > e.price
+          ? `<span class="more">was ₹${Math.round(wasRef)}</span>` : '';
         return `<div class="ev" data-ts="${e.ts}" onclick="openDetail(${e.ts})">
           <time>${e.time}</time>
           <span class="tag ${e.kind}">${KIND_LABEL[e.kind]||e.kind}</span>
           <span class="msg">${esc(e.text)}</span>
+          ${wasTxt}
           ${rich ? '<span class="more">details ›</span>' : ''}
         </div>`;
       }).join('');
@@ -493,8 +501,16 @@ function openDetail(ts){
       platform: e.app, name: p.name, listed: p.price, mrp: p.mrp, effective: p.price, url: '' })), true) + body;
   } else if (e.kind === 'alert') {
     title = `🚨 GLITCH — ${esc(e.text)}`;
+    const price = typeof e.price === 'number' ? e.price : null;
+    const mrp = typeof e.mrp === 'number' && e.mrp > 0 ? e.mrp : null;
+    const usual = typeof e.usual === 'number' && e.usual > 0 ? e.usual : null;
+    const off = (ref) => price && ref && ref > price
+      ? ` <span class="muted">(−${Math.round((ref - price) / ref * 100)}%)</span>` : '';
     body = `<div class="kv"><b>platform</b> ${esc(e.platform)}</div>
             <div class="kv"><b>store</b> ${esc(e.store)}</div>
+            <div class="kv"><b>price</b> ₹${price ?? '—'}${off(mrp)}${off(usual)}</div>
+            ${mrp ? `<div class="kv"><b>MRP</b> ₹${mrp}${off(mrp)}</div>` : '<div class="kv"><b>MRP</b> not in catalog</div>'}
+            ${usual ? `<div class="kv"><b>usual (store)</b> ₹${Math.round(usual)}${off(usual)}</div>` : ''}
             <div class="kv"><b>why</b> ${esc(e.reason)}</div>
             ${e.url ? `<div class="kv"><b>link</b> <a href="${esc(e.url)}" target="_blank" style="color:var(--blue)">${esc(e.url)}</a></div>` : ''}`;
   } else {

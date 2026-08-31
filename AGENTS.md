@@ -344,6 +344,17 @@ embedded `cde_external` credential is a real extractable secret but the browser 
 **do NOT hardcode it** and **do NOT forge** anything — harvest already-authenticated responses.
 Full report: `docs/blinkit-apk-reverse-findings.md`.
 
+## Alert invariants (glitch monitor, 09-02)
+
+- Every price alert (desktop / Telegram / `deals.log` / live feed + modal)
+  carries a reference "was" price: the catalog **MRP** when the crawl payload
+  has one, else the **usual price** — `Store.usual_price()` = median of that
+  (store,sku)'s recent `price_obs` EXCLUDING the newest row (the triggering
+  observation must not define its own "usual"). `alerts.mrp` persists it
+  (additive column, backfilled on old DBs); the `alert` event carries
+  `price`/`mrp`/`usual` fields for the dashboard. WatchPusher /watch pushes are
+  a different surface and do not include it.
+
 ## Known limitations / TODO
 
 - Zepto: WORKING since 08-22 (see Zepto specifics above). 24–30 products per
