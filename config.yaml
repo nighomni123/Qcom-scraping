@@ -44,14 +44,14 @@ adapters:
   # Expansion (08-31): wired + routes verified via tinyfish/curl, but live
   # --qc-status probes show they are NOT crawl-ready yet: bigbasket/jiomart
   # return 0 products (their client-side location caches need app-specific
-  # seeding in pw_catalog.js), amazon_now harvests 34 products but without
-  # stock/store fields (needs DSH_BODY_DIR field re-discovery). Flip to true
-  # ONLY after the seeding/extraction work lands — see README "Adapter
-  # expansion" + AGENTS.md Known limitations. (dmart DROPPED 08-31: web is
-  # login-gated and we do not create accounts.)
+  # seeding in pw_catalog.js). Flip to true ONLY after the seeding/extraction
+  # work lands — see README "Adapter expansion" + AGENTS.md Known limitations.
+  # DROPPED 08-31 (evidence, do not re-add blindly): dmart (web login-gates;
+  # no fake accounts) and amazon_now (Amazon Now is app-only — web routes
+  # serve generic search or the empty legacy Fresh shell; would pollute
+  # price_obs with non-grocery results).
   bigbasket: { enabled: false, app: "bigbasket" }
   jiomart:   { enabled: false, app: "jiomart" }
-  amazon_now: { enabled: false, app: "amazon_now" }
 
 anti_block:
   # Rotate these per cycle to defeat simple rate fingerprints.

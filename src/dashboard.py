@@ -720,7 +720,7 @@ class Dashboard:
                         st = S(dash.cfg.get("db", "deals.db"))
                         day_ago = time.time() - 86400
                         apps = []
-                        for a in ("blinkit", "zepto", "instamart", "bigbasket", "jiomart", "amazon_now"):
+                        for a in ("blinkit", "zepto", "instamart", "bigbasket", "jiomart"):
                             en = bool(dash.cfg.get("adapters", {}).get(a, {}).get("enabled", True))
                             q = lambda sql, *p: st.conn.execute(sql, p).fetchone()[0]
                             apps.append({

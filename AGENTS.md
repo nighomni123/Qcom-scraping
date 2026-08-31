@@ -395,17 +395,17 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see
   DEMAND_RADAR.md.
-- Expansion apps (08-31): `bigbasket` / `jiomart` / `amazon_now` adapters are
-  WIRED (search, QC_APPS, orchestrator, pricing, dashboard) but
-  `enabled: false` in config.yaml until crawl-ready. Live `--qc-status` verdict:
-  bigbasket/jiomart EMPTY (generic pw_catalog.js location seeding does not
-  cover their client-side caches), amazon_now PARTIAL (34 products, no
-  stock/store fields — needs DSH_BODY_DIR re-discovery). Routes verified via
-  monid+tinyfish & curl: BigBasket search is `/ps/?q=` (`/search?q=` 403s!),
-  Amazon Now is `/10-minutes-delivery/s?k=` (Fresh folded into Now), JioMart =
-  `jiomart.com/search?q=`. Enable per-app only after seeding + field
-  re-discovery + a solo `--store-inventory --apps <app> --max-points 2` smoke.
-  `dmart` was added and DROPPED the same day: the web storefront login-gates
-  and we do not create accounts. Full table: README "Adapter expansion".
+- Expansion apps (08-31): `bigbasket` / `jiomart` adapters are WIRED (search,
+  QC_APPS, orchestrator, pricing, dashboard) but `enabled: false` in
+  config.yaml until crawl-ready. Live `--qc-status` verdict: both EMPTY
+  (generic pw_catalog.js location seeding does not cover their client-side
+  caches). Routes verified via monid+tinyfish & curl: BigBasket search is
+  `/ps/?q=` (`/search?q=` 403s!), JioMart = `jiomart.com/search?q=`. Enable
+  per-app only after seeding + field re-discovery + a solo
+  `--store-inventory --apps <app> --max-points 2` smoke. DROPPED the same day
+  with evidence: `dmart` (web login-gates; no fake accounts) and `amazon_now`
+  (Amazon Now is APP-ONLY — web routes serve generic search or the empty
+  legacy Fresh shell; would pollute price_obs). Full detail: README
+  "Adapter expansion".
 - Demand numbers are a stock-out-intensity PROXY for demand, never order
   volumes. Keep volumes modest; research only; no fake accounts/orders.

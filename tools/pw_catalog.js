@@ -85,6 +85,10 @@ const SEARCH_URLS = {
   'blinkit':   t => `https://blinkit.com/s/?q=${encodeURIComponent(t)}`,
   'zepto':     t => `https://www.zepto.com/search?query=${encodeURIComponent(t)}`,
   'instamart': t => `https://instamart.in/search?query=${encodeURIComponent(t)}`,
+  // Expansion apps (08-31): routes verified via tinyfish + curl probes.
+  // BigBasket's /search?q= 403s — the real search route is /ps/?q=.
+  'bigbasket': t => `https://www.bigbasket.com/ps/?q=${encodeURIComponent(t)}`,
+  'jiomart':   t => `https://www.jiomart.com/search?q=${encodeURIComponent(t)}`,
 };
 
 // Zepto prices arrive in paise (sellingPrice=1600 => ₹16); Blinkit/Instamart

@@ -251,16 +251,24 @@ Real-time view of everything the process does, plus the exit switch:
   per-hour ETA curve.
 - **■ STOP ALL** — gracefully ends the dashboard and everything it manages.
 
-## Adapter expansion — 3 new quick-commerce apps (added 08-31, default-OFF)
+## Adapter expansion — 2 new quick-commerce apps (added 08-31, default-OFF)
 
 New adapter modules (`src/adapters/*.py`) for broader tracking:
 
 - `bigbasket` → `BigbasketAdapter` (`name = "bigbasket"`)
 - `jiomart` → `JiomartAdapter` (`name = "jiomart"`)
-- `amazon_now` → `AmazonNowAdapter` (`name = "amazon_now"`)
 
-(`dmart` was added the same day and REMOVED 08-31: the DMart web storefront
-login-gates order/price surfaces and we do not create accounts.)
+DROPPED the same day, with evidence — do not re-add blindly:
+
+- `dmart`: the DMart web storefront login-gates order/price surfaces and we
+  do not create accounts.
+- `amazon_now`: Amazon Now is **app-only**. Traced 08-31: the
+  `/10-minutes-delivery/s?k=` route is a branded alias over GENERIC amazon.in
+  search (query "milk" → Prime Video titles + infant formula, no Now badges),
+  `/alm/storefront?almBrandId=ctnow` is the empty legacy Fresh shell (0 cards),
+  and the `p_n_alm_brand_id` facet is text-search filtered, not the Now
+  assortment. aboutamazon confirms Now is a delivery option in the app.
+  Crawling any of these would pollute `price_obs` with non-grocery results.
 
 All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 `PROBE_TERMS`, `search()`, `crawl()`) and are registered in:
@@ -281,16 +289,13 @@ All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 |---|---|---|---|
 | BigBasket | `bigbasket.com/` (200) | `/ps/?q=<query>` (200; `/search?q=` **403s**) | tinyfish: official site; curl probe |
 | JioMart | `jiomart.com/` (200) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
-| Amazon Now | `amazon.in/alm/storefront?almBrandId=ctnow` (`/fresh` 301s here) | `/10-minutes-delivery/s?k=<query>` (200; bare path 404s) | tinyfish: aboutamazon.in confirms the brand; curl probe |
 
-**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart,amazon_now[,dmart]`, Goregaon anchor, 08-31):**
+**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart`, Goregaon anchor, 08-31):**
 
 | App | Verdict | Detail |
 |---|---|---|
 | bigbasket | EMPTY | 0 products — needs app-specific location-cache seeding in `pw_catalog.js` |
 | jiomart | EMPTY | 0 products — same |
-| amazon_now | PARTIAL | **34 products** harvested, but 0 stock-stamped, no store id / ETA — needs `DSH_BODY_DIR` field re-discovery |
-| ~~dmart~~ | DROPPED | 0 products + login-wall (`?login=required`) — adapter removed same day |
 
 So the apps are **wired but disabled by default**: the generic GPS seeding +
 request rewrite in `pw_catalog.js` covers Blinkit/Zepto/Instamart key names
