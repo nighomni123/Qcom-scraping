@@ -36,8 +36,15 @@ from .geo import Corridor
 from .adapters.blinkit import BlinkitAdapter
 from .adapters.instamart import InstamartAdapter
 from .adapters.zepto import ZeptoAdapter
+from .adapters.bigbasket import BigbasketAdapter
+from .adapters.jiomart import JiomartAdapter
+from .adapters.amazon_now import AmazonNowAdapter
+from .adapters.dmart import DmartAdapter
 
-QC_APPS = {"blinkit": BlinkitAdapter, "instamart": InstamartAdapter, "zepto": ZeptoAdapter}
+QC_APPS = {"blinkit": BlinkitAdapter, "instamart": InstamartAdapter,
+           "zepto": ZeptoAdapter, "bigbasket": BigbasketAdapter,
+           "jiomart": JiomartAdapter, "amazon_now": AmazonNowAdapter,
+           "dmart": DmartAdapter}
 
 # Landmark seeds for supported localities. Coords from OSM/Nominatim (marked
 # "osm") or ±200m approximations (marked "approx") — good enough to resolve a

@@ -41,6 +41,10 @@ adapters:
   # QC-first focus (08-22): amazon/flipkart tracking off by default.
   # Flip back to true to resume e-commerce price tracking.
   trackers:  { enabled: false }
+  bigbasket: { enabled: true,  app: "bigbasket" }
+  jiomart:   { enabled: true,  app: "jiomart" }
+  amazon_now: { enabled: true, app: "amazon_now" }
+  dmart:     { enabled: true,  app: "dmart" }
 
 anti_block:
   # Rotate these per cycle to defeat simple rate fingerprints.
@@ -117,7 +121,7 @@ demand:
   # Empty staple_queries => the built-in UNBIASED broad-coverage default list
   # in src/watchlist.py (grocery + paan/tobacco + wellness + adult + electronics
   # + household + pharma). Set a list here to override with your own terms.
-  staple_queries: ["dark chocolate", "lindt chocolate", "amul dark chocolate", "snickers", "cadbury bournville"]
+  staple_queries: ["sunscreen", "face wash", "moisturizer", "lip balm", "sheet mask"]
   # Unbiased harvesting: when true, the builder keeps EVERY discovered SKU
   # (no truncation to the active cap) and never auto-deactivates the overflow.
   # The active cap below only limits what the prober re-probes by search;

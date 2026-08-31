@@ -24,6 +24,10 @@ from . import events
 from .adapters.blinkit import BlinkitAdapter
 from .adapters.instamart import InstamartAdapter
 from .adapters.zepto import ZeptoAdapter
+from .adapters.bigbasket import BigbasketAdapter
+from .adapters.jiomart import JiomartAdapter
+from .adapters.amazon_now import AmazonNowAdapter
+from .adapters.dmart import DmartAdapter
 from .adapters.trackers import TrackersAdapter
 from .adapters.demo import DemoAdapter
 
@@ -50,6 +54,14 @@ def build_adapters(cfg, corridor, honey, demo=False):
         adapters.append(InstamartAdapter(cfg, corridor, honey))
     if a.get("zepto", {}).get("enabled"):
         adapters.append(ZeptoAdapter(cfg, corridor, honey))
+    if a.get("bigbasket", {}).get("enabled"):
+        adapters.append(BigbasketAdapter(cfg, corridor, honey))
+    if a.get("jiomart", {}).get("enabled"):
+        adapters.append(JiomartAdapter(cfg, corridor, honey))
+    if a.get("amazon_now", {}).get("enabled"):
+        adapters.append(AmazonNowAdapter(cfg, corridor, honey))
+    if a.get("dmart", {}).get("enabled"):
+        adapters.append(DmartAdapter(cfg, corridor, honey))
     if a.get("trackers", {}).get("enabled"):
         adapters.append(TrackersAdapter(cfg, corridor, honey))
     return adapters

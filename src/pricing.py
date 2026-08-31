@@ -28,6 +28,10 @@ DEFAULT_FEES = {
     "instamart": {"free_above": 99,  "fee": 30},
     "amazon":    {"free_above": 499, "fee": 40},
     "flipkart":  {"free_above": 499, "fee": 40},
+    "bigbasket": {"free_above": 199, "fee": 25},
+    "jiomart":   {"free_above": 99,  "fee": 20},
+    "amazon_now":{"free_above": 499, "fee": 35},
+    "dmart":     {"free_above": 149, "fee": 20},
 }
 
 
