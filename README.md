@@ -262,7 +262,10 @@ DROPPED the same day, with evidence — do not re-add blindly:
 
 - `dmart`: the DMart web storefront login-gates order/price surfaces and we
   do not create accounts.
-- `amazon_now`: Amazon Now is **app-only**. Traced 08-31: the
+- `amazon_now`: Amazon Now is **app-only** (no standalone app either — it's a
+  pincoded delivery option inside the main Amazon app, live in Mumbai since
+  Sept–Nov 2025 after Bengaluru/Delhi but only in SELECT neighbourhoods, so
+  many users never see it). Traced 08-31: the
   `/10-minutes-delivery/s?k=` route is a branded alias over GENERIC amazon.in
   search (query "milk" → Prime Video titles + infant formula, no Now badges),
   `/alm/storefront?almBrandId=ctnow` is the empty legacy Fresh shell (0 cards),

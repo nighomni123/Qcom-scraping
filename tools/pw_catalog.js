@@ -48,6 +48,36 @@ const LAT = parseFloat(arg('lat', '19.119'));
 const LON = parseFloat(arg('lon', '72.846'));
 const WAIT = parseInt(arg('wait-ms', '9000'), 10);
 const DUMP = process.argv.includes('--dump');
+// Phase 5 (08-31): optional residential proxy so the request IP matches the
+// spoofed GPS anchor (QC apps resolve the darkstore from IP — JioMart is
+// IP-locked outright). --proxy wins; else PROXY_URL env (comma list → first).
+// Each helper run is a FRESH browser+context, so one proxy per run == one
+// clean identity (WAF tokens are session-bound; never rotate under a live ctx).
+function parseProxy(raw) {
+  raw = (raw || '').trim();
+  if (!raw) return null;
+  const one = (s) => {
+    s = (s || '').trim();
+    if (!s) return null;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = 'http://' + s;   // bare host:port
+    try {
+      const u = new URL(s);
+      const host = u.hostname;
+      // Reject junk like "garbage" (would otherwise silently black-hole every
+      // request): require an IP, a dotted domain, or localhost.
+      const ok = host === 'localhost' || /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || /\./.test(host);
+      if (!ok) return null;
+      const p = { server: `${u.protocol}//${u.host}` };
+      if (u.username) p.username = decodeURIComponent(u.username);
+      if (u.password) p.password = decodeURIComponent(u.password);
+      return p;
+    } catch (_) { return null; }
+  };
+  // Whole string first (handles a comma inside a password), else first pool
+  // entry of a comma-separated list.
+  return one(raw) || one(raw.split(',')[0]) || null;
+}
+const PROXY = parseProxy(arg('proxy', '') || process.env.PROXY_URL || '');
 // Deep-sweep options (Demand Radar watchlist builder): after the initial
 // harvest, visit up to N category links found in the DOM, then run staple
 // search terms — ALL inside this one browser session, so every intercepted
@@ -566,8 +596,10 @@ async function main() {
       permissions: ['geolocation'],
       locale: 'en-IN',
       timezoneId: 'Asia/Kolkata',
+      ...(PROXY ? { proxy: PROXY } : {}),
     });
-    await ctx.addInitScript(([lat, lon, jm]) => {
+    if (PROXY) console.error(`[proxy] routing via ${PROXY.server}`);
+    await ctx.addInitScript(([lat, lon]) => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
       window.chrome = window.chrome || { runtime: {} };
       // Location seeding: these apps cache their serving location client-side

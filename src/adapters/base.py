@@ -81,7 +81,11 @@ class Adapter:
         self.corridor = geo_corridor
         self.honey = honey or []
         self.antiblk = cfg.get("anti_block", {})
-        self.proxies = load_proxies()
+        # Proxy pool = config anti_block.proxies + PROXY_URL env (comma list).
+        # Empty by default → browser path unchanged (direct connection).
+        cfg_proxies = [str(p).strip() for p in (self.antiblk.get("proxies") or [])
+                       if str(p).strip()]
+        self.proxies = cfg_proxies + load_proxies()
         self.available = True
 
     def _rotate(self):
@@ -206,6 +210,13 @@ class Adapter:
             # by '|' — see tools/pw_catalog.js PRE comment (Blinkit tobacco:
             # text search serves none, direct shelf URLs serve it all).
             cmd += ["--pre", "|".join(f"{u}::{lab}" for u, lab in pre)]
+        # Phase 5: route this run through a residential proxy so the request IP
+        # matches the GPS anchor (QC apps resolve the darkstore from IP). One
+        # proxy per invocation == one fresh browser+context == one clean WAF
+        # identity (never rotate under a live context). Empty pool → no --proxy.
+        proxy = pick_proxy(self.proxies)
+        if proxy:
+            cmd += ["--proxy", proxy]
         timeout_s = 90 + extra_visits * 15
         # Live progress: forward the helper's stderr (per-visit [sweep] lines,
         # onboarding/localize steps) as it works instead of swallowing it until

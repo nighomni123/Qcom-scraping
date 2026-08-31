@@ -392,9 +392,17 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   `schedule.waf_failover` in config.yaml. Failover events emit `fkind="gate" |
   "skip" | "boost"` on the live event bus (`/status` shows them).
 - Phase 4 (analysis) BUILT 08-22: `src/demand.py` + `--demand-report` +
-  dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
-  proxy/IP coherence, per-store anchor rotation) still pending — see
-  DEMAND_RADAR.md.
+  dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening)
+  IN PROGRESS 08-31: the proxy plumbing is now WIRED end-to-end —
+  `anti_block.proxies` (config) + `PROXY_URL` env (comma pool) →
+  `pick_proxy()` per invocation → `--proxy` → `browser.newContext({proxy})`
+  in pw_catalog.js (fresh browser+context per run == fresh WAF identity, per
+  the session-bound-token constraint; parseProxy rejects junk hosts).
+  Empty pool = exact old behaviour (verified: blinkit probe unchanged).
+  STILL PENDING: procure a Mumbai-exit residential pool (user decision/cost),
+  validate IP↔anchor coherence live (jiomart store MUST change per exit IP —
+  it is IP-locked; that's the acceptance test), then stagger/jitter + global
+  req/hr cap + backoff per DEMAND_RADAR.md Phase 5.
 - Expansion apps (08-31): `bigbasket` / `jiomart` adapters are WIRED (search,
   QC_APPS, orchestrator, pricing, dashboard) but stay `enabled: false` — the
   blockers are ENVIRONMENTAL, not code (an earlier "needs location seeding"
@@ -415,8 +423,11 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
     recovery). Do NOT add client-side location seeding for jiomart — it does
     nothing (see the NOTE in pw_catalog.js's init script).
   DROPPED the same day with evidence: `dmart` (web login-gates; no fake
-  accounts) and `amazon_now` (Amazon Now is APP-ONLY — web routes serve generic
-  search or the empty legacy Fresh shell; would pollute price_obs). Full
+  accounts) and `amazon_now` (Amazon Now IS live in Mumbai — expanded
+  Sept–Nov 2025 after Bengaluru/Delhi, 100+ dark stores, but only in SELECT
+  neighbourhoods and with NO standalone app: it's a pincoded delivery option
+  inside the main Amazon app. The web routes serve generic search or the
+  empty legacy Fresh shell; would pollute price_obs). Full
   detail: README "Adapter expansion".
 - Demand numbers are a stock-out-intensity PROXY for demand, never order
   volumes. Keep volumes modest; research only; no fake accounts/orders.
