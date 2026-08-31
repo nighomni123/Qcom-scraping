@@ -251,14 +251,16 @@ Real-time view of everything the process does, plus the exit switch:
   per-hour ETA curve.
 - **■ STOP ALL** — gracefully ends the dashboard and everything it manages.
 
-## Adapter expansion — 4 new quick-commerce apps (added 08-31, default-OFF)
+## Adapter expansion — 3 new quick-commerce apps (added 08-31, default-OFF)
 
 New adapter modules (`src/adapters/*.py`) for broader tracking:
 
 - `bigbasket` → `BigbasketAdapter` (`name = "bigbasket"`)
 - `jiomart` → `JiomartAdapter` (`name = "jiomart"`)
 - `amazon_now` → `AmazonNowAdapter` (`name = "amazon_now"`)
-- `dmart` → `DmartAdapter` (`name = "dmart"`)
+
+(`dmart` was added the same day and REMOVED 08-31: the DMart web storefront
+login-gates order/price surfaces and we do not create accounts.)
 
 All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 `PROBE_TERMS`, `search()`, `crawl()`) and are registered in:
@@ -280,16 +282,15 @@ All follow the same `base.Adapter` pattern (`APP_URL`, `HEALTH_URL`,
 | BigBasket | `bigbasket.com/` (200) | `/ps/?q=<query>` (200; `/search?q=` **403s**) | tinyfish: official site; curl probe |
 | JioMart | `jiomart.com/` (200) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
 | Amazon Now | `amazon.in/alm/storefront?almBrandId=ctnow` (`/fresh` 301s here) | `/10-minutes-delivery/s?k=<query>` (200; bare path 404s) | tinyfish: aboutamazon.in confirms the brand; curl probe |
-| DMart | `dmart.in/` (`dmartready.com` 301s here) | `/search?q=<query>` (200) | tinyfish: official site; curl probe |
 
-**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart,amazon_now,dmart`, Goregaon anchor, 08-31):**
+**Live QC verdict (`python3 run.py --qc-status --apps bigbasket,jiomart,amazon_now[,dmart]`, Goregaon anchor, 08-31):**
 
 | App | Verdict | Detail |
 |---|---|---|
 | bigbasket | EMPTY | 0 products — needs app-specific location-cache seeding in `pw_catalog.js` |
 | jiomart | EMPTY | 0 products — same |
 | amazon_now | PARTIAL | **34 products** harvested, but 0 stock-stamped, no store id / ETA — needs `DSH_BODY_DIR` field re-discovery |
-| dmart | EMPTY | 0 products — DMart web additionally login-gates (`?login=required`) |
+| ~~dmart~~ | DROPPED | 0 products + login-wall (`?login=required`) — adapter removed same day |
 
 So the apps are **wired but disabled by default**: the generic GPS seeding +
 request rewrite in `pw_catalog.js` covers Blinkit/Zepto/Instamart key names
@@ -298,8 +299,7 @@ silently served). Flip an adapter to `enabled: true` only after (a) its
 client-side location cache keys are seeded/flushed in `pw_catalog.js`, (b)
 stock/store/ETA fields are re-discovered from raw-body dumps, and (c) a
 `--store-inventory --apps <app> --max-points 2` run (ALONE) resolves stores
-with products. DMart additionally needs a login-wall decision (we do NOT
-create accounts — may stay web-limited or be dropped).
+with products.
 
 *Process note:* an earlier revision of this section claimed monid was broken
 (`EPERM`) and tinyfish unavailable — both wrong: the EPERM is the documented

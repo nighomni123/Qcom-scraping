@@ -95,7 +95,7 @@ src/
                         tuning, product-focus staple_queries; OpenAI-compatible
   geo.py                corridor anchors + store resolver (glitch monitor)
   adapters/             blinkit / zepto / instamart / amazon_now / bigbasket /
-                         jiomart / dmart / amazon / flipkart / trackers / demo;
+                         jiomart / amazon / flipkart / trackers / demo;
                         base.py holds the browser machinery
   detect.py alert.py honey.py events.py dashboard.py search.py pricing.py
                         tgbot.py miniyaml.py (stdlib YAML fallback)
@@ -395,17 +395,17 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   dashboard panels (DPI, onset heatmap, ETA curve). Phase 5 (hardening:
   proxy/IP coherence, per-store anchor rotation) still pending — see
   DEMAND_RADAR.md.
-- Expansion apps (08-31): `bigbasket` / `jiomart` / `amazon_now` / `dmart`
-  adapters are WIRED (search, QC_APPS, orchestrator, pricing, dashboard) but
+- Expansion apps (08-31): `bigbasket` / `jiomart` / `amazon_now` adapters are
+  WIRED (search, QC_APPS, orchestrator, pricing, dashboard) but
   `enabled: false` in config.yaml until crawl-ready. Live `--qc-status` verdict:
-  bigbasket/jiomart/dmart EMPTY (generic pw_catalog.js location seeding does not
-  cover their client-side caches; DMart web also login-gates — no fake accounts),
-  amazon_now PARTIAL (34 products, no stock/store fields — needs DSH_BODY_DIR
-  re-discovery). Routes verified via monid+tinyfish & curl: BigBasket search is
-  `/ps/?q=` (`/search?q=` 403s!), Amazon Now is `/10-minutes-delivery/s?k=`
-  (Fresh folded into Now), DMart = `dmart.in`, JioMart = `jiomart.com/search?q=`.
-  Enable per-app only after seeding + field re-discovery + a solo
-  `--store-inventory --apps <app> --max-points 2` smoke. Full table:
-  README "Adapter expansion".
+  bigbasket/jiomart EMPTY (generic pw_catalog.js location seeding does not
+  cover their client-side caches), amazon_now PARTIAL (34 products, no
+  stock/store fields — needs DSH_BODY_DIR re-discovery). Routes verified via
+  monid+tinyfish & curl: BigBasket search is `/ps/?q=` (`/search?q=` 403s!),
+  Amazon Now is `/10-minutes-delivery/s?k=` (Fresh folded into Now), JioMart =
+  `jiomart.com/search?q=`. Enable per-app only after seeding + field
+  re-discovery + a solo `--store-inventory --apps <app> --max-points 2` smoke.
+  `dmart` was added and DROPPED the same day: the web storefront login-gates
+  and we do not create accounts. Full table: README "Adapter expansion".
 - Demand numbers are a stock-out-intensity PROXY for demand, never order
   volumes. Keep volumes modest; research only; no fake accounts/orders.

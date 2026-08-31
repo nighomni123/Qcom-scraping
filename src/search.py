@@ -66,12 +66,10 @@ class SearchEngine:
         from .adapters.bigbasket import BigbasketAdapter
         from .adapters.jiomart import JiomartAdapter
         from .adapters.amazon_now import AmazonNowAdapter
-        from .adapters.dmart import DmartAdapter
         makers = {"blinkit": BlinkitAdapter, "zepto": ZeptoAdapter,
                   "instamart": InstamartAdapter, "amazon": AmazonAdapter,
                   "flipkart": FlipkartAdapter, "bigbasket": BigbasketAdapter,
-                  "jiomart": JiomartAdapter, "amazon_now": AmazonNowAdapter,
-                  "dmart": DmartAdapter}
+                  "jiomart": JiomartAdapter, "amazon_now": AmazonNowAdapter}
         honey = []  # search mode doesn't need canaries
         for p in self.platforms:
             if p in makers:
