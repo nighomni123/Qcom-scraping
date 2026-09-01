@@ -143,7 +143,8 @@ class Adapter:
         self._term_ix = (i + n) % len(terms)
         return [terms[(i + k) % len(terms)] for k in range(n)]
 
-    def deep_sweep(self, station, lat, lon, categories=0, terms=None):
+    def deep_sweep(self, station, lat, lon, categories=0, terms=None,
+                   deep_cats=False, skip_override=None):
         """
         Demand Radar watchlist sweep for ONE store anchor in ONE browser
         session: home harvest -> optional DOM category click-through ->
@@ -152,17 +153,22 @@ class Adapter:
         ('home', category names, 'q:<term>').
         demand.skip_categories (config) filters the category queue by label
         substring — the apps' category rails are dairy-first, so without it
-        the sweep over-samples milk products.
+        the sweep over-samples milk products. Catalog-inventory mode passes
+        skip_override=[] (FULL coverage — a skipped category would fabricate
+        delistings in snapshot diffs) and deep_cats=True (one-hop
+        sub-category discovery, see pw_catalog.js --deep-cats).
         """
         url = getattr(self, "APP_URL", None)
         if not url:
             return [], {"error": f"{self.name}: no APP_URL defined"}
-        skip = [str(s).strip() for s in
-                ((self.cfg.get("demand", {}) or {}).get("skip_categories") or [])
-                if str(s).strip()]
+        skip = skip_override
+        if skip is None:
+            skip = [str(s).strip() for s in
+                    ((self.cfg.get("demand", {}) or {}).get("skip_categories") or [])
+                    if str(s).strip()]
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
                                           lat, lon, categories=categories, terms=terms,
-                                          skip=skip or None)
+                                          skip=skip or None, deep_cats=deep_cats)
 
     def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None, pre=None):
         """Compat wrapper returning products only; see _browser_catalog_full."""
@@ -171,7 +177,8 @@ class Adapter:
         return products
 
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
-                              categories=0, terms=None, skip=None, pre=None):
+                              categories=0, terms=None, skip=None, pre=None,
+                              deep_cats=False):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -201,6 +208,8 @@ class Adapter:
         extra_visits = int(categories or 0) + len(terms) + len(pre or [])
         if categories:
             cmd += ["--categories", str(int(categories))]
+        if deep_cats:
+            cmd += ["--deep-cats", "1"]
         if terms:
             cmd += ["--terms", "|".join(terms)]
         if skip:

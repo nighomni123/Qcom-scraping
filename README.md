@@ -29,6 +29,11 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --build-watchlist                 # per-store SKU probe set
     python3 run.py --build-watchlist --apps blinkit --store 47578 \
                     --max-per-store 100 --max-queries 10
+    python3 run.py --build-watchlist --catalog --apps blinkit --store 34292
+                                                    # catalog-inventory snapshot:
+                                                    # every category, no search
+                                                    # terms (~20-60 min, run ALONE)
+    python3 run.py --catalog-report [--store 34292]  # snapshot history + new/delisted churn
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
@@ -326,6 +331,33 @@ are kept regardless — they're correct and serve any future machine-location us
 `~/.config` sandbox issue fixed by the `XDG_CONFIG_HOME` override above, and
 tinyfish is a monid **provider**, not a skill. The built-in `web_search` tool
 is banned by the workspace instructions; do not use it here.
+
+## Catalog inventory — full-store snapshots, new & discontinued products (09-02)
+
+`--build-watchlist --catalog` turns the watchlist sweep into a **complete
+per-store catalog snapshot**: it visits EVERY category link the app exposes
+(one-hop sub-category discovery included — new shelves surface automatically),
+skips no category and fires no search terms, archives one
+`catalog_snapshots` row per SKU (name/price/stock/categories), and diffs
+against the previous snapshot:
+
+- **new** — SKU present now, absent from the previous snapshot (limited-time
+  offering candidates; `watchlist.first_seen_ts` marks its first sighting)
+- **delisted** — SKU listed in the previous snapshot, absent from the full
+  sweep now → logged in `catalog_events`, `watchlist.active=0` (the row is
+  kept, so the watchlist doubles as the discontinued-products archive)
+
+Guardrails (AGENTS.md invariants): delisting comes ONLY from full snapshots —
+absence from partial sweeps or the prober's light rounds is never churn; a
+snapshot whose SKU count collapses below 50% of the previous one is recorded
+but not diffed (mass absence = crawl flake, not churn); vouchers stay
+excluded. First snapshot per store is the baseline — no churn events.
+
+Inspect churn with `python3 run.py --catalog-report [--store ID]` or the
+dashboard's `GET /catalog?store=` endpoint. Cadence is yours — one store per
+day via the dashboard **Features** panel or cron works well; a full sweep
+runs ~20–60 min per store, so never run it beside `--demand` /
+`--map-locality` (rate-limit rule).
 
 ## Vouchers are excluded from Demand Radar (09-02)
 

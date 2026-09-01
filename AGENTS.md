@@ -70,7 +70,9 @@ GLOSSARY.md             plain-English index of ALL jargon/short forms —
 tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
                         signed API calls; deep-sweep visit queue (categories +
                         search terms; --skip filters category labels — the
-                        demand.skip_categories milk de-biasing knob); --pre
+                        demand.skip_categories milk de-biasing knob); --deep-cats
+                        discovers sub-category links ON category pages (one-hop
+                        BFS; catalog-inventory mode); --pre
                         pre-visits gated verticals before the target page
                         (Blinkit tobacco shelf, "URL::LABEL|..." pairs);
                         location seeding + request rewrite;
@@ -78,7 +80,9 @@ tools/pw_catalog.js     THE crawler: real app in headless Chromium, intercepts
 src/
   orchestrator.py       glitch-monitor loop (jitter, off-peak speedup)
   locality.py           phase 1: anchor grid + darkstore discovery/clustering
-  watchlist.py          phase 2: per-store SKU probe set builder
+  watchlist.py          phase 2: per-store SKU probe set builder (+ catalog-
+                        inventory mode: --catalog full snapshots + 'new'/
+                        'delisted' churn diffs into catalog_snapshots/events)
   prober.py             phase 3: stock_obs loop + debounced oos_events machine
   demand.py             phase 4: DPI rollups, hour×SKU onset heatmap, ETA
                         curves, CSV export (pure functions over sqlite)
@@ -106,7 +110,7 @@ docs/                   research reports: QuickCommerce API vetting + Zepto/Swig
 scripts/live_sweep.py   one-shot real-glitch hunt
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
                         stock_obs, oos_events, searches, search_results,
-                        keyword_watches
+                        keyword_watches, catalog_snapshots, catalog_events
 ```
 
 ## Commands
@@ -116,6 +120,14 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --map-locality [--apps blinkit,zepto] [--max-points N]
     python3 run.py --build-watchlist [--apps …] [--store ID]
                                     [--max-per-store N] [--max-queries N]
+                                    [--categories N] [--catalog]
+                                    # --categories overrides categories_per_store
+                                    # for one run; --catalog = catalog-inventory
+                                    # sweep: ALL category links (--deep-cats one-
+                                    # hop sub-category discovery), no search terms,
+                                    # no skip_categories, writes catalog_snapshots
+                                    # + diffs 'new'/'delisted' vs previous
+                                    # (~20-60 min/store — run ONE store at a time)
                                     # streams per-visit progress live: store
                                     # (i/N) + label + queued-visit scope, then
                                     # one [sweep] line per visit with cumulative
@@ -124,6 +136,8 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # via anti_block.stream_progress: false
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
+    python3 run.py --catalog-report [--store ID]         # catalog snapshots +
+                                    # new/delisted churn log (catalog-inventory)
     python3 run.py --purge-vouchers [--dry-run]          # wipe voucher/gift-card
                                     # rows from watchlist/stock_obs/oos_events
                                     # (idempotent; --demand also auto-purges at
@@ -265,6 +279,18 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   garment steamers). Knob: `demand.exclude_vouchers` (default true).
   Cleanup: `run.py --purge-vouchers` (idempotent; `--demand` auto-purges at
   startup). Their "stock-outs" are code-pool replenishments, not demand.
+- **Delisting is snapshot-driven only (09-02).** `catalog_snapshots` +
+  `catalog_events` ('new'/'delisted') come ONLY from full-catalog sweeps
+  (`--build-watchlist --catalog`): every category link, NO search terms, NO
+  skip_categories (a skipped shelf would fabricate delistings), one-hop
+  sub-category discovery via pw_catalog.js --deep-cats. Absence from a
+  partial sweep or from the prober's light rounds is NEVER churn. A snapshot
+  whose SKU count collapses to <50% of the previous one is recorded but its
+  diff is SKIPPED (mass absence = crawl flake, not churn — suspect-cycle
+  freeze analog). Delisted SKUs: watchlist.active=0, rows KEPT (the watchlist
+  IS the discontinued archive); no vanished oos_event from this path — the
+  prober's vanished machine keeps its own stock-out semantics. Dashboard:
+  GET /catalog?store=; report: --catalog-report.
 - **NULL ≠ OOS.** A failed parse/crawl records `in_stock=NULL`; it must never
   become 0. Scraper errors must not fabricate demand.
 - **Debounce.** An `oos` event opens only after `demand.oos_debounce_snapshots`

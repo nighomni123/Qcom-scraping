@@ -154,6 +154,33 @@ CREATE TABLE IF NOT EXISTS keyword_watches (
     UNIQUE(chat_id, keyword)
 );
 CREATE INDEX IF NOT EXISTS idx_kww_active ON keyword_watches(active);
+CREATE TABLE IF NOT EXISTS catalog_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL,                   -- sweep timestamp (one sweep = one snapshot)
+    app TEXT,
+    store_id TEXT,
+    sku_key TEXT,
+    name TEXT,
+    price REAL,
+    in_stock INTEGER,          -- 1/0/null at sweep time
+    collections TEXT,          -- category labels seen this sweep (csv)
+    UNIQUE(app, store_id, ts, sku_key)
+);
+CREATE INDEX IF NOT EXISTS idx_cs ON catalog_snapshots(app, store_id, ts);
+CREATE TABLE IF NOT EXISTS catalog_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL,
+    app TEXT,
+    store_id TEXT,
+    sku_key TEXT,
+    kind TEXT,                 -- 'new' | 'delisted'
+    name TEXT,
+    price REAL,
+    snapshot_ts REAL,          -- sweep that produced the event
+    prev_snapshot_ts REAL,     -- sweep it was diffed against (NULL if first)
+    detail TEXT                -- e.g. category where first seen
+);
+CREATE INDEX IF NOT EXISTS idx_ce ON catalog_events(app, store_id, kind, ts);
 """
 
 
@@ -182,6 +209,7 @@ class Store:
             ("oos_events", "restock_trigger", "TEXT DEFAULT NULL"),
             ("price_obs", "catalog_version", "TEXT DEFAULT NULL"),
             ("alerts", "mrp", "REAL"),          # 09-02: MRP/usual shown on alerts
+            ("watchlist", "first_seen_ts", "REAL"),  # 09-02: catalog churn tracking
         ]
         for table, col, col_type in migrations:
             try:
@@ -190,6 +218,24 @@ class Store:
                 pass  # already exists
         self.conn.commit()
         self._backfill_categories()
+        self._backfill_first_seen()
+
+    def _backfill_first_seen(self):
+        """Catalog churn tracking (09-02): existing watchlist rows predate
+        first-seen tracking. Backfill with last_seen_ts (conservative: the
+        earliest time we can honestly claim the SKU was present), so nothing
+        historic ever shows up as a false 'new' arrival."""
+        try:
+            nul = self.conn.execute(
+                "SELECT COUNT(*) FROM watchlist WHERE first_seen_ts IS NULL").fetchone()[0]
+            if not nul:
+                return
+            self.conn.execute(
+                "UPDATE watchlist SET first_seen_ts=last_seen_ts "
+                "WHERE first_seen_ts IS NULL AND last_seen_ts IS NOT NULL")
+            self.conn.commit()
+        except Exception:
+            pass
 
     def _backfill_categories(self):
         """Classify any price_obs rows that predate categorization."""
@@ -275,18 +321,21 @@ class Store:
             is_voucher = 1 if is_voucher_name(r.get("name")) else 0
             self.conn.execute(
                 "INSERT INTO watchlist(app,store_id,sku_key,name,collections,last_price,"
-                "last_in_stock,last_seen_ts,score,active,is_digital_voucher) VALUES(?,?,?,?,?,?,?,?,?,?,?) "
+                "last_in_stock,last_seen_ts,score,active,is_digital_voucher,first_seen_ts) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?) "
                 "ON CONFLICT(app, store_id, sku_key) DO UPDATE SET name=excluded.name, "
                 "collections=excluded.collections, last_price=COALESCE(excluded.last_price, watchlist.last_price), "
                 "last_in_stock=COALESCE(excluded.last_in_stock, watchlist.last_in_stock), "
                 "last_seen_ts=excluded.last_seen_ts, score=excluded.score, active=excluded.active, "
-                "is_digital_voucher=excluded.is_digital_voucher",
+                "is_digital_voucher=excluded.is_digital_voucher, "
+                # first-seen = earliest honest sighting (catalog churn tracking)
+                "first_seen_ts=COALESCE(MIN(watchlist.first_seen_ts, excluded.first_seen_ts), excluded.first_seen_ts)",
                 (app, store_id, r["sku_key"], r.get("name"),
                  ",".join(r.get("collections") or []),
                  r.get("price"),
                  None if r.get("in_stock") is None else int(r["in_stock"]),
                  now, r.get("score", 0), 1 if r.get("active", True) else 0,
-                 is_voucher),
+                 is_voucher, now),
             )
         self.conn.commit()
 
@@ -335,6 +384,101 @@ class Store:
             self.conn.commit()
         self.conn.execute("DROP TABLE IF EXISTS _voucher_ids")
         return out
+
+    # ---- Catalog inventory: snapshots + churn (09-02) ----------------------
+    def record_catalog_snapshot(self, app, store_id, ts, rows):
+        """rows: [{sku_key, name, price, in_stock, collections:[str]}].
+        One full-sweep = one snapshot timestamp. Idempotent per (ts, sku)."""
+        payload = [(
+            ts, app, store_id, r["sku_key"], r.get("name"), r.get("price"),
+            None if r.get("in_stock") is None else int(r["in_stock"]),
+            ",".join(r.get("collections") or []),
+        ) for r in rows]
+        self.conn.executemany(
+            "INSERT OR IGNORE INTO catalog_snapshots(ts,app,store_id,sku_key,name,"
+            "price,in_stock,collections) VALUES(?,?,?,?,?,?,?,?)", payload)
+        self.conn.commit()
+        return len(payload)
+
+    def catalog_prev_snapshot(self, app, store_id, before_ts=None):
+        """(ts, {sku_key: name}) of the newest snapshot BEFORE before_ts —
+        the diff baseline. (None, {}) when this is the first snapshot."""
+        q = "SELECT MAX(ts) FROM catalog_snapshots WHERE app=? AND store_id=?"
+        args = [app, store_id]
+        if before_ts is not None:
+            q += " AND ts<?"
+            args.append(before_ts)
+        row = self.conn.execute(q, args).fetchone()
+        prev_ts = row[0] if row else None
+        if prev_ts is None:
+            return None, {}
+        skus = {k: (n or "") for k, n in self.conn.execute(
+            "SELECT sku_key, name FROM catalog_snapshots "
+            "WHERE app=? AND store_id=? AND ts=?", (app, store_id, prev_ts))}
+        return prev_ts, skus
+
+    def record_catalog_events(self, app, store_id, events):
+        """events: [{sku_key, kind, name, price, snapshot_ts, prev_snapshot_ts, detail}]."""
+        now = time.time()
+        payload = [(
+            now, app, store_id, e["sku_key"], e["kind"], e.get("name"),
+            e.get("price"), e.get("snapshot_ts"), e.get("prev_snapshot_ts"),
+            e.get("detail"),
+        ) for e in events]
+        self.conn.executemany(
+            "INSERT INTO catalog_events(ts,app,store_id,sku_key,kind,name,price,"
+            "snapshot_ts,prev_snapshot_ts,detail) VALUES(?,?,?,?,?,?,?,?,?,?)", payload)
+        self.conn.commit()
+        return len(payload)
+
+    def deactivate_watchlist_skus(self, app, store_id, sku_keys):
+        """Delisting bookkeeping: mark specific SKUs inactive (rows kept —
+        the watchlist IS the discontinued archive)."""
+        keys = list(sku_keys)
+        if not keys:
+            return 0
+        qmarks = ",".join("?" * len(keys))
+        cur = self.conn.execute(
+            f"UPDATE watchlist SET active=0 WHERE app=? AND store_id=? "
+            f"AND sku_key IN ({qmarks})", [app, store_id] + keys)
+        self.conn.commit()
+        return cur.rowcount
+
+    def catalog_snapshot_list(self, app=None, store_id=None, limit=20):
+        """[(ts, n_skus, n_new_events, n_delisted_events)] newest first."""
+        q = ("SELECT s.ts, COUNT(*) FROM catalog_snapshots s WHERE 1=1")
+        args = []
+        if app:
+            q += " AND s.app=?"; args.append(app)
+        if store_id:
+            q += " AND s.store_id=?"; args.append(store_id)
+        q += " GROUP BY s.ts ORDER BY s.ts DESC LIMIT ?"
+        args.append(limit)
+        out = []
+        for ts, n in self.conn.execute(q, args):
+            counts = []
+            for kind in ("new", "delisted"):
+                eq = "SELECT COUNT(*) FROM catalog_events WHERE kind=? AND snapshot_ts=?"
+                eargs = [kind, ts]
+                if app:
+                    eq += " AND app=?"; eargs.append(app)
+                if store_id:
+                    eq += " AND store_id=?"; eargs.append(store_id)
+                counts.append(self.conn.execute(eq, eargs).fetchone()[0])
+            out.append((ts, n, counts[0], counts[1]))
+        return out
+
+    def catalog_event_list(self, kind=None, store_id=None, limit=50):
+        """Recent churn rows newest first: [(ts, app, store_id, kind, name, price, detail)]."""
+        q = ("SELECT ts,app,store_id,kind,name,price,detail FROM catalog_events WHERE 1=1")
+        args = []
+        if kind:
+            q += " AND kind=?"; args.append(kind)
+        if store_id:
+            q += " AND store_id=?"; args.append(store_id)
+        q += " ORDER BY ts DESC LIMIT ?"
+        args.append(limit)
+        return self.conn.execute(q, args).fetchall()
 
     def watchlist_for_store(self, app, store_id, active_only=True):
         q = ("SELECT sku_key,name,collections,last_price,last_in_stock,last_seen_ts,score "

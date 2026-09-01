@@ -712,6 +712,23 @@ class Dashboard:
                         st.close()
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "curve": []})
+                elif self.path.startswith("/catalog"):
+                    # Catalog-inventory churn (09-02): snapshots + new/delisted.
+                    try:
+                        from urllib.parse import urlparse, parse_qs
+                        from .store import Store as S
+                        qs = parse_qs(urlparse(self.path).query)
+                        sid = (qs.get("store") or [None])[0]
+                        st = S(dash.cfg.get("db", "deals.db"))
+                        self._json({
+                            "snapshots": st.catalog_snapshot_list(store_id=sid),
+                            "new": st.catalog_event_list(kind="new", store_id=sid, limit=40),
+                            "delisted": st.catalog_event_list(kind="delisted",
+                                                              store_id=sid, limit=40),
+                        })
+                        st.close()
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200], "snapshots": []})
                 elif self.path == "/qc":
                     # DB-backed platform health (no live probing here — use
                     # `run.py --qc-status` for that; it takes ~45 s/app).

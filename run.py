@@ -107,7 +107,9 @@ def main():
         WatchlistBuilder(cfg, store).build(apps=_flag_list("--apps"),
                                            store_filter=_flag_value("--store"),
                                            max_per_store=_flag_int("--max-per-store"),
-                                           max_queries=_flag_int("--max-queries"))
+                                           max_queries=_flag_int("--max-queries"),
+                                           catalog="--catalog" in sys.argv,
+                                           categories_override=_flag_int("--categories"))
         return
 
     if "--store-inventory" in sys.argv:
@@ -183,6 +185,32 @@ def main():
         if "--csv" in sys.argv:
             print("  export:", D.export_csv(db))
         db.close()
+        return
+
+    if "--catalog-report" in sys.argv:
+        # Catalog-inventory churn: snapshots + new/delisted per store.
+        store_filter = _flag_value("--store")
+        snaps = store.catalog_snapshot_list(store_id=store_filter)
+        if not snaps:
+            print("[catalog-report] no snapshots yet — run "
+                  "`python3 run.py --build-watchlist --catalog` first")
+            return
+        import datetime
+        def _fmt(ts):
+            return datetime.datetime.fromtimestamp(ts).strftime("%m-%d %H:%M")
+        print(f"[catalog-report] snapshots"
+              + (f" for store {store_filter}" if store_filter else "") + ":")
+        for ts, n_skus, n_new, n_del in snaps:
+            print(f"  {_fmt(ts)}  skus={n_skus:<5} new={n_new:<4} delisted={n_del}")
+        for kind, title in (("new", "NEW arrivals (latest first)"),
+                            ("delisted", "DELISTED / discontinued (latest first)")):
+            evs = store.catalog_event_list(kind=kind, store_id=store_filter)
+            print(f"\n  {title}: {len(evs)} shown")
+            for ts, app, sid, _k, name, price, detail in evs[:20]:
+                when = _fmt(ts)
+                cat = f"  [{detail}]" if detail and detail != "absent from full-catalog sweep" else ""
+                print(f"    {when}  {app}:{sid[:12]:<12}  {str(name)[:44]:<46} "
+                      f"₹{price if price is not None else '—'}{cat}")
         return
 
     if "--search" in sys.argv:

@@ -162,6 +162,19 @@ CREATE TABLE IF NOT EXISTS watchlist (
   one collection fetch returns dozens of SKUs *with stock flags*, so cost per
   SKU is tiny compared to per-SKU search calls.
 
+### Phase 2b — Catalog inventory mode (added 09-02)
+
+`--build-watchlist --catalog` turns the same sweep into a **full-catalog
+snapshot + churn tracker**: every category link (one-hop sub-category
+discovery via `pw_catalog.js --deep-cats`), no search terms, no category
+skips (absence must be meaningful), snapshot rows into `catalog_snapshots`
+per SKU, diff vs the previous snapshot → `catalog_events` kind=`new`
+(limited-time-offering candidates) / `delisted` (watchlist row kept, marked
+inactive — the discontinued archive). Invariants: delisting is
+snapshot-driven only (partial-sweep absence is never churn); a snapshot at
+<50% of the previous SKU count is recorded but not diffed (crawl-flake
+guard). Report: `--catalog-report`; dashboard: `GET /catalog?store=`.
+
 ## Phase 3 — Stock prober (`src/prober.py` + orchestrator mode, new)
 
 Loop per *(app, store)*: fetch its watchlist collections → normalized rows →

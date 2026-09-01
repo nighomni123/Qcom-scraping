@@ -5,6 +5,15 @@ The prober (phase 3) can only detect stock-outs for SKUs it knows about, and
 OOS items often VANISH from listings — so the watchlist is the memory that
 makes disappearance a signal instead of blindness.
 
+Catalog-inventory mode (`--build-watchlist --catalog`, 09-02) instead sweeps
+ALL category links (one-hop sub-category discovery via --deep-cats), with NO
+search terms and NO category skips, and writes a `catalog_snapshots` row per
+SKU. Each run diffs against the previous snapshot: brand-new SKUs -> 'new'
+events (limited-time-offering candidates); previously-listed SKUs that are
+absent from a FULL sweep -> 'delisted' events + watchlist deactivation (the
+discontinued archive). Delisting is SNAPSHOT-DRIVEN ONLY — absence from a
+partial sweep (or from the prober's light rounds) is never churn.
+
 Build strategy per (app, store):
   1. ONE browser session via adapter.deep_sweep(): home harvest -> DOM
      category click-through -> staple search terms. Every intercepted SKU
@@ -93,15 +102,33 @@ class WatchlistBuilder:
         self.unbiased = bool(dem.get("unbiased_harvest", False))
         # Vouchers are not commodities — never track them (AGENTS.md invariant).
         self.exclude_vouchers = bool(dem.get("exclude_vouchers", True))
+        # Catalog-inventory mode: upper bound on category visits per full
+        # sweep (the queue drains naturally at "all links"; this cap keeps a
+        # pathological app from never terminating).
+        self.catalog_categories = int(dem.get("catalog_max_categories", 300))
 
     def _make_adapter(self, app):
         corridor = Corridor(self.cfg.get("geo", {}).get("corridor", []) or [])
         return QC_APPS[app](self.cfg, corridor, [])
 
     # -- entrypoint --------------------------------------------------------
-    def build(self, apps=None, store_filter=None, max_per_store=None, max_queries=None):
+    def build(self, apps=None, store_filter=None, max_per_store=None,
+              max_queries=None, catalog=False, categories_override=None):
         cap = int(max_per_store or self.default_cap)
         staples = self.staples[:max_queries] if max_queries else self.staples
+        if catalog:
+            # Catalog-inventory mode: categories are the catalog backbone —
+            # ALL discovered links (one-hop --deep-cats BFS), NO search terms,
+            # NO category skips (a skipped shelf would fabricate delistings
+            # in the diff), and unbiased curation (everything is archived).
+            categories = int(categories_override or self.catalog_categories)
+            staples = []
+            skip_override = []
+            deep_cats = True
+        else:
+            categories = int(categories_override or self.categories)
+            skip_override = None
+            deep_cats = False
         want_apps = {a.strip().lower() for a in (apps or []) if a.strip()}
         stores = [s for s in self.db.darkstores()
                   if (not want_apps or s[0] in want_apps)
@@ -111,12 +138,16 @@ class WatchlistBuilder:
                   "`python3 run.py --map-locality` first", flush=True)
             return
         print(f"[watchlist] building for {len(stores)} store(s) · cap={cap} · "
-              f"categories={self.categories} · queries={len(staples)}", flush=True)
+              f"categories={categories} · queries={len(staples)}" +
+              (" · CATALOG INVENTORY (snapshot + churn diff)" if catalog else ""),
+              flush=True)
         total = len(stores)
         for idx, (app, store_id, label, lat, lon, eta) in enumerate(stores, 1):
             try:
                 self._build_store(app, store_id, lat, lon, cap, staples,
-                                  index=idx, total=total, label=label)
+                                  index=idx, total=total, label=label,
+                                  catalog=catalog, categories=categories,
+                                  skip_override=skip_override, deep_cats=deep_cats)
             except KeyboardInterrupt:
                 print("\n[watchlist] interrupted — partial results saved", flush=True)
                 raise
@@ -127,19 +158,23 @@ class WatchlistBuilder:
 
     # -- per store ---------------------------------------------------------
     def _build_store(self, app, store_id, lat, lon, cap, staples,
-                     index=None, total=None, label=None):
+                     index=None, total=None, label=None, catalog=False,
+                     categories=None, skip_override=None, deep_cats=False):
+        categories = int(categories or self.categories)
         adapter = self._make_adapter(app)
         idx_s = f" ({index}/{total})" if index else ""
         label_s = f" — {label}" if label else ""
-        n_visits = self.categories + len(staples)
+        n_visits = categories + len(staples)
         print(f"\n[watchlist]{idx_s} {app} @ store {store_id}{label_s} "
               f"({lat:.4f},{lon:.4f})", flush=True)
-        print(f"[watchlist]   queued {self.categories} categories + "
+        print(f"[watchlist]   queued {categories} categories + "
               f"{len(staples)} searches = {n_visits} visits · per-visit "
               f"progress streams below", flush=True)
         t0 = time.time()
         products, meta = adapter.deep_sweep(store_id, lat, lon,
-                                            categories=self.categories, terms=staples)
+                                            categories=categories, terms=staples,
+                                            deep_cats=deep_cats,
+                                            skip_override=skip_override)
         if not products:
             print(f"[watchlist] warn: {app} sweep returned no products "
                   f"({meta.get('error') or 'feed blocked'}) — store skipped")
@@ -169,10 +204,11 @@ class WatchlistBuilder:
                 print(f"[watchlist]   excluded {len(voucher_skus)} voucher/"
                       f"gift-card SKUs (demand.exclude_vouchers)", flush=True)
         ranked = sorted(agg.values(), key=lambda r: (-r["score"], str(r["name"])))
-        if self.unbiased:
+        if self.unbiased or catalog:
             # Keep ALL discovered SKUs active so the full catalog is indexed;
             # the prober will still prioritize by score but observations are
-            # never lost. No deactivation of overflow.
+            # never lost. No deactivation of overflow. Catalog mode always
+            # archives everything it saw — curation caps don't apply.
             for r in ranked:
                 r["active"] = True
             self.db.upsert_watchlist(app, store_id, ranked)
@@ -181,6 +217,8 @@ class WatchlistBuilder:
                 r["active"] = i < cap
             self.db.upsert_watchlist(app, store_id, ranked)
             self.db.deactivate_watchlist_except(app, store_id, [r["sku_key"] for r in ranked])
+        if catalog:
+            self._catalog_snapshot_and_diff(app, store_id, ranked)
         n_oos = sum(1 for r in ranked if r["in_stock"] is False)
         n_stock_known = sum(1 for r in ranked if r["in_stock"] is not None)
         active_n = sum(1 for r in ranked if r["active"])
@@ -193,3 +231,58 @@ class WatchlistBuilder:
                   f"score={r['score']}  via={','.join(r['collections'][:3])}", flush=True)
         if len(ranked) > 8:
             print(f"    … +{len(ranked) - 8} more", flush=True)
+
+    # -- catalog inventory: snapshot + churn diff (09-02) -------------------
+    # SKU count collapses to <50% of the previous snapshot -> soft-block /
+    # fetch-flake signature, NOT churn (mirrors the prober's suspect-cycle
+    # freeze): the snapshot is recorded honestly, but the diff is skipped so
+    # a flaky crawl can never mass-archive a store's catalog.
+    SUSPECT_SNAPSHOT_RATIO = 0.5
+
+    def _catalog_snapshot_and_diff(self, app, store_id, ranked):
+        now = time.time()
+        prev_ts, prev = self.db.catalog_prev_snapshot(app, store_id, before_ts=now)
+        n = self.db.record_catalog_snapshot(app, store_id, now, ranked)
+        if prev_ts is None:
+            print(f"[catalog] {app}/{store_id}: BASELINE snapshot — {n} SKUs "
+                  f"archived (first snapshot; churn diffing starts next run)",
+                  flush=True)
+            return
+        cur = {r["sku_key"]: r for r in ranked}
+        if len(cur) < self.SUSPECT_SNAPSHOT_RATIO * len(prev):
+            print(f"[catalog] {app}/{store_id}: SUSPECT snapshot — {len(cur)} "
+                  f"SKUs vs {len(prev)} previously (<50%): archived, diff "
+                  f"SKIPPED (mass absence = crawl flake, not churn)", flush=True)
+            return
+        age_h = (now - prev_ts) / 3600.0
+        new_skus = [k for k in cur if k not in prev]
+        delisted_skus = [k for k in prev if k not in cur]
+        events = []
+        for k in new_skus:
+            r = cur[k]
+            events.append({"sku_key": k, "kind": "new", "name": r.get("name"),
+                           "price": r.get("price"), "snapshot_ts": now,
+                           "prev_snapshot_ts": prev_ts,
+                           "detail": ",".join((r.get("collections") or [])[:3])})
+        for k in delisted_skus:
+            events.append({"sku_key": k, "kind": "delisted", "name": prev[k],
+                           "price": None, "snapshot_ts": now,
+                           "prev_snapshot_ts": prev_ts,
+                           "detail": "absent from full-catalog sweep"})
+        if events:
+            self.db.record_catalog_events(app, store_id, events)
+        if delisted_skus:
+            self.db.deactivate_watchlist_skus(app, store_id, delisted_skus)
+        print(f"[catalog] {app}/{store_id}: snapshot {n} SKUs vs "
+              f"{len(prev)} {age_h:.1f}h ago -> NEW={len(new_skus)} "
+              f"DELISTED={len(delisted_skus)}", flush=True)
+        for k in new_skus[:5]:
+            r = cur[k]
+            print(f"    [new] {str(r.get('name'))[:52]:<54} ₹{r.get('price')}  "
+                  f"via={','.join((r.get('collections') or [])[:2])}", flush=True)
+        for k in delisted_skus[:5]:
+            print(f"    [delisted] {str(prev[k])[:56]}  (was listed "
+                  f"{age_h:.1f}h ago)", flush=True)
+        if len(new_skus) > 5 or len(delisted_skus) > 5:
+            print(f"    … full churn log: catalog_events table / --catalog-report",
+                  flush=True)

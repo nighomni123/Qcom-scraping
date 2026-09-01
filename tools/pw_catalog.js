@@ -83,6 +83,12 @@ const PROXY = parseProxy(arg('proxy', '') || process.env.PROXY_URL || '');
 // search terms — ALL inside this one browser session, so every intercepted
 // catalog call stays signed/natural and costs one chromium launch total.
 const CATEGORIES = parseInt(arg('categories', '0'), 10) || 0;
+// --deep-cats: after each visited category page, re-collect category links
+// found THERE and append unseen ones (one-hop BFS, deduped, still bounded by
+// --categories). Discovers sub-category shelves the home rail doesn't list —
+// catalog-inventory mode (--build-watchlist --catalog) turns this on so new
+// categories surface over time instead of only the first N home links.
+const DEEP_CATS = arg('deep-cats', '') === '1';
 const TERMS = (arg('terms', '') || '').split('|').map(s => s.trim()).filter(Boolean);
 // Category-label skips (config demand.skip_categories): QC apps order their
 // category rail dairy/bread/eggs-first, so "first N links" over-samples milk.
@@ -909,46 +915,56 @@ async function main() {
 
     // ---- deep-sweep visit queue: category links first, then searches ----
     const visits = [];
-    if (CATEGORIES > 0) {
-      const links = await page.evaluate(() => {
-        const out = [];
-        try {
-          for (const a of document.querySelectorAll('a[href]')) {
-            const h = a.getAttribute('href') || '';
-            if (/^\/(cn|category|c)\//i.test(h)) {
-              out.push({
-                href: new URL(h, location.origin).toString(),
-                text: (a.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),
-              });
-            }
+    const seenUrls = new Set();          // every href ever enqueued or skipped
+    const collectCatLinks = async () => await page.evaluate(() => {
+      const out = [];
+      try {
+        for (const a of document.querySelectorAll('a[href]')) {
+          const h = a.getAttribute('href') || '';
+          if (/^\/(cn|category|c)\//i.test(h)) {
+            out.push({
+              href: new URL(h, location.origin).toString(),
+              text: (a.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),
+            });
           }
-        } catch (_) {}
-        return out;
-      }).catch(() => []);
-      const seenH = new Set();
+        }
+      } catch (_) {}
+      return out;
+    }).catch(() => []);
+    const enqueueLinks = (links) => {
       for (const l of links) {
-        if (seenH.has(l.href)) continue;
+        if (seenUrls.has(l.href)) continue;
+        seenUrls.add(l.href);
         const lab = l.text || l.href.split('/').pop() || 'cat';
         if (SKIP.length && SKIP.some(s => lab.toLowerCase().includes(s))) {
-          seenH.add(l.href);
           console.error(`[sweep] skip category "${lab.slice(0, 40)}"`);
           continue;
         }
-        seenH.add(l.href);
+        if (visits.length >= CATEGORIES) return;
         visits.push({ url: l.href, label: lab });
-        if (visits.length >= CATEGORIES) break;
       }
+    };
+    if (CATEGORIES > 0) {
+      enqueueLinks(await collectCatLinks());
     }
     for (const t of TERMS) {
       const build = SEARCH_URLS[APP];
       if (build) visits.push({ url: build(t), label: `q:${t}` });
     }
-    for (const v of visits) {
+    // Index loop (not for-of) so --deep-cats can append mid-queue: each
+    // category page may reveal NEW category links → pushed to the tail,
+    // visited in the same session as long as the budget lasts.
+    let vi = 0;
+    while (vi < visits.length) {
+      const v = visits[vi++];
       CURRENT_LABEL = v.label;
       try {
         await page.goto(v.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(CAT_WAIT);
         console.error(`[sweep] ${v.label} -> cumulative ${products.size} SKUs`);
+        if (DEEP_CATS && CATEGORIES > 0) {
+          enqueueLinks(await collectCatLinks());
+        }
       } catch (_) {}
     }
     CURRENT_LABEL = 'home';
