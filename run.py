@@ -99,7 +99,7 @@ def main():
     if "--map-locality" in sys.argv:
         from src.locality import LocalityMapper
         LocalityMapper(cfg, store).map_locality(apps=_flag_list("--apps"),
-                                                max_points=_flag_int("--max-points"))
+                                                max_points=(_flag_int("--max-points") or 10))
         return
 
     if "--build-watchlist" in sys.argv:
@@ -120,7 +120,7 @@ def main():
         run_inventory(cfg, apps=_flag_list("--apps"),
                       lat=_flag_float("--lat"), lon=_flag_float("--lon"),
                       radius_m=_flag_int("--radius-m"),
-                      max_points=_flag_int("--max-points"))
+                      max_points=(_flag_int("--max-points") or 10))
         return
 
     if "--purge-vouchers" in sys.argv:
