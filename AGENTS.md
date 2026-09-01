@@ -313,6 +313,13 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   — durations never fabricate unseen time — and re-open as `vanished`.
 - **Suspect cycles freeze the machine.** Canary queries returning only-OOS or
   a mass in-stock→OOS flip ⇒ record observations, open/close nothing.
+- **Onset windows need silent-hour coverage.** `demand.sweep_windows`
+  (local hours; `"0-23"` = all) gates when the `--demand` loop STARTS rounds.
+  The Aug 24–Sep 1 history had ZERO observations in hours 02–10 and 15–16, so
+  OOS onsets in those windows were only recorded late (event `started_at` = the
+  first read after the gap) — the onset heatmap is biased to sweep hours. Keep
+  the prober running 24/7 or set `sweep_windows` to the silent windows to fill
+  them; the loop idles outside windows and never stalls a round in flight.
 - **One browser session per store per sweep.** Home → categories → searches
   inside a single page; never spawn per-SKU or per-term processes.
 - **Stock/ETA are per darkstore, not per address.** Anchor grids discover

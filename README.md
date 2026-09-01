@@ -40,6 +40,18 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --purge-vouchers [--dry-run]      # wipe voucher/gift-card rows from Demand Radar tables
     python3 run.py --qc-status                       # per-app QC health board
 
+**Silent-hour scheduling (09-02):** the `--demand` loop only *starts* rounds in
+the hours listed in `demand.sweep_windows` (local time, `"0-23"` = all hours =
+no change). The Aug 24–Sep 1 `stock_obs` history had **zero observations in
+hours 02–10 and 15–16**, so OOS onsets that began in those windows were only
+recorded at the next sweep (the onset heatmap's `started_at` is the first read,
+not the true onset) and the heatmap is biased to sweep hours. Leave the Demand
+prober feature running 24/7 to cover every hour, or set e.g.
+`demand.sweep_windows: ["2-10", "15-16"]` to spend the crawl budget *only* on
+the historically-silent windows. The loop idles (no crawls, no rate-limit burn)
+outside the windows and resumes at the next in-window hour; a round already in
+flight always finishes.
+
 **Live progress:** every browser sweep (`--build-watchlist`, `--map-locality`,
 `--store-inventory`, `--demand`) streams its progress as it works — which store
 it's on as `(i/N) <app> @ store <id> — <label>`, how many visits are queued

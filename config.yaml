@@ -136,7 +136,7 @@ demand:
   # Empty staple_queries => the built-in UNBIASED broad-coverage default list
   # in src/watchlist.py (grocery + paan/tobacco + wellness + adult + electronics
   # + household + pharma). Set a list here to override with your own terms.
-  staple_queries: ["sunscreen", "face wash", "moisturizer", "lip balm", "sheet mask"]
+  staple_queries: ["maggi noodles", "cup noodles", "yippee noodles", "poha", "ready to eat"]
   # Unbiased harvesting: when true, the builder keeps EVERY discovered SKU
   # (no truncation to the active cap) and never auto-deactivates the overflow.
   # The active cap below only limits what the prober re-probes by search;
@@ -157,6 +157,31 @@ demand:
   # skip matching category labels; freed queue slots go to the NEXT
   # categories (snacks, personal care, electronics, ...). Empty list = off.
   skip_categories: ["dairy", "milk", "bread", "bakery", "eggs", "paneer", "curd"]
+  # Voucher de-biasing (09-02): digital vouchers / gift cards (Steam, Roblox,
+  # Xbox, Blinkit Gift Card, retail vouchers…) are NOT commodities — their
+  # "stock-outs" are code-pool replenishments that skew Demand Radar DPI.
+  # true = the watchlist builder drops them at build time, the prober skips
+  # them in every sweep, and DPI rollups ignore them. Run
+  # `python3 run.py --purge-vouchers` to remove already-recorded voucher rows.
+  exclude_vouchers: true
+  # Catalog-inventory mode (--build-watchlist --catalog): upper bound on
+  # category visits per full sweep — the queue drains naturally at "all
+  # discovered links" (incl. one-hop sub-categories via --deep-cats); this cap
+  # just keeps a pathological app from never terminating. Full sweeps take
+  # ~20-60 min/store: run ONE store at a time, never beside other crawls.
+  catalog_max_categories: 300
+  # Silent-hour scheduling (09-02): the prober loop may only START rounds in
+  # the local hours listed here, so the rate-limit budget is spent where the
+  # history is thin. The Aug 24–Sep 1 stock_obs history has ZERO observations
+  # in hours 02–10 and 15–16 — the demand curve's OOS-onset windows land in
+  # exactly those gaps, so onsets get recorded late (started_at = first read
+  # after the gap) and the onset heatmap is biased to sweep hours. Default
+  # "0-23" = all hours (no behaviour change): leave the Demand prober feature
+  # running 24/7 and every hour is covered. To concentrate on the missing
+  # windows, set e.g. ["2-10", "15-16"] — the loop then idles outside them
+  # and sweeps only inside, so silent hours finally get probes. Ranges are
+  # inclusive ("H-H"); single hours as "H"; wrap-around ranges not supported.
+  sweep_windows: "0-23"
   # future phases (analysis/heatmap) will read these:
 
 ui:

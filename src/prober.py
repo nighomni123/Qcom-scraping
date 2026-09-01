@@ -33,6 +33,7 @@ invisible by construction — the heatmap's honesty depends on stating this.
 """
 from __future__ import annotations
 
+import datetime
 import random
 import time
 
@@ -42,6 +43,42 @@ from .adapters.base import Adapter  # noqa: F401  (type docs)
 from .locality import QC_APPS
 from .orchestrator import _in_quiet
 from .store import is_voucher_name
+
+
+def parse_sweep_windows(raw):
+    """`demand.sweep_windows` -> set of local hours (0..23) the prober may
+    START a round in.
+
+    Accepts a single "H" / "H-H" token, a list of them, or the literal
+    "0-23" / empty. The historical signal (02–10 / 15–16 have no
+    observations) is captured by restricting the loop to those windows; the
+    default of all 24 hours leaves behaviour unchanged. Ranges are inclusive;
+    wrap-around (e.g. "22-2") is not supported and clamps to nothing.
+    """
+    if raw is None or raw == "" or raw == "0-23" or raw == ["0-23"] \
+            or (isinstance(raw, (list, tuple)) and not raw):
+        return set(range(24))
+    toks = raw if isinstance(raw, (list, tuple)) else [raw]
+    hours = set()
+    for tok in toks:
+        tok = str(tok).strip()
+        if "-" in tok:
+            lo, hi = tok.split("-", 1)
+            try:
+                lo, hi = int(lo), int(hi)
+            except ValueError:
+                continue
+            if lo <= hi:
+                for h in range(max(0, lo), min(23, hi) + 1):
+                    hours.add(h)
+        else:
+            try:
+                h = int(tok)
+            except ValueError:
+                continue
+            if 0 <= h <= 23:
+                hours.add(h)
+    return hours
 
 
 class StockProber:
@@ -60,6 +97,9 @@ class StockProber:
         # Vouchers are not commodities — excluded from every demand surface
         # (AGENTS.md invariant; knob demand.exclude_vouchers, default on).
         self.exclude_vouchers = bool(dem.get("exclude_vouchers", True))
+        # Silent-hour scheduling (09-02): hours (local) the loop may start
+        # rounds in. Empty/all => every hour (no gating).
+        self.sweep_hours = parse_sweep_windows(dem.get("sweep_windows", "0-23"))
         # in-memory state (prober-lifetime)
         self.streaks = {}     # (app,sid,sku) -> {count, first_ts}
         self.absence = {}     # (app,sid,sku) -> consecutive missed sweeps
@@ -284,11 +324,28 @@ class StockProber:
             time.sleep(3 + random.random() * 4)   # politeness between stores
         return out
 
+    def _next_window_start(self, t):
+        """Smallest epoch >= t whose local hour is in self.sweep_hours.
+
+        Used to hold the loop idle (no crawls, no rate-limit burn) outside the
+        configured sweep_windows. A round already in flight always finishes.
+        """
+        dt = datetime.datetime.fromtimestamp(t)
+        for _ in range(48):  # bound the scan (>= 2 days)
+            if dt.hour in self.sweep_hours:
+                return dt.timestamp()
+            dt = (dt + datetime.timedelta(hours=1)).replace(
+                minute=0, second=0, microsecond=0)
+        return t  # safety: nothing matched (e.g. empty set) -> don't stall
+
     def loop(self, apps=None, store_filter=None):
         base = self.cfg.get("schedule", {})
         speedup = float(base.get("offpeak_speedup", 1.0))
+        span = "all 24h" if len(self.sweep_hours) == 24 else \
+            sorted(self.sweep_hours)
         print(f"[prober] entering loop · interval={self.interval}s · "
-              f"debounce={self.debounce} · vanish_after={self.vanished_after}")
+              f"debounce={self.debounce} · vanish_after={self.vanished_after} · "
+              f"sweep_windows={span}")
         while True:
             t0 = time.time()
             try:
@@ -302,6 +359,17 @@ class StockProber:
             factor = speedup if _in_quiet(self.cfg) else 1.0
             wait = max(30.0, self.interval * factor - elapsed)
             wait *= random.uniform(0.85, 1.15)      # jitter
+            # Silent-hour gating: never START the next round outside sweep_windows.
+            if len(self.sweep_hours) != 24:
+                now = time.time()
+                if datetime.datetime.fromtimestamp(now + wait).hour \
+                        not in self.sweep_hours:
+                    target = self._next_window_start(now + wait)
+                    idle = max(30.0, target - now)
+                    print(f"[prober] outside sweep_windows → idle until "
+                          f"{datetime.datetime.fromtimestamp(target):%H:%M} "
+                          f"(~{idle / 3600:.1f} h)")
+                    wait = idle
             print(f"[prober] next round in {wait / 60:.1f} min "
                   f"(quiet={_in_quiet(self.cfg)})")
             try:
@@ -334,4 +402,18 @@ if __name__ == "__main__":
     bad = [{"sku_key": "x", "in_stock": False, "collections": ["q:amul milk"]}]
     p.last_state = {}
     sus, why = p._is_suspect("blinkit", "s", bad)
-    print("offline sanity ok · sources:", srcs, "· suspect(canary-only-OOS):", sus)
+    # sweep-window parsing (silent-hour scheduling, 09-02)
+    assert parse_sweep_windows(None) == set(range(24))
+    assert parse_sweep_windows("") == set(range(24))
+    assert parse_sweep_windows("0-23") == set(range(24))
+    assert parse_sweep_windows(["0-23"]) == set(range(24))
+    assert parse_sweep_windows([]) == set(range(24))
+    assert parse_sweep_windows(["2-10", "15-16"]) == \
+        {*range(2, 11), 15, 16}
+    assert parse_sweep_windows("7") == {7}
+    assert parse_sweep_windows(["3", "18-20"]) == {3, 18, 19, 20}
+    # wrap-around / garbage clamps to empty rather than erroring
+    assert parse_sweep_windows("22-2") == set()
+    assert parse_sweep_windows(["x", "1-3"]) == {1, 2, 3}
+    print("offline sanity ok · sources:", srcs, "· suspect(canary-only-OOS):", sus,
+          "· sweep_windows parse ok")
