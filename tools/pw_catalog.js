@@ -879,6 +879,9 @@ async function main() {
     let imTerm = null;
     if (APP === 'instamart') {
       imTerm = imLocality || await reverseGeocode(LAT, LON);
+      // Corridor-aware fallback: Andheri corridor (19.1-19.2, 72.8-72.9)
+      if (!imTerm && LAT >= 19.10 && LAT <= 19.20 && LON >= 72.80 && LON <= 72.90) imTerm = 'Andheri';
+      if (!imTerm) imTerm = 'Mumbai';
       if (imTerm) {
         console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
         const ok = await instamartAddressFlow(page, imTerm);
