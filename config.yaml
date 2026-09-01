@@ -117,17 +117,20 @@ codes_file: "codes.yaml"      # delivery fees + offers knowledge base
 demand:
   enabled: true
   locality:
-    # edited via dashboard 29-08 01:47
-    name: "Corridor · Goregaon"
+    # widened 09-01 to span full Borivali→Andheri corridor so the locator
+    # fans out across distinct Instamart darkstores instead of one Goregaon pocket
+    name: "Corridor · Borivali-Andheri"
     bbox:
-      min_lat: 19.14354
-      max_lat: 19.18846
-      min_lon: 72.82822
-      max_lon: 72.87578
-    grid_step_m: 700
+      min_lat: 19.119
+      max_lat: 19.230
+      min_lon: 72.820
+      max_lon: 72.880
+    grid_step_m: 900
     landmarks:
       # explicit form — resolves exactly, no preset matching:
-      - { name: "Corridor · Goregaon center", lat: 19.166, lon: 72.852 }
+      - { name: "Andheri", lat: 19.119, lon: 72.846 }
+      - { name: "Goregaon", lat: 19.166, lon: 72.852 }
+      - { name: "Borivali", lat: 19.230, lon: 72.856 }
   # discovery sweep tuning
   min_points_before_early_stop: 6   # probes before saturation-stop may trigger
   saturation_stop: 4                # stop app sweep after N probes w/o new store
