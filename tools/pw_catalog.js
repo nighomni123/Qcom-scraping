@@ -879,8 +879,13 @@ async function main() {
     let imTerm = null;
     if (APP === 'instamart') {
       imTerm = imLocality || await reverseGeocode(LAT, LON);
-      // Corridor-aware fallback: Andheri corridor (19.1-19.2, 72.8-72.9)
-      if (!imTerm && LAT >= 19.10 && LAT <= 19.20 && LON >= 72.80 && LON <= 72.90) imTerm = 'Andheri';
+      // Corridor-aware rotation: cycle through local names so multi-anchor
+      // locator gathers diverse darkstores instead of always 'Andheri'.
+      if (!imTerm && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
+        const locals = ['Brovili','Goregaon','Andheri','Malad','Virar','Kandivali','Mankhurd'];
+        const idx = Math.abs(Math.round((LAT + LON) * 100)) % locals.length;
+        imTerm = locals[idx];
+      }
       if (!imTerm) imTerm = 'Mumbai';
       if (imTerm) {
         console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
