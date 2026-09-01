@@ -269,6 +269,8 @@ class LocalityMapper:
 
     # -- entrypoint --------------------------------------------------------
     def map_locality(self, apps=None, max_points=None, capture_products=False):
+        if max_points is None or max_points < 1:
+            max_points = 10
         loc_name = self.loc_cfg.get("name", "locality")
         anchors = build_anchors(self.loc_cfg)
         if max_points:
