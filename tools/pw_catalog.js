@@ -343,6 +343,63 @@ function collect(node, out, depth) {
   for (const v of Object.values(node)) collect(v, out, depth + 1);
 }
 
+// ---- schema.org JSON-LD product extraction (Zepto SSR catalog) ----
+// Zepto (and several QC SPAs) server-render their product listings as
+// <script type="application/ld+json"> ItemList blocks: each ListItem carries
+// item.{@type:"Product", name, url, offers:{price, availability}}. The plain
+// HTML parser (collect) misses these because they live neither in an XHR JSON
+// body nor in __NEXT_DATA__. Walk them so home/category sweeps actually
+// harvest Zepto. Prices here are already INR (not paise), so do NOT apply
+// PRICE_DIVISORS. Availability -> stock flag where present.
+function collectLdJson(node, out) {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) { for (const x of node) collectLdJson(x, out); return; }
+  // ItemList / CollectionPage / @graph wrappers
+  const elems = node.itemListElement || node['@graph'];
+  if (Array.isArray(elems)) {
+    for (const it of elems) collectLdJson(it && (it.item || it), out);
+  }
+  const type = node['@type'];
+  const isProduct = type === 'Product' || (Array.isArray(type) && type.includes('Product'));
+  const prod = node.item || node;
+  if (!isProduct && !(prod.name && (prod.offers || node.offers))) return;
+  const src = isProduct ? node : prod;
+  const name = src.name;
+  if (!name) return;
+  const url = src.url || '';
+  const offers = src.offers || null;
+  const o = (Array.isArray(offers) ? offers[0] : offers) || null;
+  let price = null, stock = null, mrp = null;
+  if (o && typeof o === 'object') {
+    price = num(o.price != null ? o.price : o.lowPrice);
+    if (price === null) price = num(o.lowPrice);
+    const av = String(o.availability || '').toLowerCase();
+    if (/instock|in_stock|insale|in-stock/i.test(av)) stock = true;
+    else if (/outofstock|out_of_stock|out-of-stock|soldout|oos/i.test(av)) stock = false;
+  }
+  if (price === null && src.price != null) price = num(src.price);
+  if (price !== null && Number.isFinite(price) && price > 0) {
+    // Stable key: prefer the product id (pvid) in the URL, else the name.
+    let key = String(name).toLowerCase().replace(/\s+/g, '');
+    const m = String(url).match(/pvid\/([a-z0-9-]+)/i);
+    if (m) key = 'pvid:' + m[1].toLowerCase();
+    const rec = { sku_key: key, name: String(name).slice(0, 140),
+                  price, mrp: (Number.isFinite(mrp) && mrp > 0) ? mrp : null,
+                  url: url || '', in_stock: stock };
+    const prev = out.get(key);
+    if (prev) {
+      if (rec.price) prev.price = rec.price;
+      if (rec.in_stock !== null) prev.in_stock = rec.in_stock;
+      if (rec.mrp) prev.mrp = rec.mrp;
+      if (rec.url) prev.url = rec.url;
+      if (!prev.collections.includes(CURRENT_LABEL)) prev.collections.push(CURRENT_LABEL);
+    } else {
+      rec.collections = [CURRENT_LABEL];
+      out.set(key, rec);
+    }
+  }
+}
+
 // ---- DOM extractors for HTML-rendered search results ----
 // NOTE: these run INSIDE the page via page.evaluate, so they must be fully
 // self-contained — no references to Node-side helpers.
@@ -715,6 +772,18 @@ async function main() {
           const j = JSON.parse(m[1]);
           extractMeta(j, 0);
           collect(j, products, 0);
+        }
+        // schema.org JSON-LD (Zepto etc.): server-rendered product catalog
+        // blocks embedded as <script type="application/ld+json">. These hold
+        // name + price + availability and are otherwise invisible to collect().
+        const ldRe = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
+        let lm;
+        while ((lm = ldRe.exec(body))) {
+          try {
+            const lj = JSON.parse(lm[1]);
+            extractMeta(lj, 0);
+            collectLdJson(lj, products);
+          } catch (_) {}
         }
       } catch (_) {}
     });
