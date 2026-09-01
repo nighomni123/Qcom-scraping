@@ -692,6 +692,10 @@ function collectArgs(id){
 }
 async function loadFeatures(){
   try {
+    // The grid re-renders every 4s; snapshot what the user is typing (and
+    // their focus/caret) first, restore right after, so inputs never lose
+    // keystrokes. In-memory only: cleared fields stay cleared.
+    snapshotArgs();
     const r = await fetch('/features'); const d = await r.json();
     FEATURES = d.features || [];
     document.getElementById('featGrid').innerHTML = FEATURES.map(f => {
@@ -710,7 +714,50 @@ async function loadFeatures(){
           <button onclick="openLog('${f.id}')">log</button>
         </div></div>`;
     }).join('');
+    restoreArgs();
   } catch(e){}
+}
+let _argSnap = null;
+function snapshotArgs(){
+  const ae = document.activeElement;
+  const inArgs = ae && ae.closest && ae.closest('.args');
+  _argSnap = {
+    focusFid: inArgs ? inArgs.dataset.fid : null,
+    focusFlag: (ae && ae.dataset && ae.dataset.flag) ? ae.dataset.flag : null,
+    caret: (ae && typeof ae.selectionStart === 'number') ? ae.selectionStart : null,
+    vals: {}
+  };
+  document.querySelectorAll('.args[data-fid]').forEach(box => {
+    const fid = box.dataset.fid;
+    _argSnap.vals[fid] = {};
+    box.querySelectorAll('[data-flag]').forEach(el => {
+      _argSnap.vals[fid][el.dataset.flag] =
+        el.type === 'checkbox' ? el.checked : el.value;
+    });
+  });
+}
+function restoreArgs(){
+  if (!_argSnap) return;
+  Object.entries(_argSnap.vals).forEach(([fid, flags]) => {
+    const box = document.querySelector(`.args[data-fid="${fid}"]`);
+    if (!box) return;
+    Object.entries(flags).forEach(([flag, v]) => {
+      const el = box.querySelector(`[data-flag="${CSS.escape(flag)}"]`);
+      if (!el) return;
+      if (el === document.activeElement) return;   // never fight the user
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (el.value !== v) el.value = v;
+    });
+  });
+  if (_argSnap.focusFid && _argSnap.focusFlag){
+    const el = document.querySelector(
+      `.args[data-fid="${CSS.escape(_argSnap.focusFid)}"] [data-flag="${CSS.escape(_argSnap.focusFlag)}"]`);
+    if (el && el.type !== 'checkbox'){
+      el.focus();
+      try { el.setSelectionRange(_argSnap.caret, _argSnap.caret); } catch(e){}
+    }
+  }
+  _argSnap = null;
 }
 function fmtUp(s){
   if (s === null || s === undefined) return '';
