@@ -883,8 +883,10 @@ async function main() {
       // locator gathers diverse darkstores instead of always 'Andheri'.
       if ((!imTerm || /mumbai/i.test(imTerm)) && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
         const locals = ['Brovili','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
-        const idx = Math.abs(Math.round((LAT + LON) * 100)) % locals.length;
-        imTerm = locals[idx];
+        // Rotate per anchor (not per lat/lon sum, which is near-constant in a
+        // tight grid) so multi-anchor locators hit diverse local stores.
+        imProbe = (imProbe || 0) + 1;
+        imTerm = locals[(imProbe - 1) % locals.length];
       }
       if (!imTerm) imTerm = 'Mumbai';
       console.error(`[debug] instamart imTerm resolved -> "${imTerm}" (LAT=${LAT} LON=${LON})`);
