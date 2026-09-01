@@ -817,6 +817,20 @@ class Dashboard:
                     try:
                         st = _location_state()
                         st["ip_location"] = _ip_location_cached()
+                        try:
+                            # Darkstores recorded so far (glitch monitor +
+                            # Demand Radar phases) for map pins. Read-only
+                            # sqlite peek; failures must not break /location.
+                            from .store import Store as S
+                            dbs = S(dash.cfg.get("db", "deals.db")).darkstores()
+                        except Exception:
+                            dbs = []
+                        st["darkstores"] = [
+                            {"app": a, "store_id": sid, "label": lab,
+                             "lat": la, "lon": lo, "eta_min": eta}
+                            for (a, sid, lab, la, lo, eta) in dbs
+                            if la is not None and lo is not None
+                        ]
                         self._json(st)
                     except Exception as ex:
                         self._json({"error": str(ex)[:200]})

@@ -256,6 +256,7 @@
       <div class="loccard">
         <h3>Demand Radar locality <small>bbox + landmarks for --demand / --map-locality / inventory</small></h3>
         <div id="locMap"></div>
+        <div id="pinLegend" style="font-size:10.5px;color:var(--dim);min-height:14px;"></div>
         <div class="mapfall" id="mapFallback" style="display:none;">
           Map unavailable (offline?) — set coordinates with the inputs below or pick a preset.
         </div>
@@ -825,6 +826,7 @@ async function loadLocation(){
     initMap(c);
     renderCorridor(LOC.corridor || []);
     fillAnchorSelect(LOC.search_station);
+    renderStorePins();
   } catch(e){}
 }
 function initMap(center){
@@ -837,8 +839,52 @@ function initMap(center){
     LMARK = L.marker(center, {draggable: true}).addTo(LMAP);
     LMARK.on('dragend', markerToForm);
     LMAP.on('click', e => { LMARK.setLatLng(e.latlng); markerToForm(); });
-    setTimeout(() => LMAP.invalidateSize(), 250);
+    setTimeout(() => { LMAP.invalidateSize(); renderStorePins(); }, 250);
   } catch(e){ mapFail(); }
+}
+// -- recorded darkstores as map pins (09-02) --------------------------------
+// One layer group, colored per app. Rendered once after the map exists; the
+// /location fetch that carries darkstores may complete before or after Leaflet
+// init, whichever lands second does the render.
+let STOREPIN_ICON = {
+  blinkit:   {c: '#3fb950', g: '▲'},   // green
+  zepto:     {c: '#8957e5', g: '◆'},   // purple
+  instamart: {c: '#d29922', g: '■'},   // amber
+  fallback:  {c: '#58a6ff', g: '●'}    // blue
+};
+function storePinIcon(app){
+  const k = (STOREPIN_ICON[app] ? app : 'fallback');
+  const s = STOREPIN_ICON[k];
+  return L.divIcon({className: '', iconSize: [16, 16],
+    html: `<span style="display:inline-block;width:16px;height:16px;line-height:16px;` +
+          `text-align:center;color:${s.c};font-size:11px;` +
+          `text-shadow:0 0 3px #000,0 0 3px #000">${s.g}</span>`});
+}
+function renderStorePins(){
+  if (!window.L || !LMAP) return;
+  if (window._storePins){ window._storePins.remove(); }
+  window._storePins = L.layerGroup().addTo(LMAP);
+  const ds = (typeof LOC !== 'undefined' && LOC && LOC.darkstores) || [];
+  const fit = [];
+  for (const d of ds){
+    if (!isFinite(d.lat) || !isFinite(d.lon)) continue;
+    L.marker([d.lat, d.lon], {icon: storePinIcon(d.app), keyboard: false})
+      .bindPopup(`<b>${esc(d.app)} ${esc(d.store_id)}</b><br>${esc(d.label || 'darkstore')}` +
+                 (d.eta_min != null ? `<br>ETA ${esc(String(d.eta_min))} min` : '') +
+                 `<br><small>click map to move the working pin; store pins are reference only</small>`)
+      .addTo(window._storePins);
+    fit.push([d.lat, d.lon]);
+  }
+  const leg = document.getElementById('pinLegend');
+  if (leg){
+    const counts = {};
+    ds.forEach(d => { counts[d.app] = (counts[d.app] || 0) + 1; });
+    leg.innerHTML = Object.keys(counts).length
+      ? 'pins: ' + Object.entries(counts).map(([a, n]) =>
+          `<span style="color:${(STOREPIN_ICON[a] || STOREPIN_ICON.fallback).c}">` +
+          `${(STOREPIN_ICON[a] || STOREPIN_ICON.fallback).g} ${esc(a)} ×${n}</span>`).join(' · ')
+      : '';
+  }
 }
 function mapFail(){
   document.getElementById('locMap').style.display = 'none';

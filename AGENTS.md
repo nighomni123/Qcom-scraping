@@ -167,6 +167,10 @@ runner — and an override REPLACES the base cmd's occurrence of the same flag
 (run.py reads the FIRST occurrence, appending a duplicate would be ignored).
 Last-used values persist in the browser's localStorage) and `/location`
 + `/location/presets` + POST `/location/locality` | `/location/corridor`
+(09-02: GET /location also carries `darkstores` — every recorded darkstore
+in deals.db pinned on the working-area map with app-coded ▲◆■ icons, a
+per-app count legend and a popup (app/store-id/label/ETA); pins are
+reference-only and never move the working pin)
 (interactive working-area editor: regenerates `geo.corridor`,
 `demand.locality` and `search.station` blocks in config.yaml in the existing
 miniyaml-compatible style, validates with BOTH loaders before an atomic

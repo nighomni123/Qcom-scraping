@@ -244,7 +244,11 @@ Real-time view of everything the process does, plus the exit switch:
   radius slider; edit the monitor's corridor stations in a table and set the
   search anchor. Every save is validated against both YAML loaders before it
   lands in config.yaml (previous file backed up in /tmp) and applies when you
-  next start or restart a feature.
+  next start or restart a feature. Every darkstore recorded so far is also
+  pinned on the map — color/shape-coded per app (▲ blinkit · ◆ zepto ·
+  ■ instamart) with per-app counts in a legend and a popup (app, store id,
+  label, ETA). Store pins are reference only: clicking one doesn't move the
+  working pin, drag/click the map itself as before.
 - **AI assistant (optional)** — three helpers on top of live data:
   *Understand the results* explains what the Demand Radar panels show (pressure
   SKUs, temporal patterns, data-quality caveats) — the full analysis is also
