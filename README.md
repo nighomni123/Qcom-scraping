@@ -217,10 +217,15 @@ Real-time view of everything the process does, plus the exit switch:
 
 - **Features** — every capability of this repo as a card (glitch monitor,
   Telegram bot, demand prober, demo, QC probe, inventory sweep, locality
-  mapping, watchlist builder, demand report). Start and stop them right from
-  the browser; each runs as a managed child process with live logs, uptime
-  and exit codes. STOP ALL / shutdown also reaps anything the dashboard
-  started, so nothing keeps crawling in the background.
+  mapping, watchlist builder, demand report, catalog report, voucher purge).
+  Start and stop them right from the browser; each runs as a managed child
+  process with live logs, uptime and exit codes. Cards expose their CLI
+  arguments as editable fields (apps, store id, `--categories`, `--max-terms`,
+  `--catalog` toggle, CSV export, dry-run, …) — fill in what you need and
+  ▶ start runs it with those flags; last-used values are remembered in your
+  browser. Unknown flags are rejected server-side (the panel only offers
+  each feature's own documented flags). STOP ALL / shutdown also reaps
+  anything the dashboard started, so nothing keeps crawling in the background.
 - **Working area** — change WHERE the tool operates, interactively: drag the
   map pin (or click the map / pick a preset / use your device location / the
   server's IP location) and save it as the Demand Radar locality with a

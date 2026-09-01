@@ -40,6 +40,15 @@ _ROOT = os.path.dirname(os.path.dirname(_HTML_PATH))   # repo root: deals.db liv
 # Every capability of this repo, as startable dashboard actions. Services run
 # until stopped; tasks are one-shot runs. Commands are plain `run.py` flag
 # vectors so the panel always mirrors the real CLI.
+#
+# Per-feature argument editing (09-02): "args" declares the flags the
+# Features panel may override for that feature. Each arg is
+#   {"flag": "--store", "kind": "text"|"int"|"float"|"select"|"bool",
+#    "label": ..., "ph": placeholder, "opts": ["a","b", …] (select only)}
+# The POST /features/<id>/start body may carry {"args": {"--store": "34292"}};
+# FeatureManager validates EVERY flag against this spec (unknown flags are
+# rejected, never forwarded) and appends `flag value` to the command vector —
+# base cmds keep any built-in flags (e.g. --demand --once) as the last word.
 FEATURE_CATALOG = [
     {"id": "monitor", "label": "Glitch monitor", "service": True,
      "desc": "Crawls Blinkit · Zepto · Instamart across the Mumbai corridor "
@@ -58,7 +67,14 @@ FEATURE_CATALOG = [
              "records stock/price/ETA observations and opens debounced "
              "stock-out events. Feeds the Demand Radar panels below.",
      "meta": "LIVE crawl, runs until stopped · keep it the only crawler running",
-     "cmd": [sys.executable, "-u", "run.py", "--demand"]},
+     "cmd": [sys.executable, "-u", "run.py", "--demand"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+         {"flag": "--store", "kind": "text", "label": "store id",
+          "ph": "e.g. 34292"},
+         {"flag": "--max-terms", "kind": "int", "label": "max terms/store"},
+     ]},
     {"id": "demo", "label": "Demo pipeline", "service": False,
      "desc": "Offline end-to-end test: injects a fake glitch into a synthetic "
              "store and verifies crawl → detect → alert → store. Touches no "
@@ -69,37 +85,191 @@ FEATURE_CATALOG = [
      "desc": "One live probe per quick-commerce app to verify extraction "
              "still works: products found, stock states, store id and ETA.",
      "meta": "light live check · ~45 s per app",
-     "cmd": [sys.executable, "-u", "run.py", "--qc-status"]},
+     "cmd": [sys.executable, "-u", "run.py", "--qc-status"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+     ]},
     {"id": "demand_once", "label": "Demand round", "service": False,
      "desc": "A single full demand-probe sweep across watchlist stores, then "
              "stops — collects the same data as the Demand prober without "
              "looping forever.",
      "meta": "live crawl · ~70 s · lighter alternative to the prober",
-     "cmd": [sys.executable, "-u", "run.py", "--demand", "--once", "--max-terms", "5"]},
+     "cmd": [sys.executable, "-u", "run.py", "--demand", "--once"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+         {"flag": "--store", "kind": "text", "label": "store id",
+          "ph": "e.g. 34292"},
+         {"flag": "--max-terms", "kind": "int", "label": "max terms/store",
+          "ph": "default 5"},
+     ]},
     {"id": "store_inventory", "label": "Store inventory", "service": False,
      "desc": "Maps darkstores near this machine's REAL location (public IP, "
              "no spoofing) into inventory_<app>.db per app AND captures every "
              "probe's products — browse them in SQL databases below.",
      "meta": "LIVE crawl · ~10–15 min for all 3 apps · run ALONE — concurrent "
              "crawls get rate-limited into empty results",
-     "cmd": [sys.executable, "-u", "run.py", "--store-inventory"]},
+     "cmd": [sys.executable, "-u", "run.py", "--store-inventory"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+         {"flag": "--lat", "kind": "float", "label": "lat",
+          "ph": "e.g. 19.1364"},
+         {"flag": "--lon", "kind": "float", "label": "lon",
+          "ph": "e.g. 72.8296"},
+         {"flag": "--radius-m", "kind": "int", "label": "radius (m)"},
+         {"flag": "--max-points", "kind": "int", "label": "max points"},
+     ]},
     {"id": "map_locality", "label": "Map locality", "service": False,
      "desc": "Discovers darkstores for the configured locality (Andheri West) "
              "anchor-by-anchor into deals.db and exports rotation-pool JSONs.",
      "meta": "LIVE crawl · ~2 min+ per app",
-     "cmd": [sys.executable, "-u", "run.py", "--map-locality"]},
+     "cmd": [sys.executable, "-u", "run.py", "--map-locality"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+         {"flag": "--max-points", "kind": "int", "label": "max points"},
+     ]},
     {"id": "build_watchlist", "label": "Build watchlist", "service": False,
      "desc": "Builds per-store SKU probe sets from live category/search "
              "sweeps — the list of items the Demand prober then tracks for "
              "stock-outs.",
      "meta": "LIVE crawl · writes the watchlist table in deals.db",
-     "cmd": [sys.executable, "-u", "run.py", "--build-watchlist"]},
+     "cmd": [sys.executable, "-u", "run.py", "--build-watchlist"],
+     "args": [
+         {"flag": "--apps", "kind": "text", "label": "apps",
+          "ph": "blinkit,zepto,instamart"},
+         {"flag": "--store", "kind": "text", "label": "store id",
+          "ph": "e.g. 34292"},
+         {"flag": "--max-per-store", "kind": "int", "label": "max SKUs/store"},
+         {"flag": "--max-queries", "kind": "int", "label": "max queries"},
+         {"flag": "--categories", "kind": "int", "label": "categories",
+          "ph": "overrides categories_per_store"},
+         {"flag": "--catalog", "kind": "bool", "label": "catalog inventory",
+          "ph": "full snapshot + new/delisted churn · ~20–60 min/store — "
+                "run ONE store at a time"},
+     ]},
     {"id": "demand_report", "label": "Demand report", "service": False,
      "desc": "Prints the Demand Pressure Index ranking and hour×SKU onset "
              "heatmap summary computed from already-recorded data.",
      "meta": "NO crawling · safe anytime · --csv exports exports/dpi_*.csv",
-     "cmd": [sys.executable, "-u", "run.py", "--demand-report"]},
+     "cmd": [sys.executable, "-u", "run.py", "--demand-report"],
+     "args": [
+         {"flag": "--store", "kind": "text", "label": "store id",
+          "ph": "e.g. 34292"},
+         {"flag": "--csv", "kind": "bool", "label": "export CSV"},
+     ]},
+    {"id": "catalog_report", "label": "Catalog report", "service": False,
+     "desc": "Prints the catalog-inventory snapshot history and the "
+             "new/delisted churn log (limited-time arrivals + discontinued "
+             "products) computed from already-recorded data.",
+     "meta": "NO crawling · safe anytime · pairs with Build watchlist ▸ "
+             "catalog inventory",
+     "cmd": [sys.executable, "-u", "run.py", "--catalog-report"],
+     "args": [
+         {"flag": "--store", "kind": "text", "label": "store id",
+          "ph": "e.g. 34292"},
+     ]},
+    {"id": "purge_vouchers", "label": "Purge vouchers", "service": False,
+     "desc": "Wipes voucher/gift-card rows from Demand Radar tables "
+             "(watchlist/stock_obs/oos_events); keeps a deals.db backup. "
+             "--demand also auto-purges at startup.",
+     "meta": "NO crawling · safe anytime · idempotent · dry-run lists "
+             "without deleting",
+     "cmd": [sys.executable, "-u", "run.py", "--purge-vouchers"],
+     "args": [
+         {"flag": "--dry-run", "kind": "bool", "label": "dry run"},
+     ]},
 ]
+
+
+# -- per-feature argument editing -------------------------------------------
+# The Features panel POSTs {"args": {"--store": "34292", "--catalog": true}}.
+# Security posture: EVERY flag must be declared in that feature's `args`
+# spec — unknown flags are rejected (400), never forwarded — so the panel
+# can never become an arbitrary-CLI runner. Values are plain argv tokens
+# (no shell involved); run.py's _flag_value takes the FIRST occurrence of a
+# flag, so an override REPLACES the base cmd's occurrence (_merge_feature_cmd).
+
+_ARG_FLAG_RE = re.compile(r"^--[a-z0-9][a-z0-9-]*$")
+_ARG_VAL_MAX = 120
+
+
+def _validate_feature_args(f, args):
+    """Return an error string for invalid panel args, or None when valid.
+
+    `args` maps flag -> value; bool-kind flags accept True/False/"" (bare
+    flag). int/float kinds are numeric-checked; text values are length- and
+    control-char-checked. Only spec-declared flags pass.
+    """
+    if not isinstance(args, dict):
+        return "args must be an object of {flag: value}"
+    spec = {a["flag"]: a for a in f.get("args", [])}
+    if len(args) > 12:
+        return "too many args (max 12)"
+    for flag, val in args.items():
+        if not isinstance(flag, str) or not _ARG_FLAG_RE.match(flag):
+            return f"bad flag {flag!r}"
+        if flag not in spec:
+            return f"flag {flag} is not offered by '{f['id']}'"
+        kind = spec[flag].get("kind", "text")
+        if kind == "bool":
+            if val not in (None, "", True, False, 0, 1):
+                return f"{flag} takes no value"
+            continue
+        s = "" if val is None else str(val).strip()
+        if not s:
+            return f"{flag} needs a value"
+        if len(s) > _ARG_VAL_MAX or "\n" in s or "\x00" in s:
+            return f"{flag} value invalid (length/control chars)"
+        if kind == "int":
+            try:
+                if int(s) < 0:
+                    return f"{flag} must be >= 0"
+            except ValueError:
+                return f"{flag} needs an integer"
+        elif kind == "float":
+            try:
+                float(s)
+            except ValueError:
+                return f"{flag} needs a number"
+    return None
+
+
+def _merge_feature_cmd(f, args):
+    """Build the final command vector: base cmd + validated args.
+
+    Value flags append `flag value`; bool flags append the flag alone (only
+    when truthy). A flag the panel overrides is REMOVED from the base vector
+    first — run.py's _flag_value reads the FIRST occurrence, so base
+    `--max-terms 5` would otherwise silently ignore the panel's value.
+    """
+    base = list(f["cmd"])
+    extra = []
+    for a in f.get("args", []):
+        flag = a["flag"]
+        if flag not in args:
+            continue
+        if a.get("kind", "text") == "bool":
+            if args[flag] in (True, 1, "1", "true", "True", "on", "yes"):
+                extra.append(flag)
+            continue
+        extra.extend([flag, str(args[flag]).strip()])
+    overridden = {t for t in extra if t.startswith("--")} & \
+                 {t for t in base if t.startswith("--")}
+    out, i = [], 0
+    while i < len(base):
+        t = base[i]
+        if t in overridden:
+            if i + 1 < len(base) and not base[i + 1].startswith("--"):
+                i += 2          # drop the base flag AND its value
+            else:
+                i += 1          # base bool flag
+            continue
+        out.append(t)
+        i += 1
+    return out + extra
 
 
 class FeatureManager:
@@ -129,6 +299,7 @@ class FeatureManager:
                     "id": fid, "label": f["label"], "desc": f["desc"],
                     "meta": f.get("meta", ""),
                     "service": f["service"],
+                    "args": f.get("args", []),
                     "running": running,
                     "pid": st["proc"].pid if running else None,
                     "started_ts": st["started_ts"] if st else None,
@@ -149,17 +320,23 @@ class FeatureManager:
                 "returncode": st["returncode"] if st and not running else None}
 
     # -- control ----------------------------------------------------------
-    def start(self, fid):
+    def start(self, fid, extra_args=None):
         f = self.catalog.get(fid)
         if not f:
             return {"error": f"unknown feature '{fid}'"}, 404
+        cmd = list(f["cmd"])
+        if extra_args:
+            err = _validate_feature_args(f, extra_args)
+            if err:
+                return {"error": err}, 400
+            cmd = _merge_feature_cmd(f, extra_args)
         with self._lock:
             st = self.procs.get(fid)
             if st and st["proc"].poll() is None:
                 return {"error": f"'{fid}' is already running (pid {st['proc'].pid})"}, 409
             try:
                 proc = subprocess.Popen(
-                    f["cmd"], cwd=self.cwd,
+                    cmd, cwd=self.cwd,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     text=True, bufsize=1,
                 )
@@ -813,7 +990,8 @@ class Dashboard:
 
                 elif self.path.startswith("/features/") and self.path.endswith("/start"):
                     fid = self.path[len("/features/"):-len("/start")]
-                    data, code = dash.features.start(fid)
+                    args = payload.get("args") if isinstance(payload, dict) else None
+                    data, code = dash.features.start(fid, extra_args=args)
                     self._json(data, code)
 
                 elif self.path.startswith("/features/") and self.path.endswith("/stop"):

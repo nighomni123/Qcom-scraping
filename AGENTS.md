@@ -158,7 +158,14 @@ Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
 `/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
 deals.db + inventory_*.db), `/features` + `/features/<id>/start|stop|log`
 (spawn/terminate any repo feature — monitor loop, bot, --demand, demo,
-inventory sweeps… — as managed child processes) and `/location`
+inventory sweeps… — as managed child processes; 09-02: features declare an
+editable-args spec (`args` in FEATURE_CATALOG), the panel renders inputs per
+feature and POSTs {"args": {"--store": "34292", "--catalog": true}}; the
+server whitelists EVERY flag against that spec — unknown flags are rejected
+(400), never forwarded, so the panel can never become an arbitrary-CLI
+runner — and an override REPLACES the base cmd's occurrence of the same flag
+(run.py reads the FIRST occurrence, appending a duplicate would be ignored).
+Last-used values persist in the browser's localStorage) and `/location`
 + `/location/presets` + POST `/location/locality` | `/location/corridor`
 (interactive working-area editor: regenerates `geo.corridor`,
 `demand.locality` and `search.station` blocks in config.yaml in the existing
