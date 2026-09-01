@@ -887,6 +887,7 @@ async function main() {
         imTerm = locals[idx];
       }
       if (!imTerm) imTerm = 'Mumbai';
+      console.error(`[debug] instamart imTerm resolved -> "${imTerm}" (LAT=${LAT} LON=${LON})`);
       if (imTerm) {
         console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
         const ok = await instamartAddressFlow(page, imTerm);
