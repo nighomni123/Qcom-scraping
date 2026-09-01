@@ -633,6 +633,7 @@ async function main() {
   const apiHits = [];
   const apiLog = [];      // {url, status} of API-ish responses (stuck diagnostics)
   let imLocality = null;  // Instamart: reverse-geocoded locality from address-widgets
+  let imProbe = 0;         // Instamart: per-anchor rotation counter for local term
   let biggest = { url: '', len: 0, head: '' };
   let browser;
   try {
@@ -877,13 +878,12 @@ async function main() {
     // anchor's locality so home_v2 returns a specific darkstore + ETA. Runs even
     // when products already exist (they're the default feed until we localize).
     let imTerm = null;
-    let imProbe = 0;
     if (APP === 'instamart') {
       imTerm = imLocality || await reverseGeocode(LAT, LON);
       // Corridor-aware rotation: cycle through local names so multi-anchor
       // locator gathers diverse darkstores instead of always 'Andheri'.
       if ((!imTerm || /mumbai/i.test(imTerm)) && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
-        const locals = ['Brovili','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
+        const locals = ['Borivali','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
         // Rotate per anchor (not per lat/lon sum, which is near-constant in a
         // tight grid) so multi-anchor locators hit diverse local stores.
         imProbe = (imProbe || 0) + 1;
