@@ -32,6 +32,7 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
+    python3 run.py --purge-vouchers [--dry-run]      # wipe voucher/gift-card rows from Demand Radar tables
     python3 run.py --qc-status                       # per-app QC health board
 
 **Live progress:** every browser sweep (`--build-watchlist`, `--map-locality`,
@@ -326,13 +327,35 @@ are kept regardless — they're correct and serve any future machine-location us
 tinyfish is a monid **provider**, not a skill. The built-in `web_search` tool
 is banned by the workspace instructions; do not use it here.
 
-## Voucher / digital tracking documentation (`docs/tracking_expansion_vouchers.md`)
+## Vouchers are excluded from Demand Radar (09-02)
 
-A design document (`docs/tracking_expansion_vouchers.md`) and matching additive schema changes (`src/store.py` + `src/prober.py`) document a tracking gap: digital voucher SKUs (Roblox, Steam, Valorant, Domino's, Amazon Prime, Blinkit Gift, Xbox Game Pass, etc.) have zero `price_obs` entries and zero ended restock events (`restock_trigger` = `None`), leaving `mean_restock_min` as `NULL`. The document proposes (and commits implement) additive `ALTER TABLE` columns:
+Digital voucher SKUs (Roblox / Steam / Valorant / Domino's / Amazon Prime /
+Blinkit Gift Card / Xbox Game Pass / retail "Instant Voucher" cards, …) are
+**not commodities** — their "stock-outs" are gift-code pool replenishments,
+not shelf demand. Once the watchlist's unbiased harvest picked up Blinkit's
+"E-Gift Cards" shelf, vouchers held 15 of the top-20 DPI slots and skewed
+every heatmap/AI analysis.
 
-- `stock_obs`: `restock_trigger`, `voucher_type`, `promotional_context`, `catalog_version`
-- `watchlist`: `is_digital_voucher`
-- `oos_events`: `restock_trigger`
-- `price_obs`: `catalog_version`
+They are now excluded end-to-end:
 
-Schema remains backward-compatible (historical rows keep `NULL` defaults). See `docs/tracking_expansion_vouchers.md` for full problem analysis, root cause, recommended next steps, and verification from `deals.db`.
+- `demand.exclude_vouchers: true` (default) — the watchlist builder drops
+  voucher-named SKUs at build time, the prober (`--demand`) skips them in
+  every sweep (before observations, events and the soft-block guard), and the
+  DPI rollup ignores them defensively.
+- The shared matcher is `src/store.py → is_voucher_name()` (name tokens
+  "voucher" / "gift card" only — deliberately NOT brand substrings like
+  "steam", which would false-positive on garment steamers).
+- One-shot cleanup: `python3 run.py --purge-vouchers [--dry-run]` removes
+  voucher rows from `watchlist`, `stock_obs` and `oos_events`
+  (09-02: purged 1,560 watchlist / 9,689 stock_obs / 78 oos_events rows).
+  `--demand` also purges automatically at startup (idempotent no-op once
+  clean). Always keep the auto-created `deals.db.bak-*` backup until you have
+  verified the result.
+
+The additive schema columns from the retired tracking experiment
+(`watchlist.is_digital_voucher`, `stock_obs.voucher_type` /
+`restock_trigger`, …) remain per the repo's no-drop schema rule —
+`is_digital_voucher` still flags voucher names at upsert as an audit marker;
+`voucher_type` / `restock_trigger` are now always NULL. The old design
+document `docs/tracking_expansion_vouchers.md` is retired (superseded banner
+in-file; kept for the analysis record).

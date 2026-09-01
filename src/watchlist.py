@@ -20,6 +20,7 @@ import time
 
 from .geo import Corridor
 from .locality import QC_APPS
+from .store import is_voucher_name
 
 # Unbiased, broad-coverage seed queries: we want to index as many SKUs as
 # possible across every department (grocery, paan/tobacco, wellness,
@@ -90,6 +91,8 @@ class WatchlistBuilder:
         # Unbiased harvesting: keep every discovered SKU and never prune the
         # overflow so the catalog is as complete as the app exposes.
         self.unbiased = bool(dem.get("unbiased_harvest", False))
+        # Vouchers are not commodities — never track them (AGENTS.md invariant).
+        self.exclude_vouchers = bool(dem.get("exclude_vouchers", True))
 
     def _make_adapter(self, app):
         corridor = Corridor(self.cfg.get("geo", {}).get("corridor", []) or [])
@@ -154,6 +157,17 @@ class WatchlistBuilder:
                 "in_stock": p.get("in_stock"),
                 "score": round(score, 2),
             }
+        if self.exclude_vouchers:
+            # Gift cards / instant vouchers ride along on category rails
+            # (Blinkit's "E-Gift Cards" shelf) and staple searches. Their
+            # stock-outs are code-pool replenishments, not demand — drop them
+            # BEFORE ranking/upsert so they never enter the watchlist.
+            voucher_skus = [k for k, r in agg.items() if is_voucher_name(r["name"])]
+            if voucher_skus:
+                for k in voucher_skus:
+                    del agg[k]
+                print(f"[watchlist]   excluded {len(voucher_skus)} voucher/"
+                      f"gift-card SKUs (demand.exclude_vouchers)", flush=True)
         ranked = sorted(agg.values(), key=lambda r: (-r["score"], str(r["name"])))
         if self.unbiased:
             # Keep ALL discovered SKUs active so the full catalog is indexed;

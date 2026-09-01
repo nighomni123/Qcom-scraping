@@ -16,6 +16,22 @@ from collections import defaultdict
 
 from .categories import categorize
 
+# Digital vouchers / gift cards are NOT commodities: their "stock-outs" are
+# code-pool replenishment cycles, not shelf demand, so they poison the Demand
+# Radar (they once held 15 of the top-20 DPI slots). One shared matcher so the
+# watchlist builder, prober and DPI rollups all draw the same line. Kept to
+# name tokens only — verified 09-02: every voucher SKU name on Blinkit carries
+# "voucher" or "gift card"; NO real grocery/retail SKU does (0 false
+# positives over the whole price_obs corpus), so no brand keywords needed.
+VOUCHER_TOKENS = ("voucher", "gift card")
+
+
+def is_voucher_name(name):
+    """True when a product name is a digital voucher / gift-card SKU."""
+    n = (name or "").lower()
+    return any(t in n for t in VOUCHER_TOKENS)
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS price_obs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -254,16 +270,9 @@ class Store:
         Upserts everything seen; `active` is set by the caller's curation
         decision (top-N = 1, overflow = 0). Never deletes history.
         """
-        voucher_keywords = [
-            "voucher", "instant voucher", "gift card", "subscription voucher",
-            "roblox", "steam", "valorant", "domino", "amazon prime",
-            "blinkit gift", "xbox game pass", "starbucks", "hamleys",
-            "shoppers stop", "reliance jio", "croma", "ajio",
-        ]
         now = time.time()
         for r in rows:
-            name_lower = (r.get("name") or "").lower()
-            is_voucher = 1 if any(k in name_lower for k in voucher_keywords) else 0
+            is_voucher = 1 if is_voucher_name(r.get("name")) else 0
             self.conn.execute(
                 "INSERT INTO watchlist(app,store_id,sku_key,name,collections,last_price,"
                 "last_in_stock,last_seen_ts,score,active,is_digital_voucher) VALUES(?,?,?,?,?,?,?,?,?,?,?) "
@@ -292,6 +301,40 @@ class Store:
             [app, store_id] + keys,
         )
         self.conn.commit()
+
+    # ---- Demand Radar: voucher purge (09-02) -------------------------------
+    def purge_vouchers(self, dry_run=False):
+        """
+        Remove voucher / gift-card SKUs from every Demand Radar table
+        (watchlist, stock_obs, oos_events). Idempotent; additive-schema safe
+        (columns stay, only ROWS go). The voucher id set is derived from the
+        watchlist's own classification (is_digital_voucher flag OR name
+        match) and applied app+sku scoped, so sibling-store observations of
+        the same product id are caught too. Returns {table: rows_affected}.
+        """
+        ids = self.conn.execute(
+            "SELECT DISTINCT app, sku_key FROM watchlist "
+            "WHERE is_digital_voucher=1 OR name LIKE '%voucher%' "
+            "OR name LIKE '%gift card%'"
+        ).fetchall()
+        if not ids:
+            return {}
+        self.conn.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS _voucher_ids(app TEXT, sku_key TEXT)")
+        self.conn.execute("DELETE FROM _voucher_ids")
+        self.conn.executemany("INSERT INTO _voucher_ids VALUES(?,?)", ids)
+        out = {}
+        for table in ("watchlist", "stock_obs", "oos_events"):
+            scope = f"WHERE (app, sku_key) IN (SELECT app, sku_key FROM _voucher_ids)"
+            if dry_run:
+                out[table] = self.conn.execute(
+                    f"SELECT COUNT(*) FROM {table} {scope}").fetchone()[0]
+            else:
+                out[table] = self.conn.execute(f"DELETE FROM {table} {scope}").rowcount
+        if not dry_run:
+            self.conn.commit()
+        self.conn.execute("DROP TABLE IF EXISTS _voucher_ids")
+        return out
 
     def watchlist_for_store(self, app, store_id, active_only=True):
         q = ("SELECT sku_key,name,collections,last_price,last_in_stock,last_seen_ts,score "
@@ -338,7 +381,7 @@ class Store:
         self.conn.executemany(
             "INSERT INTO stock_obs(ts,app,store_id,sku_key,in_stock,price,mrp,eta_min,source,"
             "restock_trigger,voucher_type,promotional_context,catalog_version) "
-            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", payload,
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", payload,
         )
         self.conn.commit()
         return len(payload)

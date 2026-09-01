@@ -18,6 +18,11 @@ All numbers are PROXIES for demand built from stock-out behaviour:
 Hours are LOCAL time (the operator's wall clock) — consistent across views.
 Pure functions over sqlite; no network. Used by the dashboard (/demand,
 /heatmap, /eta, /qc), `run.py --demand-report`, and CSV exports.
+
+Vouchers / gift cards are NOT commodities (their stock-outs are code-pool
+replenishments, not demand) — they are excluded at the source (watchlist
+builder + prober) and again here defensively, so pre-purge or stray rows can
+never re-enter the DPI table.
 """
 from __future__ import annotations
 
@@ -25,6 +30,8 @@ import csv
 import math
 import os
 import time
+
+from .store import is_voucher_name
 
 HALF_LIFE_DAYS = 3.0
 
@@ -103,11 +110,14 @@ def dpi_table(db, store_id=None, since_days=7, limit=50):
 
     rows = []
     for sku, a in agg.items():
+        name = names.get(sku)
+        if name and is_voucher_name(name):
+            continue          # vouchers are not commodities — never in the radar
         closed = sorted(a["closed_min"])
         mean_restock = round(sum(closed) / len(closed), 1) if closed else None
         rows.append({
             "sku_key": sku,
-            "name": names.get(sku, sku),
+            "name": name or sku,
             "dpi": round(a["weighted"] / obs_days, 2),
             "n_events": a["n"],
             "total_min": round(a["total_min"], 1),

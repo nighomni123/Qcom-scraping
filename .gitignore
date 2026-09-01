@@ -4,6 +4,7 @@ __pycache__/
 deals.db
 deals.db-shm
 deals.db-wal
+deals.db.bak*
 inventory_*.db
 inventory_*.db-shm
 inventory_*.db-wal

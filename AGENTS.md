@@ -124,6 +124,10 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # via anti_block.stream_progress: false
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
+    python3 run.py --purge-vouchers [--dry-run]          # wipe voucher/gift-card
+                                    # rows from watchlist/stock_obs/oos_events
+                                    # (idempotent; --demand also auto-purges at
+                                    # startup; backup kept as deals.db.bak-*)
     python3 run.py --qc-status [--apps blinkit,zepto,instamart]
     python3 run.py --store-inventory [--apps …] [--lat X --lon Y]
                     [--radius-m N] [--max-points N]
@@ -251,6 +255,16 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
 
 ## Demand Radar invariants (do not break)
 
+- **Vouchers are not commodities (09-02).** Digital vouchers / gift cards
+  (Steam/Roblox/Xbox/retail "Instant Voucher" cards, Blinkit Gift Card, …)
+  are excluded from EVERY demand surface: the watchlist builder drops them,
+  the prober skips them before observations/events/soft-block guards, and
+  DPI rollups ignore them defensively. The line is drawn by
+  `src/store.py → is_voucher_name()` (name tokens "voucher"/"gift card"
+  ONLY — never add brand substrings like "steam", they false-positive on
+  garment steamers). Knob: `demand.exclude_vouchers` (default true).
+  Cleanup: `run.py --purge-vouchers` (idempotent; `--demand` auto-purges at
+  startup). Their "stock-outs" are code-pool replenishments, not demand.
 - **NULL ≠ OOS.** A failed parse/crawl records `in_stock=NULL`; it must never
   become 0. Scraper errors must not fabricate demand.
 - **Debounce.** An `oos` event opens only after `demand.oos_debounce_snapshots`

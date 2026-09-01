@@ -121,8 +121,26 @@ def main():
                       max_points=_flag_int("--max-points"))
         return
 
+    if "--purge-vouchers" in sys.argv:
+        # One-shot maintenance: vouchers/gift cards are not commodities; wipe
+        # their watchlist rows, stock_obs observations and oos_events.
+        n = store.purge_vouchers(dry_run="--dry-run" in sys.argv)
+        if not n:
+            print("[purge-vouchers] no voucher rows found — nothing to do")
+        else:
+            tag = "would remove" if "--dry-run" in sys.argv else "removed"
+            for t, c in n.items():
+                print(f"[purge-vouchers] {tag} {c:>6} row(s) from {t}")
+        return
+
     if "--demand" in sys.argv:
         from src.prober import StockProber
+        # Skewed-data hygiene: purge any voucher/gift-card rows that predate
+        # the exclusion invariant (idempotent no-op once clean).
+        n = store.purge_vouchers()
+        if n:
+            print(f"[demand] purged stale voucher rows: "
+                  + ", ".join(f"{t}={c}" for t, c in n.items()))
         prober = StockProber(cfg, store)
         if "--once" in sys.argv:
             rounds = prober.run_round(apps=_flag_list("--apps"),

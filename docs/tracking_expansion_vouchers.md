@@ -1,6 +1,17 @@
 # Expanded Tracking Parameters — Digital Vouchers (Restock Triggers)
 
-Status: IMPLEMENTED (additive schema applied) (additive only — no drops/renames per repo invariant).
+> **RETIRED 09-02 — superseded by voucher EXCLUSION.** This experiment tracked
+> vouchers MORE; the opposite turned out to be right: vouchers are not
+> commodities, their code-pool "stock-outs" are pure DPI noise (they held 15
+> of the top-20 DPI slots), so they are now excluded end-to-end
+> (`demand.exclude_vouchers`, `src/store.py → is_voucher_name`,
+> `run.py --purge-vouchers`) and their recorded data was purged. The schema
+> columns below remain (additive-only rule) but `voucher_type` /
+> `restock_trigger` are no longer written. Kept for the analysis record; do
+> not re-implement voucher tracking. See README "Vouchers are excluded from
+> Demand Radar".
+
+Status: RETIRED (was IMPLEMENTED; additive schema remains, no drops/renames per repo invariant).
 Target: capture why restock data for top-pressure voucher SKUs reads as `None`.
 
 ## Problem (verified from `deals.db` analysis)

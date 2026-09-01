@@ -23,6 +23,10 @@ Per (app, store) cycle:
      one in-stock item, and a mass in-stock->OOS flip within one cycle is the
      classic soft-block signature. Suspect cycles still RECORD observations
      (marked honestly) but the event machine is FROZEN for that cycle.
+   5. Voucher exclusion: gift cards / instant vouchers are NOT commodities —
+      they are dropped from every sweep before observation or event handling
+      (demand.exclude_vouchers, default on). Their code-pool "stock-outs"
+      must never fabricate demand.
 
 Temporal resolution note: stock-outs shorter than one probe interval are
 invisible by construction — the heatmap's honesty depends on stating this.
@@ -37,6 +41,7 @@ from .geo import Corridor
 from .adapters.base import Adapter  # noqa: F401  (type docs)
 from .locality import QC_APPS
 from .orchestrator import _in_quiet
+from .store import is_voucher_name
 
 
 class StockProber:
@@ -52,6 +57,9 @@ class StockProber:
         self.canary_queries = list(dem.get("stock_canary_queries") or ["amul milk"])
         self.flip_min = int(dem.get("suspect_flip_min", 10))
         self.flip_pct = float(dem.get("suspect_flip_pct", 50))
+        # Vouchers are not commodities — excluded from every demand surface
+        # (AGENTS.md invariant; knob demand.exclude_vouchers, default on).
+        self.exclude_vouchers = bool(dem.get("exclude_vouchers", True))
         # in-memory state (prober-lifetime)
         self.streaks = {}     # (app,sid,sku) -> {count, first_ts}
         self.absence = {}     # (app,sid,sku) -> consecutive missed sweeps
@@ -120,7 +128,8 @@ class StockProber:
     def sweep_store(self, app, sid, lat, lon, max_terms=None):
         """One probe cycle for one store. Returns dict summary."""
         terms = self.db.watchlist_terms(app, sid)[:max_terms or self.terms_max]
-        active_skus = [r[0] for r in self.db.watchlist_for_store(app, sid)]
+        active_skus = [r[0] for r in self.db.watchlist_for_store(app, sid)
+                       if not (self.exclude_vouchers and is_voucher_name(r[1]))]
         if not active_skus:
             print(f"[prober] {app}/{sid}: empty active watchlist — run --build-watchlist")
             return {"skipped": True}
@@ -140,45 +149,38 @@ class StockProber:
             summary["failed"] = True
             return summary
 
+        # Vouchers are excluded BEFORE anything else (even suspect detection):
+        # gift cards / instant vouchers are not commodities, so their
+        # code-pool "stock-outs" must not open oos_events, trip the mass-flip
+        # soft-block guard or touch DPI. This covers SKUs that merely pass by
+        # in search results (they never enter the watchlist). The old
+        # voucher_type / restock-trigger tracking was removed with the rest
+        # of that experiment (docs/tracking_expansion_vouchers.md is retired);
+        # stock_obs.voucher_type survives only as an always-NULL legacy column.
+        if self.exclude_vouchers:
+            kept = [p for p in products if not is_voucher_name(p.get("name"))]
+            n_excl = len(products) - len(kept)
+            if n_excl:
+                products = kept
+                summary["vouchers_skipped"] = n_excl
+                print(f"[prober] {app}/{sid}: excluded {n_excl} voucher/"
+                      f"gift-card SKUs (not commodities)")
+
         suspect, why = self._is_suspect(app, sid, products)
         if suspect:
             summary["suspect"] = why
             print(f"[prober] {app}/{sid}: SUSPECT cycle — {why}; observations "
                   f"recorded, event machine frozen")
 
-        # Voucher detection keywords (matches watchlist logic in store.py)
-        voucher_keywords = [
-            "voucher", "instant voucher", "gift card", "subscription voucher",
-            "roblox", "steam", "valorant", "domino", "amazon prime",
-            "blinkit gift", "xbox game pass", "starbucks", "hamleys",
-            "shoppers stop", "reliance jio", "croma", "ajio",
-        ]
-        def _voucher_type(name):
-            n = (name or "").lower()
-            if any(k in n for k in voucher_keywords):
-                if "subscription" in n or "game pass" in n or "prime" in n:
-                    return "subscription"
-                if "gift" in n:
-                    return "gift_card"
-                return "digital"
-            return None
-
         # 1) observations (always, even suspect cycles — honest data)
         rows = []
         for p in products:
-            vt = _voucher_type(p.get("name", ""))
-            # Catalog version from adapter meta (timestamp/hash of response)
-            cat_ver = meta.get("catalog_version") if meta.get("catalog_version") else None
             rows.append({
                 "sku_key": p["sku_key"],
                 "in_stock": p.get("in_stock"),
                 "price": p.get("price"),
                 "mrp": p.get("mrp"),
                 "source": self._source_of(p.get("collections")),
-                "voucher_type": vt,
-                "restock_trigger": None,  # set at restock (close_oos_event)
-                "promotional_context": meta.get("promotional_context"),
-                "catalog_version": cat_ver,
             })
         n = self.db.record_stock_obs(app, sid, rows, eta_min=meta.get("eta_min"))
         summary["obs"] = n
@@ -206,13 +208,8 @@ class StockProber:
                         opened += 1
                     self.streaks[key] = st
                 elif r["in_stock"] is True:
-                    # If this is a digital voucher restock, record the trigger
-                    restock_trig = r.get("voucher_type") and ("voucher_code_replenished" if r["voucher_type"] in ("digital", "gift_card", "subscription") else None)
-                    if restock_trig is None and r.get("voucher_type"):
-                        restock_trig = "voucher_code_replenished"
                     if self.db.close_oos_event(app, sid, r["sku_key"],
-                                               snapshots=max(st["count"], 1),
-                                               restock_trigger=restock_trig):
+                                               snapshots=max(st["count"], 1)):
                         closed += 1
                     self.streaks[key] = {"count": 0, "first_ts": now}
                     self.absence[key] = 0
@@ -317,6 +314,16 @@ class StockProber:
 if __name__ == "__main__":
     # offline sanity: pure logic, no network/db
     p = StockProber({"demand": {}, "schedule": {}}, None)
+    assert p.exclude_vouchers is True          # default knob = vouchers out
+    assert is_voucher_name("Steam Instant Voucher")
+    assert is_voucher_name("Blinkit Gift Card")
+    assert is_voucher_name("Xbox Game Pass Ultimate Subscription Voucher")
+    # bare brand names intentionally DON'T match — real voucher listings all
+    # carry a "Voucher"/"Gift Card" token, and "steam"/"game pass" substrings
+    # would false-positive on real commodities (garment steamer, …)
+    assert not is_voucher_name("xbox game pass ultimate")
+    assert not is_voucher_name("Garment Steamer")   # brand-token false positive
+    assert not is_voucher_name("Amul Milk 1L")
     prods = [
         {"sku_key": "a", "in_stock": True, "collections": ["home"]},
         {"sku_key": "b", "in_stock": False, "collections": ["q:milk"]},
