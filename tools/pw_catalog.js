@@ -877,6 +877,7 @@ async function main() {
     // anchor's locality so home_v2 returns a specific darkstore + ETA. Runs even
     // when products already exist (they're the default feed until we localize).
     let imTerm = null;
+    let imProbe = 0;
     if (APP === 'instamart') {
       imTerm = imLocality || await reverseGeocode(LAT, LON);
       // Corridor-aware rotation: cycle through local names so multi-anchor
