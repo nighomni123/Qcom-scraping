@@ -881,7 +881,7 @@ async function main() {
       imTerm = imLocality || await reverseGeocode(LAT, LON);
       // Corridor-aware rotation: cycle through local names so multi-anchor
       // locator gathers diverse darkstores instead of always 'Andheri'.
-      if (!imTerm && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
+      if ((!imTerm || imTerm === 'Mumbai') && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
         const locals = ['Brovili','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
         const idx = Math.abs(Math.round((LAT + LON) * 100)) % locals.length;
         imTerm = locals[idx];
