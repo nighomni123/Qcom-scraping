@@ -47,6 +47,11 @@ const URL_ = arg('url', 'https://blinkit.com/');
 const LAT = parseFloat(arg('lat', '19.119'));
 const LON = parseFloat(arg('lon', '72.846'));
 const WAIT = parseInt(arg('wait-ms', '9000'), 10);
+// Max products emitted on stdout. Catalog-inventory sweeps can legitimately
+// discover thousands of SKUs at one store; the old hard 400 cap silently
+// truncated them (live "cumulative" counter >> emitted list). Default is now
+// high enough to never truncate a real store; --max-out overrides.
+const MAX_OUT = parseInt(arg('max-out', '20000'), 10);
 const DUMP = process.argv.includes('--dump');
 // Phase 5 (08-31): optional residential proxy so the request IP matches the
 // spoofed GPS anchor (QC apps resolve the darkstore from IP — JioMart is
@@ -1081,7 +1086,17 @@ async function main() {
   } finally {
     await browser.close();
   }
-  const list = [...products.values()].slice(0, 400);
+  const list = [...products.values()].slice(0, MAX_OUT);
+  // Diagnostic: when DSH_DEBUG_DIR is set, dump the FULL uncapped product set so
+  // the live "cumulative" counter can be reconciled against what actually gets
+  // emitted (the 400 cap above silently truncates large catalogs).
+  if (DEBUG_DIR) {
+    try {
+      const full = [...products.values()];
+      fs.writeFileSync(`${DEBUG_DIR}/products_full.json`, JSON.stringify(full, null, 1));
+      console.error(`[debug] products_full: ${full.length} unique keys (emitting ${list.length} after cap)`);
+    } catch (_) {}
+  }
   const topStores = [...META.stores.values()].sort((a, b) => b.count - a.count).slice(0, 6);
   console.log(JSON.stringify({ app: APP, url: URL_, lat: LAT, lon: LON,
                                api_endpoints_seen: apiHits.length,

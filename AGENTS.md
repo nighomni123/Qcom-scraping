@@ -134,6 +134,14 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # SKU count — watch in the terminal or
                                     # Features ▸ Build watchlist ▸ log; mute
                                     # via anti_block.stream_progress: false
+                                    # NOTE (09-02): the [sweep] "cumulative N"
+                                    # is the live deduped products-Map size and
+                                    # is the REAL per-store catalog count; the
+                                    # crawler's stdout used to hard-cap at 400
+                                    # (so a 5955-SKU sweep wrote only 400). Cap
+                                    # is now --max-out (default 20000, never
+                                    # truncates a real store). See
+                                    # docs/catalog-sku-counting.md.
     python3 run.py --demand [--once] [--apps …] [--store ID] [--max-terms N]
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
     python3 run.py --catalog-report [--store ID]         # catalog snapshots +
