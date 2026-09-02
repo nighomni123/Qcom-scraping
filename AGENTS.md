@@ -302,9 +302,15 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   visit's own captured listing POST with advancing `items_offset` (the
   established apiHits mirror pattern — session's own auth, no forging), and
   (c) falls back to bottom-jump deep scroll only when a visit fires no
-  listing call (DOM-only pagination: Blinkit /dc/, Zepto). Tunables:
-  `--mirror-stride 20 --mirror-max-pages 80 --mirror-page-ms 900`
-  (pace between mirrored pages; the app paces pages as a user scrolls).
+  listing call — OPT-IN via `--scroll-rounds` (default 0 = off; Blinkit /dc/
+  and Zepto baselines were captured at page-1 shelf depth, and a depth change
+  vs a shallower baseline emits one-time 'new' events — keep depth consistent
+  per store for honest churn). The 2.2s bait jump that triggers the listing
+  POST is gated to `instamart` only (extend when a new app gains a paginated
+  listing call) — Blinkit/Zepto pay nothing extra and hold their baseline
+  depth. Tunables: `--mirror-stride 20 --mirror-max-pages 80 --mirror-page-ms
+  900 --scroll-rounds 0` (mirror pacing ~1s/page mirrors organic scroll;
+  scroll rounds ~2-4s each when enabled).
 - **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
   js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
   wired into this session and its bootstrap is Windows-only): every API call hits

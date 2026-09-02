@@ -1054,11 +1054,21 @@ async function main() {
     // incremental steps may never trigger the next page. Jump the tallest
     // inner container to its BOTTOM each round; stop when a round yields no
     // new products (plateau = end of listing or virtualized end).
+    // Opt-in via --scroll-rounds (default 0 = off). Blinkit /dc/ and Zepto
+    // baselines were captured at PAGE-1 shelf depth (one listing response per
+    // shelf ~30-300 SKUs), so the scroll fallback is OFF by default: turning
+    // it on (e.g. 8) deepens the universe but changes depth vs the shallower
+    // baseline, which emits one-time 'new' events on the NEXT diff (depth must
+    // stay consistent per store for honest churn). Each round costs ~2-4s and
+    // only pays off on apps whose listing API is NOT mirrorable (Instamart is
+    // covered by the listing POST mirror below).
+    const maxScrollRounds = parseInt(arg('scroll-rounds', '0'), 10);
     const deepScroll = async () => {
+      if (maxScrollRounds <= 0) return null;
       const startSize = products.size;
       let lastSize = startSize;
       let rounds = 0;
-      while (rounds < 40) {
+      while (rounds < maxScrollRounds) {
         const hasContainer = await page.evaluate(() => {
           for (const el of document.querySelectorAll('*')) {
             const st = getComputedStyle(el);
@@ -1188,26 +1198,31 @@ async function main() {
           // Bait jump: Instamart's initial listing POST can fire AFTER
           // CAT_WAIT (~7-9s from load, past skeletons). One bottom-jump of
           // the inner container baits it out (and harvests its response) so
-          // the mirror below has a captured POST to walk. DOM-only apps
-          // (Blinkit /dc/, Zepto) just pay ~2s.
-          await page.evaluate(() => {
-            let best = null;
-            for (const el of document.querySelectorAll('*')) {
-              const st = getComputedStyle(el);
-              if (!/(auto|scroll)/.test(st.overflowY)) continue;
-              if (el.scrollHeight > el.clientHeight + 300 && (!best || el.scrollHeight > best.scrollHeight))
-                best = el;
-            }
-            if (best) best.scrollTop = best.scrollHeight;
-          }).catch(() => {});
-          await page.waitForTimeout(2200);
+          // the mirror below has a captured POST to walk. Gated to apps whose
+          // listing API needs baiting (extend the set when a new app gains a
+          // paginated listing call) — Blinkit /dc/ and Zepto pay nothing extra
+          // and stay at their page-1 baseline depth.
+          if (APP === 'instamart') {
+            await page.evaluate(() => {
+              let best = null;
+              for (const el of document.querySelectorAll('*')) {
+                const st = getComputedStyle(el);
+                if (!/(auto|scroll)/.test(st.overflowY)) continue;
+                if (el.scrollHeight > el.clientHeight + 300 && (!best || el.scrollHeight > best.scrollHeight))
+                  best = el;
+              }
+              if (best) best.scrollTop = best.scrollHeight;
+            }).catch(() => {});
+            await page.waitForTimeout(2200);
+          }
           // Primary: mirror the visit's own listing API with advancing
           // items_offset (walks the full shelf, ~20 fresh SKUs/page).
           let mirrored = null;
           try { mirrored = await mirrorPaginate(sinceIdx); } catch (_) {}
           // Fallback: bottom-jump deep scroll when no listing call fired
-          // (DOM-only pagination). If the mirror RAN (pages>0), the listing
-          // API was authoritative — skip the scroll.
+          // (DOM-only pagination). Opt-in via --scroll-rounds (default 0 =
+          // skip; Blinkit /dc/ and Zepto baselines are page-1 depth). If the
+          // mirror RAN (pages>0), the listing API was authoritative — skip.
           let scrolled = null;
           if (!mirrored || mirrored.pages === 0) {
             scrolled = await deepScroll();
