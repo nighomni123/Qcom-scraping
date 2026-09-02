@@ -1007,7 +1007,13 @@ async function main() {
       try {
         for (const a of document.querySelectorAll('a[href]')) {
           const h = a.getAttribute('href') || '';
-          if (/^\/(cn|category|c)\//i.test(h)) {
+          // Blinkit (probed 09-02): its category tree lives at /dc/ collection
+          // routes (/dc/<l0>/<l1>/?collection_uuid=...&collection_group_id=...)
+          // plus a /categories hub listing all 308 shelves — the old
+          // /(cn|category|c)\// shape missed BOTH, so Blinkit catalog sweeps
+          // collapsed to the lone /cn/ E-Gift-Cards shelf (100% vouchers).
+          // (\/|$) so the bare /categories hub (no trailing slash) matches too.
+          if (/^\/(cn|category|categories|c|dc)(\/|$)/i.test(h)) {
             out.push({
               href: new URL(h, location.origin).toString(),
               text: (a.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),

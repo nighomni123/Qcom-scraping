@@ -273,6 +273,18 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   and `search.match_score(query, name, context)` counts the `pre:Cigarettes` shelf label toward
   query matching. The age gate is UI-only — do NOT automate clicking it; go straight to the
   shelf URL.
+- **Blinkit category-link shape for catalog sweeps** (probed 09-02 via DOM href dump):
+  the home page's category rails and the `/categories` hub expose shelves as
+  `/dc/<l0-slug>/<l1-slug>/?collection_uuid=<b64>&collection_group_id=<gid>`
+  collection routes (308 links on the hub, 29 on home) — NOT `/cn/` (that shape
+  carried exactly ONE link: E-Gift Cards, 100% vouchers). The old
+  `collectCatLinks` regex `/(cn|category|c)\//` matched neither, so Blinkit
+  catalog sweeps silently collapsed to the home feed (~104 SKUs, all
+  `collections=home`). Fixed: regex is now `/(cn|category|categories|c|dc)(\/|$)/`
+  — matches `/dc/` routes and the bare `/categories` hub. `/dc/` pages DO yield
+  products in warm sessions (`listing_widgets` is_success:true, ~300 products
+  per shelf); verified 12-visit sweep → 540 real SKUs across 10 categories
+  (zero vouchers) vs the broken behavior's 104 all-home.
 - **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
   js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
   wired into this session and its bootstrap is Windows-only): every API call hits
