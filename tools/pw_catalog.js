@@ -1057,7 +1057,8 @@ async function main() {
     const deepScroll = async () => {
       const startSize = products.size;
       let lastSize = startSize;
-      for (let round = 0; round < 40; round++) {
+      let rounds = 0;
+      while (rounds < 40) {
         const hasContainer = await page.evaluate(() => {
           for (const el of document.querySelectorAll('*')) {
             const st = getComputedStyle(el);
@@ -1085,12 +1086,16 @@ async function main() {
         if (products.size === lastSize) {
           await page.waitForTimeout(1800);
           if (products.size === lastSize) {
-            return { rounds: round + 1, gained: products.size - startSize, startSize };
+            return { rounds: rounds + 1, gained: products.size - startSize, startSize };
           }
         }
         lastSize = products.size;
+        rounds++;
       }
-      return { rounds: 40, gained: products.size - startSize, startSize };
+      // rounds carries the TRUE count (loop exited via the while condition OR
+      // the no-container break) — never hardcode 40, it mislabels links-only
+      // pages (e.g. Blinkit /categories hub) as "40 rounds" in the logs.
+      return { rounds, gained: products.size - startSize, startSize };
     };
 
     // Mirror pagination (probed 09-02, Instamart): when a visit fires a
