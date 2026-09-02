@@ -1,12 +1,18 @@
-# Catalog SKU counting — why "cumulative 5,955" ≠ "400 distinct" (and the fix)
+# Catalog SKU counting — why "cumulative 5,919" ≠ "400 distinct" (and the fix)
 
 **TL;DR** — The live `[sweep] … cumulative N SKUs` line is the **real** deduped
-catalog size at that store (Zepto ≈ **5,955**). The crawler's stdout was
-**hard-capped at 400 products** (`[...products.values()].slice(0, 400)`), so only
-the first 400 ever reached `catalog_snapshots`. The "400 distinct" in the DB was
-the **cap**, not the catalog. Fixed 09-02: the cap is now `--max-out`
-(default **20,000** — never truncates a real store). The next `--catalog` sweep
-writes the full ~5,955.
+catalog size at that store. A verified uncapped Zepto sweep reached **5,919**
+distinct SKUs, and the `products_full.json` dump length matched the final
+`cumulative` line **exactly**. The crawler's stdout was **hard-capped at 400
+products** (`[...products.values()].slice(0, 400)`), so only the first 400 ever
+reached `catalog_snapshots` — **5,519 SKUs were silently discarded**. The "400
+distinct" in the DB was the **cap**, not the catalog. Fixed 09-02: the cap is now
+`--max-out` (default **20,000** — never truncates a real store). The next
+`--catalog` sweep writes the full ~5,919.
+
+*(The user's earlier run logged `cumulative 5,955`; the verified run logged
+`5,919`. Both are the same phenomenon — the exact number varies slightly with
+category-visit order and `--deep-cats` discovery. Neither is "400".)*
 
 ---
 
@@ -19,8 +25,8 @@ writes the full ~5,955.
   **name** when no pvid is present.
 - Each category page visit parses its server-rendered **JSON-LD**
   (`collectLdJson`) and `set()`s every product into the Map. A repeat visit to a
-  product that's already in the Map **updates** it (price/stock/url) and appends
-  the new category to its `collections` list — it does **not** add a row.
+  product already in the Map **updates** it (price/stock/url) and appends the new
+  category to its `collections` list — it does **not** add a row.
 - `products.size` therefore equals the number of **distinct SKUs seen so far**.
   That is exactly what the `[sweep] … cumulative N SKUs` line prints
   (`pw_catalog.js:1045`). It is a *deduped* running total, not a sum of raw hits.
@@ -34,84 +40,98 @@ console.log(JSON.stringify({ …, products: list }));       // last stdout line
 
 `run.py`/`watchlist.py` read **only that last stdout line**, so whatever the cap
 truncates is **gone** — it never reaches the DB. With the old `400`, a store with
-5,955 distinct SKUs silently contributed only 400.
+5,919 distinct SKUs silently contributed only 400.
 
-> **So the "fishy" 5,955 → 400 is not double-counting and not a dedup bug.**
-> 5,955 is the honest catalog size; 400 was an output ceiling. They were never
+> **So the "fishy" 5,919 → 400 is not double-counting and not a dedup bug.**
+> 5,919 is the honest catalog size; 400 was an output ceiling. They were never
 > measuring the same thing.
 
 ---
 
 ## 2. Two kinds of "repetition" — both normal, neither causes the gap
 
+All figures below are from the **full uncapped** Zepto sweep (5,919 SKUs).
+
 ### (a) Cross-category membership (a SKU shelved in many categories)
-The same product legitimately appears under many category pages (e.g. *Dragon
+The same product legitimately appears under several category pages (e.g. *Dragon
 Fruit* is in *Fruits & Vegetables*, *Fresh fruits*, *All*, *New Launches*, …).
 This is **correctly deduped** into one `sku_key`; only its `collections` list
 grows. It inflates the *tag* count, **not** `products.size`.
 
-From the last Zepto snapshot (400 captured SKUs):
-
-| metric | value |
+| metric (full catalog) | value |
 |---|---|
-| distinct SKUs captured | 400 |
-| total (SKU × category) tags | 1,119 |
-| **avg categories per SKU** | **2.8** |
+| distinct SKUs | 5,919 |
+| total (SKU × category) tags | 7,558 |
+| **avg categories per SKU** | **1.28** |
 
 Category-membership distribution:
 
-| appears in … | # SKUs |
-|---|---|
-| 1 category | 37 |
-| 2 categories | 136 |
-| 3 categories | 130 |
-| 4 categories | 78 |
-| 5 categories | 15 |
-| 8 categories | 3 |
-| 9 categories | 1 |
+| appears in … | # SKUs | share |
+|---|---|---|
+| 1 category | 4,729 | 80% |
+| 2 categories | 818 | 14% |
+| 3 categories | 312 | 5% |
+| 4 categories | 48 | |
+| 5 categories | 8 | |
+| 6 categories | 3 | |
+| 7 categories | 1 | |
+
+**Most SKUs live in exactly one shelf** — repetition is *low*, not high.
+
+> ⚠️ **Cap-bias lesson:** the earlier capped 400-row snapshot reported avg
+> **2.8** cats/SKU. That was an artifact — the cap kept the *first-inserted*
+> SKUs, which are disproportionately the ones that recur across the early
+> categories. The true full-catalog figure is **1.28**. Never trust a statistic
+> computed on a capped slice.
 
 ### (b) Variant multiplicity (same name, different pack sizes)
 "Kellogg's Corn Flakes Original" sold as 300 g / 500 g / 1 kg … each has its own
-`pvid`, so each is a **distinct SKU** — correct, not a duplicate. In the snapshot
-**400 keys / 371 names = 1.08×** variant multiplicity (only ~8% extra). So the
-5,955 is ~5,500 distinct *products* + their variants — a real, large catalog.
+`pvid`, so each is a **distinct SKU** — correct, not a duplicate. Full catalog:
+**5,919 keys / 5,364 names = 1.10×** variant multiplicity (~10% extra). So the
+5,919 is ~5,364 distinct *products* + their variants — a real, large catalog.
 
 ---
 
-## 3. Where repetition is most prominent
+## 3. Where repetition is most prominent (full 5,919-SKU catalog)
 
-> ⚠️ The table below is from the **capped 400-SKU snapshot**, so it is biased to
-> the **first-visited** categories (fresh produce, staples). The full-catalog
-> ranking (all ~5,955 SKUs, every category) is refreshed here after the uncapped
-> sweep completes.
-
-**Most multi-category SKUs (capped snapshot):**
+**Most multi-category SKUs:**
 
 | cats | SKU | sample categories |
 |---|---|---|
-| 9 | Dragon Fruit Red | Fruits & Vegetables, Fresh fruits, All, New Launches… |
-| 8 | Custard Apple Semi Ripe | Fruits & Vegetables, Fresh fruits, All, New Launches… |
-| 8 | Pear Green Indian (Nashpati) | Fruits & Vegetables, Fresh fruits, All, New Launches… |
-| 8 | Snacky Apple | Fruits & Vegetables, Fresh fruits, All, Exotics & Premium… |
-| 5 | Organically Grown Chilli / Garlic / Spinach | Fruits & Vegetables, All, Organics & Hydroponics, Leafy… |
-| 5 | Toyo Kombucha Low Sugar Pineapple | Tea/Coffee, Cold Coffee & Iced Tea, Non-Alcoholic Drinks… |
-| 5 | Anveshan / Borges cold-pressed oils | Atta, Rice, Oil & Dals, Refined oil… |
+| 7 | Dragon Fruit Red | Fruits & Vegetables, Fresh fruits, All, New Launches |
+| 6 | Custard Apple Semi Ripe | Fruits & Vegetables, Fresh fruits, All, New Launches |
+| 6 | Pear Green Indian (Nashpati) | Fruits & Vegetables, Fresh fruits, All, New Launches |
+| 6 | Snacky Apple | Fruits & Vegetables, Fresh fruits, All, Exotics & Premium |
+| 5 | Monster Energy Ultra Zero Sugar | Cold Drinks & Juices, Top Picks, Diet & Lites, Energy Drinks |
+| 5 | Milky Mist Skyr | Curd, Curd & Probiotic Drink, High Protein, Gut friendly |
+| 5 | Godrej Real Good Chicken Breast Boneless | Frozen Food & Ice Creams, Frozen Meat, Top Picks, Raw Meats |
+| 5 | Prasuma / Yummiez chicken sausages | Frozen Food & Ice Creams, Cold Cuts, Top Picks, Sausages |
+| 5 | Meatzza Fresh Mutton Curry Cut | Frozen Food & Ice Creams, Frozen Meat, Top Picks, Raw Meats |
 
-**Categories contributing the most SKUs (capped snapshot):**
+**Categories contributing the most SKUs:**
 
 | SKUs | category |
 |---|---|
-| 43 | Top Picks |
-| 39 | Tea |
-| 32 | Fruits & Vegetables / All / Frozen Food / Veg Snacks / Ice Creams / Tubs / Packaged Food / Masala / … |
+| 187 | Top Picks |
+| 66 | Zepto Cafe |
+| 64 | Gifting |
+| 60 | Premium |
+| 58 | Breakfast & Sauces |
+| 56 | Sweet Cravings |
+| 47 | Milk Drinks |
+| 44 | Dessert Mixes |
+| 42 | Cold Coffee & Iced Tea / Fresh Bakery |
+| 38 | Dates & Seeds |
+| 37 | Combos |
 
-**Products with the most variant SKUs (capped snapshot):**
+**Products with the most variant SKUs (432 products have >1 variant):**
 
 | variants | product |
 |---|---|
-| 5 | Kellogg's Corn Flakes Original |
-| 3 | Brooke Bond Red Label Tea |
-| 2 | GTS Original Kolam Rice · McCain French Fries · Banana Robusta · Borges Olive Oil · Daily Good Cashew/Figs/Pumpkin Seeds · Godrej Yummiez Cheese Corn Nuggets |
+| 11 | Rakhi for Brother |
+| 7 | Daily Good Cashew · Coloressence Cute Coats Nail Paint |
+| 5 | Kellogg's Corn Flakes Original · Red Bull Energy Drink · Tide Plus Jasmine & Rose Detergent · Lizol Citrus Floor Cleaner · Plntex Liquid Soap Dispenser |
+| 4 | Harpic Original Toilet Cleaner · MAGGI 2-Minute Instant Noodles |
 
 ---
 
@@ -131,8 +151,8 @@ After the fix, the baseline is the store's full catalog.
 
 ## 5. Caveat — the first full sweep after lifting the cap
 
-The previous Zepto baseline was **400** (capped). The first full sweep (~5,955)
-diffed against that 400 will report **~5,555 "new" SKUs** — an **artifact of
+The previous Zepto baseline was **400** (capped). The first full sweep (~5,919)
+diffed against that 400 will report **~5,500 "new" SKUs** — an **artifact of
 lifting the cap**, not real new listings. To keep churn honest, **re-baseline**:
 delete the old capped snapshot for the store (or treat the first post-fix sweep
 as the new baseline) so `new`/`delisted` tracking starts from a complete catalog.
@@ -151,8 +171,8 @@ as the new baseline) so `new`/`delisted` tracking starts from a complete catalog
 `AGENTS.md` Commands: note added under `--build-watchlist` explaining that
 `cumulative N` is the real deduped count and the old 400 cap is lifted.
 
-**Verification:** `node --check tools/pw_catalog.js`; a direct uncapped sweep
-(`DSH_DEBUG_DIR=… node tools/pw_catalog.js --app zepto … --categories 300
---deep-cats 1`) dumps `products_full.json` whose length matches the final
-`cumulative` line — confirming the Map size (real catalog) and the emitted list
-(now equal, post-fix).
+**Verification (done):** a direct uncapped sweep
+(`DSH_DEBUG_DIR=/tmp/zfull node tools/pw_catalog.js --app zepto … --categories
+300 --deep-cats 1`) finished with final `[sweep] All -> cumulative 5919 SKUs` and
+`products_full.json` containing **5,919** entries — an exact match, confirming
+`products.size` is the real catalog and the old cap truncated 5,919 → 400.
