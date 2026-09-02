@@ -280,11 +280,31 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   carried exactly ONE link: E-Gift Cards, 100% vouchers). The old
   `collectCatLinks` regex `/(cn|category|c)\//` matched neither, so Blinkit
   catalog sweeps silently collapsed to the home feed (~104 SKUs, all
-  `collections=home`). Fixed: regex is now `/(cn|category|categories|c|dc)(\/|$)/`
+  `collections=home`). Fixed: regex is now `/(cn|category|categories|c|dc|sc)(\/|$)/`
   — matches `/dc/` routes and the bare `/categories` hub. `/dc/` pages DO yield
   products in warm sessions (`listing_widgets` is_success:true, ~300 products
   per shelf); verified 12-visit sweep → 540 real SKUs across 10 categories
   (zero vouchers) vs the broken behavior's 104 all-home.
+- **Instamart subcategories + inner-container pagination** (probed 09-02 via the
+  user's cold-drinks example): category pages expose their real shelves as
+  `/sc/<l0>/<l1>-<id>/t10` subcategory routes (19 on the cold-drinks page —
+  e.g. `/sc/cold-drinks-and-juices/soft-drinks-6903b0c295d8230001064c75/t10`),
+  which the category regex now also matches (`sc` added). TWO pagination layers:
+  the product grid lives in an INNER scrollable container (not the window), and
+  the next page fires ONLY when that container is scrolled to its BOTTOM —
+  incremental window scrolling never advances pagination (old behaviour: ~20
+  products per category while the page advertises "1488 items"). The listing
+  call is POST `/api/instamart/category-listing/filter/v2` whose BODY carries
+  the real cursor `items_offset` (26 → 46 → 66 → …, stride 20 — the URL's
+  `pageNo`/`offset` params are decoys: replaying with only those params
+  returns the same page 1 products). The crawler therefore (a) logs the
+  page's advertised "N items" per visit as a honesty signal, (b) MIRRORS the
+  visit's own captured listing POST with advancing `items_offset` (the
+  established apiHits mirror pattern — session's own auth, no forging), and
+  (c) falls back to bottom-jump deep scroll only when a visit fires no
+  listing call (DOM-only pagination: Blinkit /dc/, Zepto). Tunables:
+  `--mirror-stride 20 --mirror-max-pages 80 --mirror-page-ms 900`
+  (pace between mirrored pages; the app paces pages as a user scrolls).
 - **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
   js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
   wired into this session and its bootstrap is Windows-only): every API call hits

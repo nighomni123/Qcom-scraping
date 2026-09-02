@@ -226,7 +226,12 @@ class Adapter:
         proxy = pick_proxy(self.proxies)
         if proxy:
             cmd += ["--proxy", proxy]
-        timeout_s = 90 + extra_visits * 15
+        # Timeout must accommodate mirror pagination: a deep-cats catalog
+        # visit can walk ~80 mirrored listing pages at ~1s each (Instamart
+        # category-listing/filter/v2), so 300-visit catalog sweeps run for
+        # hours. Budget per-visit generously ONLY in deep-cats mode; light
+        # probes/sweeps keep the old tight bound (15s/visit).
+        timeout_s = 90 + extra_visits * (15 if not deep_cats else 150)
         # Live progress: forward the helper's stderr (per-visit [sweep] lines,
         # onboarding/localize steps) as it works instead of swallowing it until
         # the multi-minute sweep ends. Disable via anti_block.stream_progress.

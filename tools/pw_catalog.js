@@ -1013,7 +1013,10 @@ async function main() {
           // /(cn|category|c)\// shape missed BOTH, so Blinkit catalog sweeps
           // collapsed to the lone /cn/ E-Gift-Cards shelf (100% vouchers).
           // (\/|$) so the bare /categories hub (no trailing slash) matches too.
-          if (/^\/(cn|category|categories|c|dc)(\/|$)/i.test(h)) {
+          // Instamart (probed 09-02): /c/<l0> category pages expose their real
+          // shelves as /sc/<l0>/<l1>-<id> subcategory routes (19 on the
+          // cold-drinks page, e.g. /sc/cold-drinks-and-juices/soft-drinks-...).
+          if (/^\/(cn|category|categories|c|dc|sc)(\/|$)/i.test(h)) {
             out.push({
               href: new URL(h, location.origin).toString(),
               text: (a.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40),
@@ -1046,14 +1049,179 @@ async function main() {
     // Index loop (not for-of) so --deep-cats can append mid-queue: each
     // category page may reveal NEW category links → pushed to the tail,
     // visited in the same session as long as the budget lasts.
+    // Deep scroll fallback (probed 09-02): some grids paginate only when an
+    // INNER scrollable container (not the window) reaches its bottom —
+    // incremental steps may never trigger the next page. Jump the tallest
+    // inner container to its BOTTOM each round; stop when a round yields no
+    // new products (plateau = end of listing or virtualized end).
+    const deepScroll = async () => {
+      const startSize = products.size;
+      let lastSize = startSize;
+      for (let round = 0; round < 40; round++) {
+        const hasContainer = await page.evaluate(() => {
+          for (const el of document.querySelectorAll('*')) {
+            const st = getComputedStyle(el);
+            if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 300) return true;
+          }
+          return false;
+        }).catch(() => false);
+        if (!hasContainer) break;
+        await page.evaluate(() => {
+          let best = null;
+          for (const el of document.querySelectorAll('*')) {
+            const st = getComputedStyle(el);
+            if (!/(auto|scroll)/.test(st.overflowY)) continue;
+            if (el.scrollHeight > el.clientHeight + 300 && (!best || el.scrollHeight > best.scrollHeight))
+              best = el;
+          }
+          // JUMP to the bottom — the app fires the next page only at the
+          // absolute end of the loaded grid (verified on Instamart: bottom
+          // jumps advance items_offset 26→46→66→…, stride ~20 products).
+          if (best) best.scrollTop = best.scrollHeight;
+        }).catch(() => {});
+        await page.waitForTimeout(1800);
+        // Plateau per-ROUND: if this bottom-jump grew nothing vs the previous
+        // round, we've reached the listing's end (or a virtualized edge).
+        if (products.size === lastSize) {
+          await page.waitForTimeout(1800);
+          if (products.size === lastSize) {
+            return { rounds: round + 1, gained: products.size - startSize, startSize };
+          }
+        }
+        lastSize = products.size;
+      }
+      return { rounds: 40, gained: products.size - startSize, startSize };
+    };
+
+    // Mirror pagination (probed 09-02, Instamart): when a visit fires a
+    // category-listing API call, replay the app's OWN captured POST with an
+    // advancing items_offset — each page returns ~20 FRESH products (verified:
+    // offsets 26/46/66/106 → 100% new productIds). This walks the full shelf
+    // without fighting DOM virtualization, using the session's own auth.
+    const mirrorPaginate = async (sinceIdx) => {
+      // Only listing hits captured DURING this visit (apiHits index frozen at
+      // goto) — else a non-paginating page would re-walk the PREVIOUS
+      // category and mis-tag its products with this visit's label.
+      const hits = apiHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url) && h.post);
+      const hit = hits[hits.length - 1];
+      if (process.env.DSH_MIRROR_DEBUG) {
+        console.error(`[mirror-debug] sinceIdx=${sinceIdx} apiHits.total=${apiHits.length} ` +
+          `slice=${apiHits.slice(sinceIdx).length} ` +
+          `listing-hits-in-slice=${apiHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url)).length} ` +
+          `with-post=${hits.length} post-sample=${hit ? String(hit.post).slice(0, 80) : 'none'}`);
+        for (const h of apiHits.slice(sinceIdx)) {
+          console.error(`[mirror-debug]   hit: ${h.method} ${h.url.slice(0, 130)} post=${h.post ? 'yes' : 'null'}`);
+        }
+      }
+      if (!hit) return null;
+      const before = products.size;
+      const stride = parseInt(arg('mirror-stride', '20'), 10);
+      const maxPages = parseInt(arg('mirror-max-pages', '80'), 10);
+      // Base offset from the app's own cursor; --mirror-start-offset overrides.
+      let base = parseInt(arg('mirror-start-offset', '0'), 10);
+      try {
+        const b = JSON.parse(hit.post);
+        if (b && typeof b.items_offset !== 'undefined' && String(b.items_offset).match(/^\d+$/)) {
+          base = parseInt(b.items_offset, 10);
+        }
+      } catch (_) {}
+      if (!base) base = 26; // observed default on Instamart category pages
+      let off = base + stride;
+      let pages = 0;
+      let zeroNew = 0; // consecutive pages that added nothing
+      for (let p = 0; p < maxPages; p++) {
+        let body = hit.post;
+        try {
+          const b = JSON.parse(body);
+          if (b && typeof b.items_offset !== 'undefined') {
+            b.items_offset = String(off);
+            body = JSON.stringify(b);
+          }
+        } catch (_) {}
+        try {
+          const u = new URL(hit.url);
+          u.searchParams.set('pageNo', String(p + 2));
+          u.searchParams.set('offset', String(p + 2));
+          const r = await page.request.fetch(u.toString(), {
+            method: hit.method, headers: hit.headers, data: body, timeout: 12000,
+          });
+          if (r.status() !== 200) break;
+          const j = await r.json();
+          const beforeThis = products.size;
+          collect(j, products, 0);
+          pages++;
+          if (products.size === beforeThis) {
+            // Grace: one transient 0-new page (bait page overlap, render
+            // lag) shouldn't end the walk — stop after 2 consecutive.
+            zeroNew++;
+            if (zeroNew >= 2) break;
+          } else {
+            zeroNew = 0;
+          }
+          off += stride;
+          // Politeness pacing: the app itself paces pages as a user scrolls;
+          // rapid-fire mirrored POSTs would look nothing like organic traffic.
+          await page.waitForTimeout(parseInt(arg('mirror-page-ms', '900'), 10));
+        } catch (_) { break; }
+      }
+      return { pages, gained: products.size - before, startSize: before };
+    };
+
     let vi = 0;
     while (vi < visits.length) {
       const v = visits[vi++];
       CURRENT_LABEL = v.label;
+      // Freeze the apiHits index BEFORE goto: mirrorPaginate may only replay
+      // listing hits captured DURING this visit (per-visit attribution —
+      // replaying a stale hit would mis-tag the previous category's products).
+      const sinceIdx = apiHits.length;
       try {
         await page.goto(v.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
         await page.waitForTimeout(CAT_WAIT);
-        console.error(`[sweep] ${v.label} -> cumulative ${products.size} SKUs`);
+        let note = '';
+        if (DEEP_CATS) {
+          // Bait jump: Instamart's initial listing POST can fire AFTER
+          // CAT_WAIT (~7-9s from load, past skeletons). One bottom-jump of
+          // the inner container baits it out (and harvests its response) so
+          // the mirror below has a captured POST to walk. DOM-only apps
+          // (Blinkit /dc/, Zepto) just pay ~2s.
+          await page.evaluate(() => {
+            let best = null;
+            for (const el of document.querySelectorAll('*')) {
+              const st = getComputedStyle(el);
+              if (!/(auto|scroll)/.test(st.overflowY)) continue;
+              if (el.scrollHeight > el.clientHeight + 300 && (!best || el.scrollHeight > best.scrollHeight))
+                best = el;
+            }
+            if (best) best.scrollTop = best.scrollHeight;
+          }).catch(() => {});
+          await page.waitForTimeout(2200);
+          // Primary: mirror the visit's own listing API with advancing
+          // items_offset (walks the full shelf, ~20 fresh SKUs/page).
+          let mirrored = null;
+          try { mirrored = await mirrorPaginate(sinceIdx); } catch (_) {}
+          // Fallback: bottom-jump deep scroll when no listing call fired
+          // (DOM-only pagination). If the mirror RAN (pages>0), the listing
+          // API was authoritative — skip the scroll.
+          let scrolled = null;
+          if (!mirrored || mirrored.pages === 0) {
+            scrolled = await deepScroll();
+          }
+          const gained = (mirrored ? mirrored.gained : 0) + (scrolled ? scrolled.gained : 0);
+          // Per-shelf advertised item count ("N items" in the page text) —
+          // the honesty signal (e.g. 1488 advertised on Cold Drinks pre-fix).
+          const advertised = await page.evaluate(() => {
+            const m = document.body.innerText.match(/\b(\d{2,5})\s*items\b/i);
+            return m ? parseInt(m[1], 10) : null;
+          }).catch(() => null);
+          if (advertised) {
+            console.error(`[sweep] ${v.label}: ${advertised} items advertised · this visit +${gained} · cumulative ${products.size}`);
+          }
+          note = mirrored && mirrored.pages
+            ? ` (+${mirrored.gained} via ${mirrored.pages} mirrored pages)`
+            : (scrolled ? ` (+${scrolled.gained} via deep scroll, ${scrolled.rounds} rounds)` : '');
+        }
+        console.error(`[sweep] ${v.label} -> cumulative ${products.size} SKUs${note}`);
         if (DEEP_CATS && CATEGORIES > 0) {
           enqueueLinks(await collectCatLinks());
         }
