@@ -109,7 +109,9 @@ def main():
                                            max_per_store=_flag_int("--max-per-store"),
                                            max_queries=_flag_int("--max-queries"),
                                            catalog="--catalog" in sys.argv,
-                                           categories_override=_flag_int("--categories"))
+                                           categories_override=_flag_int("--categories"),
+                                           mirror_page_ms=_flag_int("--mirror-page-ms"),
+                                           tabs=_flag_int("--tabs"))
         return
 
     if "--store-inventory" in sys.argv:

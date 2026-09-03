@@ -113,7 +113,8 @@ class WatchlistBuilder:
 
     # -- entrypoint --------------------------------------------------------
     def build(self, apps=None, store_filter=None, max_per_store=None,
-              max_queries=None, catalog=False, categories_override=None):
+              max_queries=None, catalog=False, categories_override=None,
+              mirror_page_ms=None, tabs=None):
         cap = int(max_per_store or self.default_cap)
         staples = self.staples[:max_queries] if max_queries else self.staples
         if catalog:
@@ -147,7 +148,8 @@ class WatchlistBuilder:
                 self._build_store(app, store_id, lat, lon, cap, staples,
                                   index=idx, total=total, label=label,
                                   catalog=catalog, categories=categories,
-                                  skip_override=skip_override, deep_cats=deep_cats)
+                                  skip_override=skip_override, deep_cats=deep_cats,
+                                  mirror_page_ms=mirror_page_ms, tabs=tabs)
             except KeyboardInterrupt:
                 print("\n[watchlist] interrupted — partial results saved", flush=True)
                 raise
@@ -159,7 +161,8 @@ class WatchlistBuilder:
     # -- per store ---------------------------------------------------------
     def _build_store(self, app, store_id, lat, lon, cap, staples,
                      index=None, total=None, label=None, catalog=False,
-                     categories=None, skip_override=None, deep_cats=False):
+                     categories=None, skip_override=None, deep_cats=False,
+                     mirror_page_ms=None, tabs=None):
         categories = int(categories or self.categories)
         adapter = self._make_adapter(app)
         idx_s = f" ({index}/{total})" if index else ""
@@ -174,7 +177,8 @@ class WatchlistBuilder:
         products, meta = adapter.deep_sweep(store_id, lat, lon,
                                             categories=categories, terms=staples,
                                             deep_cats=deep_cats,
-                                            skip_override=skip_override)
+                                            skip_override=skip_override,
+                                            mirror_page_ms=mirror_page_ms, tabs=tabs)
         if not products:
             print(f"[watchlist] warn: {app} sweep returned no products "
                   f"({meta.get('error') or 'feed blocked'}) — store skipped")

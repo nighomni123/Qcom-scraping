@@ -260,9 +260,10 @@ function extractMeta(node, depth) {
 }
 
 // ---- generic product extraction from arbitrary catalog JSON ----
-function collect(node, out, depth) {
+function collect(node, out, depth, label) {
   if (!node || typeof node !== 'object' || depth > 16) return;
-  if (Array.isArray(node)) { for (const v of node) collect(v, out, depth + 1); return; }
+  if (Array.isArray(node)) { for (const v of node) collect(v, out, depth + 1, label); return; }
+  const C = label || CURRENT_LABEL;
   const keys = Object.keys(node);
   const lower = k => k.toLowerCase();
   // 'displayname' covers Instamart's camelCase displayName (items + variations).
@@ -338,9 +339,9 @@ function collect(node, out, depth) {
         if (rec.url) prev.url = rec.url;
         if (rec.in_stock !== null) prev.in_stock = rec.in_stock;
         if (rec.badges) prev.badges = rec.badges;
-        if (!prev.collections.includes(CURRENT_LABEL)) prev.collections.push(CURRENT_LABEL);
+        if (!prev.collections.includes(C)) prev.collections.push(C);
       } else {
-        rec.collections = [CURRENT_LABEL];
+        rec.collections = [C];
         out.set(key, rec);
       }
     }
@@ -356,9 +357,10 @@ function collect(node, out, depth) {
 // body nor in __NEXT_DATA__. Walk them so home/category sweeps actually
 // harvest Zepto. Prices here are already INR (not paise), so do NOT apply
 // PRICE_DIVISORS. Availability -> stock flag where present.
-function collectLdJson(node, out) {
+function collectLdJson(node, out, label) {
   if (!node || typeof node !== 'object') return;
-  if (Array.isArray(node)) { for (const x of node) collectLdJson(x, out); return; }
+  if (Array.isArray(node)) { for (const x of node) collectLdJson(x, out, label); return; }
+  const C = label || CURRENT_LABEL;
   // ItemList / CollectionPage / @graph wrappers
   const elems = node.itemListElement || node['@graph'];
   if (Array.isArray(elems)) {
@@ -397,9 +399,9 @@ function collectLdJson(node, out) {
       if (rec.in_stock !== null) prev.in_stock = rec.in_stock;
       if (rec.mrp) prev.mrp = rec.mrp;
       if (rec.url) prev.url = rec.url;
-      if (!prev.collections.includes(CURRENT_LABEL)) prev.collections.push(CURRENT_LABEL);
+      if (!prev.collections.includes(C)) prev.collections.push(C);
     } else {
-      rec.collections = [CURRENT_LABEL];
+      rec.collections = [C];
       out.set(key, rec);
     }
   }
@@ -697,13 +699,15 @@ async function main() {
       // per-anchor Demand Radar. See AGENTS.md "Expansion apps".
     }, [LAT, LON]);
     const page = await ctx.newPage();
+    page._label = 'home';
+    page._apiHits = apiHits;
 
     // Coordinate enforcement: apps often send a CACHED/default location (e.g.
     // Blinkit fired /visibility/latitude/28.41../longitude/77.07.. = NCR default
     // despite our GPS). Rewrite lat/lon in path segments, query params and JSON
     // POST bodies onto our target anchor so every signed call resolves THE
     // STORE WE WANT. Same mirror-the-app philosophy, applied to requests.
-    await page.route('**/*', route => {
+    const coordRoute = route => {
       const req = route.request();
       let url = req.url();
       try {
@@ -734,15 +738,19 @@ async function main() {
         return route.continue({ url, postData: post ?? undefined }).catch(() => {});
       }
       return route.continue().catch(() => {});
-    });
+    };
+    await page.route('**/*', coordRoute);
 
-    page.on('request', req => {
+    // Per-page intercept handlers. Each tab carries its own apiHits + _label so
+    // concurrent tabs tag products with their OWN collection (not a shared
+    // CURRENT_LABEL that a sibling tab would clobber mid-flight).
+    const makeReqHandler = (pg, hits) => req => {
       const u = req.url();
       if (/api|catalog|search|listing|home|category/i.test(u) && !/\.(js|css|png|jpg|svg|woff)/i.test(u)) {
-        apiHits.push({ url: u, method: req.method(), headers: req.headers(), post: req.postData() || null });
+        hits.push({ url: u, method: req.method(), headers: req.headers(), post: req.postData() || null });
       }
-    });
-    page.on('response', async res => {
+    };
+    const makeRespHandler = pg => async res => {
       try {
         const ru = res.url();
         if (/api|search|listing|home|category|store|location|serviceability/i.test(ru)
@@ -760,7 +768,7 @@ async function main() {
           const j = JSON.parse(body);
           dumpBody(res.url(), body);
           extractMeta(j, 0);
-          collect(j, products, 0);
+          collect(j, products, 0, pg._label);
           // Instamart onboarding: the app reverse-geocodes our anchor via
           // address-widgets; remember the locality name so the stuck-session
           // fallback can type it into the app's own address search box.
@@ -777,7 +785,7 @@ async function main() {
         if (m) {
           const j = JSON.parse(m[1]);
           extractMeta(j, 0);
-          collect(j, products, 0);
+          collect(j, products, 0, pg._label);
         }
         // schema.org JSON-LD (Zepto etc.): server-rendered product catalog
         // blocks embedded as <script type="application/ld+json">. These hold
@@ -788,11 +796,13 @@ async function main() {
           try {
             const lj = JSON.parse(lm[1]);
             extractMeta(lj, 0);
-            collectLdJson(lj, products);
+            collectLdJson(lj, products, pg._label);
           } catch (_) {}
         }
       } catch (_) {}
-    });
+    };
+    page.on('request', makeReqHandler(page, apiHits));
+    page.on('response', makeRespHandler(page));
 
     // Instamart warm-up: bind a store on the homepage FIRST. Deep/collection
     // pages (e.g. /campaign-collection/mxn) do not expose the "Add your location"
@@ -820,6 +830,7 @@ async function main() {
     // never uses pre (its catalog has no age-gated vertical).
     for (const p of PRE) {
       CURRENT_LABEL = `pre:${p.label}`;
+      page._label = CURRENT_LABEL;
       const before = products.size;
       try {
         await page.goto(p.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
@@ -850,6 +861,7 @@ async function main() {
       } catch (_) {}
     }
     CURRENT_LABEL = 'home';
+    page._label = 'home';
 
     // Drop warm-up homepage products so only the TARGET page's products remain
     // (and receive the correct collection label below). The store context set
@@ -862,6 +874,7 @@ async function main() {
     if (APP === 'instamart') {
       const mxn = (URL_.match(/campaign-collection\/mxn[?&][^]*layoutId=(\d+)/i) || [])[1];
       CURRENT_LABEL = mxn ? `mxn:${mxn}` : 'home';
+      page._label = CURRENT_LABEL;
     }
 
     await page.goto(URL_, { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
@@ -1002,7 +1015,7 @@ async function main() {
     // ---- deep-sweep visit queue: category links first, then searches ----
     const visits = [];
     const seenUrls = new Set();          // every href ever enqueued or skipped
-    const collectCatLinks = async () => await page.evaluate(() => {
+    const collectCatLinks = async (pg) => await pg.evaluate(() => {
       const out = [];
       try {
         for (const a of document.querySelectorAll('a[href]')) {
@@ -1026,6 +1039,10 @@ async function main() {
       } catch (_) {}
       return out;
     }).catch(() => []);
+    // Monotonic count of category visits enqueued (independent of the live queue
+    // length, which shrinks under multi-tab's visits.shift()). Keeps --categories
+    // a hard cap on TOTAL category visits regardless of tab count.
+    let enqueuedCats = 0;
     const enqueueLinks = (links) => {
       for (const l of links) {
         if (seenUrls.has(l.href)) continue;
@@ -1035,12 +1052,13 @@ async function main() {
           console.error(`[sweep] skip category "${lab.slice(0, 40)}"`);
           continue;
         }
-        if (visits.length >= CATEGORIES) return;
+        if (enqueuedCats >= CATEGORIES) return;
         visits.push({ url: l.href, label: lab });
+        enqueuedCats++;
       }
     };
     if (CATEGORIES > 0) {
-      enqueueLinks(await collectCatLinks());
+      enqueueLinks(await collectCatLinks(page));
     }
     for (const t of TERMS) {
       const build = SEARCH_URLS[APP];
@@ -1063,13 +1081,13 @@ async function main() {
     // only pays off on apps whose listing API is NOT mirrorable (Instamart is
     // covered by the listing POST mirror below).
     const maxScrollRounds = parseInt(arg('scroll-rounds', '0'), 10);
-    const deepScroll = async () => {
+    const deepScroll = async (pg) => {
       if (maxScrollRounds <= 0) return null;
       const startSize = products.size;
       let lastSize = startSize;
       let rounds = 0;
       while (rounds < maxScrollRounds) {
-        const hasContainer = await page.evaluate(() => {
+        const hasContainer = await pg.evaluate(() => {
           for (const el of document.querySelectorAll('*')) {
             const st = getComputedStyle(el);
             if (/(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 300) return true;
@@ -1077,7 +1095,7 @@ async function main() {
           return false;
         }).catch(() => false);
         if (!hasContainer) break;
-        await page.evaluate(() => {
+        await pg.evaluate(() => {
           let best = null;
           for (const el of document.querySelectorAll('*')) {
             const st = getComputedStyle(el);
@@ -1113,18 +1131,18 @@ async function main() {
     // advancing items_offset — each page returns ~20 FRESH products (verified:
     // offsets 26/46/66/106 → 100% new productIds). This walks the full shelf
     // without fighting DOM virtualization, using the session's own auth.
-    const mirrorPaginate = async (sinceIdx) => {
-      // Only listing hits captured DURING this visit (apiHits index frozen at
+    const mirrorPaginate = async (pg, sinceIdx, pageHits) => {
+      // Only listing hits captured DURING this visit (pageHits index frozen at
       // goto) — else a non-paginating page would re-walk the PREVIOUS
       // category and mis-tag its products with this visit's label.
-      const hits = apiHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url) && h.post);
+      const hits = pageHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url) && h.post);
       const hit = hits[hits.length - 1];
       if (process.env.DSH_MIRROR_DEBUG) {
-        console.error(`[mirror-debug] sinceIdx=${sinceIdx} apiHits.total=${apiHits.length} ` +
-          `slice=${apiHits.slice(sinceIdx).length} ` +
-          `listing-hits-in-slice=${apiHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url)).length} ` +
+        console.error(`[mirror-debug] sinceIdx=${sinceIdx} pageHits.total=${pageHits.length} ` +
+          `slice=${pageHits.slice(sinceIdx).length} ` +
+          `listing-hits-in-slice=${pageHits.slice(sinceIdx).filter(h => /category-listing/i.test(h.url)).length} ` +
           `with-post=${hits.length} post-sample=${hit ? String(hit.post).slice(0, 80) : 'none'}`);
-        for (const h of apiHits.slice(sinceIdx)) {
+        for (const h of pageHits.slice(sinceIdx)) {
           console.error(`[mirror-debug]   hit: ${h.method} ${h.url.slice(0, 130)} post=${h.post ? 'yes' : 'null'}`);
         }
       }
@@ -1157,13 +1175,13 @@ async function main() {
           const u = new URL(hit.url);
           u.searchParams.set('pageNo', String(p + 2));
           u.searchParams.set('offset', String(p + 2));
-          const r = await page.request.fetch(u.toString(), {
+          const r = await pg.request.fetch(u.toString(), {
             method: hit.method, headers: hit.headers, data: body, timeout: 12000,
           });
           if (r.status() !== 200) break;
           const j = await r.json();
           const beforeThis = products.size;
-          collect(j, products, 0);
+          collect(j, products, 0, pg._label);
           pages++;
           if (products.size === beforeThis) {
             // Grace: one transient 0-new page (bait page overlap, render
@@ -1182,17 +1200,19 @@ async function main() {
       return { pages, gained: products.size - before, startSize: before };
     };
 
-    let vi = 0;
-    while (vi < visits.length) {
-      const v = visits[vi++];
-      CURRENT_LABEL = v.label;
-      // Freeze the apiHits index BEFORE goto: mirrorPaginate may only replay
-      // listing hits captured DURING this visit (per-visit attribution —
-      // replaying a stale hit would mis-tag the previous category's products).
-      const sinceIdx = apiHits.length;
+    // Per-visit sweep, parameterized by tab so multi-tab runs the SAME body on
+    // every Playwright page. One browser context = one store = one device_id;
+    // extra tabs overlap the per-visit waits without spawning a second session.
+    const sweepVisit = async (pg, hits, v) => {
       try {
-        await page.goto(v.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(CAT_WAIT);
+        pg._label = v.label;
+        CURRENT_LABEL = v.label;
+        // Freeze the apiHits index BEFORE goto: mirrorPaginate may only replay
+        // listing hits captured DURING this visit (per-visit attribution —
+        // replaying a stale hit would mis-tag the previous category's products).
+        const sinceIdx = hits.length;
+        await pg.goto(v.url, { timeout: 25000, waitUntil: 'domcontentloaded' });
+        await pg.waitForTimeout(CAT_WAIT);
         let note = '';
         if (DEEP_CATS) {
           // Bait jump: Instamart's initial listing POST can fire AFTER
@@ -1203,7 +1223,7 @@ async function main() {
           // paginated listing call) — Blinkit /dc/ and Zepto pay nothing extra
           // and stay at their page-1 baseline depth.
           if (APP === 'instamart') {
-            await page.evaluate(() => {
+            await pg.evaluate(() => {
               let best = null;
               for (const el of document.querySelectorAll('*')) {
                 const st = getComputedStyle(el);
@@ -1213,24 +1233,24 @@ async function main() {
               }
               if (best) best.scrollTop = best.scrollHeight;
             }).catch(() => {});
-            await page.waitForTimeout(2200);
+            await pg.waitForTimeout(2200);
           }
           // Primary: mirror the visit's own listing API with advancing
           // items_offset (walks the full shelf, ~20 fresh SKUs/page).
           let mirrored = null;
-          try { mirrored = await mirrorPaginate(sinceIdx); } catch (_) {}
+          try { mirrored = await mirrorPaginate(pg, sinceIdx, hits); } catch (_) {}
           // Fallback: bottom-jump deep scroll when no listing call fired
           // (DOM-only pagination). Opt-in via --scroll-rounds (default 0 =
           // skip; Blinkit /dc/ and Zepto baselines are page-1 depth). If the
           // mirror RAN (pages>0), the listing API was authoritative — skip.
           let scrolled = null;
           if (!mirrored || mirrored.pages === 0) {
-            scrolled = await deepScroll();
+            scrolled = await deepScroll(pg);
           }
           const gained = (mirrored ? mirrored.gained : 0) + (scrolled ? scrolled.gained : 0);
           // Per-shelf advertised item count ("N items" in the page text) —
           // the honesty signal (e.g. 1488 advertised on Cold Drinks pre-fix).
-          const advertised = await page.evaluate(() => {
+          const advertised = await pg.evaluate(() => {
             const m = document.body.innerText.match(/\b(\d{2,5})\s*items\b/i);
             return m ? parseInt(m[1], 10) : null;
           }).catch(() => null);
@@ -1243,21 +1263,62 @@ async function main() {
         }
         console.error(`[sweep] ${v.label} -> cumulative ${products.size} SKUs${note}`);
         if (DEEP_CATS && CATEGORIES > 0) {
-          enqueueLinks(await collectCatLinks());
+          enqueueLinks(await collectCatLinks(pg));
         }
       } catch (_) {}
+    };
+
+    const TABS = Math.max(1, parseInt(arg('tabs', '1'), 10));
+    if (TABS > 1) {
+      // Spawn extra tabs in the SAME browser context (same store, same
+      // device_id). Each tab keeps its OWN apiHits + _label and pulls from a
+      // shared visit queue, so deep-cat link discovery feeds every tab.
+      const pages = [page];
+      for (let i = 1; i < TABS; i++) {
+        const pg = await ctx.newPage();
+        pg._apiHits = [];
+        pg._label = 'home';
+        await pg.route('**/*', coordRoute);
+        pg.on('request', makeReqHandler(pg, pg._apiHits));
+        pg.on('response', makeRespHandler(pg));
+        pages.push(pg);
+      }
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+      await Promise.all(pages.map(pg => (async () => {
+        while (true) {
+          const v = visits.shift();
+          if (!v) { if (visits.length === 0) break; await sleep(300); continue; }
+          await sweepVisit(pg, pg._apiHits, v);
+        }
+      })()));
+      // Per-tab mirror replay of a few signed calls for extra coverage.
+      for (const pg of pages) {
+        for (const hit of pg._apiHits.slice(0, 3)) {
+          try {
+            const r = await pg.request.fetch(hit.url, {
+              method: hit.method, headers: hit.headers, data: hit.post, timeout: 10000,
+            });
+            if (r.status() === 200) collect(await r.json(), products, 0, pg._label);
+          } catch (_) {}
+        }
+      }
+    } else {
+      let vi = 0;
+      while (vi < visits.length) {
+        const v = visits[vi++];
+        await sweepVisit(page, apiHits, v);
+      }
+      // Mirror up to 3 captured signed calls for extra coverage (original path).
+      for (const hit of apiHits.slice(0, 3)) {
+        try {
+          const r = await page.request.fetch(hit.url, {
+            method: hit.method, headers: hit.headers, data: hit.post, timeout: 10000,
+          });
+          if (r.status() === 200) collect(await r.json(), products, 0);
+        } catch (_) {}
+      }
     }
     CURRENT_LABEL = 'home';
-
-    // Mirror up to 3 captured signed calls for extra coverage.
-    for (const hit of apiHits.slice(0, 3)) {
-      try {
-        const r = await page.request.fetch(hit.url, {
-          method: hit.method, headers: hit.headers, data: hit.post, timeout: 10000,
-        });
-        if (r.status() === 200) collect(await r.json(), products, 0);
-      } catch (_) {}
-    }
 
     // Persist app state for later location-seeding experiments.
     if (BODY_DIR) {

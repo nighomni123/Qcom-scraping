@@ -144,7 +144,8 @@ class Adapter:
         return [terms[(i + k) % len(terms)] for k in range(n)]
 
     def deep_sweep(self, station, lat, lon, categories=0, terms=None,
-                   deep_cats=False, skip_override=None):
+                   deep_cats=False, skip_override=None,
+                   mirror_page_ms=None, tabs=None):
         """
         Demand Radar watchlist sweep for ONE store anchor in ONE browser
         session: home harvest -> optional DOM category click-through ->
@@ -168,7 +169,8 @@ class Adapter:
                     if str(s).strip()]
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
                                           lat, lon, categories=categories, terms=terms,
-                                          skip=skip or None, deep_cats=deep_cats)
+                                          skip=skip or None, deep_cats=deep_cats,
+                                          mirror_page_ms=mirror_page_ms, tabs=tabs)
 
     def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None, pre=None):
         """Compat wrapper returning products only; see _browser_catalog_full."""
@@ -178,7 +180,7 @@ class Adapter:
 
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
                               categories=0, terms=None, skip=None, pre=None,
-                              deep_cats=False):
+                              deep_cats=False, mirror_page_ms=None, tabs=None):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -210,6 +212,10 @@ class Adapter:
             cmd += ["--categories", str(int(categories))]
         if deep_cats:
             cmd += ["--deep-cats", "1"]
+        if mirror_page_ms:
+            cmd += ["--mirror-page-ms", str(int(mirror_page_ms))]
+        if tabs:
+            cmd += ["--tabs", str(int(tabs))]
         if terms:
             cmd += ["--terms", "|".join(terms)]
         if skip:

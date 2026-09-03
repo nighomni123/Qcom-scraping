@@ -310,7 +310,21 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   listing call) — Blinkit/Zepto pay nothing extra and hold their baseline
   depth. Tunables: `--mirror-stride 20 --mirror-max-pages 80 --mirror-page-ms
   900 --scroll-rounds 0` (mirror pacing ~1s/page mirrors organic scroll;
-  scroll rounds ~2-4s each when enabled).
+  scroll rounds ~2-4s each when enabled). `--mirror-page-ms` is now an
+   overridable runtime flag (lowering it below 900 speeds a catalog run but
+   raises Instamart's throttle/ban risk — 600 is the floor we test at).
+ - **Multi-tab catalog sweeps (`--tabs N`, default 1):** when a deep-cats
+   catalog run feels too slow, pass `--tabs 2` (or 3) to open N concurrent
+   Playwright **tabs inside the SAME browser context** — same store, same
+   `device_id`, one session per store (the invariant at the bottom still
+   holds; this is intra-session concurrency, not a second session). The tabs
+   share one visit queue, so deep-cat link discovery feeds every tab, and each
+   tab keeps its OWN intercepted-api list + collection label so products are
+   tagged with the right shelf. Use 2-3 to cut wall-clock on Instamart
+   (full catalog ~40 min single-tab → ~15-20 min at 3 tabs). Cross-tab
+   throttling is still possible — the user tests `--tabs 3 --mirror-page-ms
+   600` on Instamart to measure it. Same-app parallelism is still BANNED
+   (don't run two stores of one app at once); tabs are within ONE store.
 - **Zepto API signing** (verified 2025-08-30 via Playwright request capture — the
   js-reverse Observe/Capture equivalent, since the js-reverse/jshookmcp MCP isn't
   wired into this session and its bootstrap is Windows-only): every API call hits
