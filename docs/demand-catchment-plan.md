@@ -161,6 +161,24 @@ When `store_hint.geofence` is present (Zepto), compute catchment metrics from th
 - Honest ceiling note: article notes Zepto's deep store data needed an AUTHENTICATED endpoint (Bearer token from a logged-in session) — we do NOT log in (no fake accounts invariant). So C1 hooks may yield partial data on Zepto; the unauthenticated serviceability storeId (what we use today) still works. Document whatever we actually capture vs. the article's authenticated reach.
 - AGENTS.md per-app quirk notes + README + this doc updated with verified findings.
 
+### C4 ZEPTO RESULT (VERIFIED 09-04, guest sessions, no login, DSH_BODY_DIR probes at 2 anchors)
+
+Claims tested against OUR traffic (search-route probes, bodies dumped; 8 files incl. `bff_gateway.zepto.com/lms/api/v2/get_page`):
+
+| Article claim | Our guest session | Verdict |
+|---|---|---|
+| `storeDetailsResponse` rides `get_page` | endpoint FIRES unauthenticated in our guest browser session; structure present at top level | ✅ VERIFIED — no login needed for identity/status |
+| Real store `name` | `MUM-Gulmohar road` (Andheri 19.119,72.846) vs `MUM-Borivali West` (Borivali 19.230,72.856) — genuinely anchor-localized | ✅ VERIFIED — better store labels than our current `storeid` counts |
+| Precise `latitude`/`longitude` | keys ABSENT from guest `storeDetailsResponse` | ❌ login-walled (matches article's auth note) |
+| `servicableGeofence` polygon | key PRESENT but EMPTY ARRAY `[]` in guest sessions | ❌ login-walled — geofence is the authenticated payload |
+| Operational status | `isOnline`/`takingOrders`/`isActive`/`isLive`/`phase`/`type`/`openTime`/`closeTime` all present | ✅ VERIFIED |
+
+Guest `storeDetailsResponse` full shape (both probes): `city`, `cityId`, `closeTime` ("20:30:00"), `estimatedLaunchDate`, `id` (UUID, matches `storeServiceableResponse.storeId`), `initiateSdkNewFlow`, `isActive`, `isFullNightDeliveryEnabled`, `isLive`, `isOnline`, `issueAtStore`, `name`, `openTime` ("00:30:00"), `phase` ("LIVE"), `raining`, `servicableGeofence` ([]), `standStillMode`, `takingOrders`, `type` ("RETAIL_STORE").
+
+**Bonus discovery the article missed**: `storeServiceableResponseV2` returns an ARRAY of stores with `storeConstruct` — every anchor is served by a PRIMARY + SECONDARY store (Andheri: 94036a35 primary + 0e8c4509 secondary; Borivali: 551d5b20 primary + b26ca2be secondary; V1 response carries `secondaryStoreIds` too). This is failover coverage data — a catchment-overlap signal — at zero extra cost. Also: search responses carry per-variant `storeId` (a 3rd/4th UUID set, e.g. b4dc8d65 count 30 vs get_page's store) — variant-level fulfillment differs from the home-page store binding; treat the get_page store as canonical for anchor→store mapping.
+
+**Revised C1 scope for Zepto** (honest ceiling): harvest `name`, `id`, `isOnline`, `takingOrders`, hours, and the V2 primary/secondary constructs — NOT coords/geofence (login-walled; we don't log in). C3 geofence unification therefore DROPS for Zepto; Feature 1's anchor-spread radius remains the catchment proxy for all apps. Blinkit `promise_time_state.DistanceInMeter` and Instamart `storesInfo` still UNVERIFIED (next C4 runs, when a crawl slot is free).
+
 ## Constraints / invariants preserved
 - One browser session per store per sweep (micro-grid C2 runs INSIDE the existing visit queue).
 - No forging, no direct-HTTP clients, no proxy-pool national census (rate-limit + research-scale rules).
