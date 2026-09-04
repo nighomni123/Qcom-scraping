@@ -86,6 +86,16 @@ a hour×SKU stock-out onset heatmap (local time — when demand spikes), and
 per-hour delivery-ETA curves. `--demand-report` prints the same in the
 terminal; `--csv` exports `exports/dpi_<date>.csv`.
 
+**What DPI actually measures (09-04):** the prober's light sweep samples home
++ 30 category shelves + the store's watchlist search terms — a few hundred
+SKUs per cycle — while the watchlist itself is now a full catalog census
+(~8-24k rows/store from `--build-watchlist --catalog`). DPI is therefore
+shelf-sampler demand pressure, not whole-inventory: stock-outs shorter than
+the probe interval are invisible by construction. Delisting truth is
+snapshot-driven (`catalog_events` diffs), and the prober only opens `vanished`
+events for SKUs it has itself sighted before — a never-sighted row's absence
+is a coverage gap, not churn.
+
 **QC-first defaults** (since 08-22): amazon/flipkart tracking is disabled and
 the search bot compares quick-commerce platforms only — re-enable via
 `adapters.trackers` / `search.platforms` in `config.yaml`.

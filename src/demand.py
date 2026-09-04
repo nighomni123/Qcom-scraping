@@ -12,6 +12,14 @@ All numbers are PROXIES for demand built from stock-out behaviour:
   frequent / recent / longer stock-outs. 'vanished' events are delistings,
   NOT demand — excluded here, surfaced separately.
 
+  Resolution honesty (09-04): DPI measures demand pressure on PROBED
+  shelves, not the whole inventory — the light sweep (home +
+  categories_per_store shelves + watchlist search terms) sights a few
+  hundred SKUs/cycle vs the watchlist's full catalog census (~8-24k
+  rows/store). A never-sighted SKU's absence is a coverage gap, never a
+  stock signal; whole-inventory delisting truth comes from catalog_events
+  snapshot diffs.
+
   Restock velocity = mean minutes of CLOSED oos events (a SKU that comes back
   fast is being bought out fast).
 

@@ -435,6 +435,13 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   set (08-30 zombie fix: search-passed SKUs that fell out of coverage held
   open events for days and inflated DPI): close at the LAST OBSERVED reading
   — durations never fabricate unseen time — and re-open as `vanished`.
+  09-04 guard: vanished opens ONLY for SKUs with prior stock_obs sightings —
+  the exhaustive catalog made the watchlist a full inventory while a light
+  sweep sights only a few hundred SKUs/cycle, so an unguarded restart would
+  have fabricated thousands of vanished events per store. A catalog-built
+  never-sighted row is a coverage gap, never churn; catalog-covered stores
+  get delisting verdicts from the snapshot diff (catalog_events), not the
+  prober.
 - **Suspect cycles freeze the machine.** Canary queries returning only-OOS or
   a mass in-stock→OOS flip ⇒ record observations, open/close nothing.
 - **Onset windows need silent-hour coverage.** `demand.sweep_windows`

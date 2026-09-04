@@ -268,32 +268,10 @@ class StockProber:
             #    (durations never fabricate evidence) and re-open honestly
             #    as 'vanished'.
             open_oos = {sku for sku, _ in self.db.open_events_for_store(app, sid, "oos")}
-            for sku in set(active_skus) | open_oos:
-                key = (app, sid, sku)
-                if sku in seen:
-                    self.absence[key] = 0
-                    continue
-                miss = self.absence.get(key, 0) + 1
-                self.absence[key] = miss
-                if miss < self.vanished_after:
-                    continue
-                ev = self.db.open_event_state(app, sid, sku)
-                if ev and ev[0] == "oos":
-                    last = self.db.last_obs_ts(app, sid, sku) or time.time()
-                    self.db.close_oos_event(app, sid, sku, snapshots=miss,
-                                            kinds=("oos",), ended_at=last)
-                    self.db.open_oos_event(app, sid, sku, started_at=last,
-                                           kind="vanished")
-                    opened += 1
-                    closed += 1
-                    print(f"[prober] {app}/{sid}: {sku} oos-event stale after "
-                          f"{miss} sweeps — closed at last evidence, "
-                          f"logged vanished")
-                elif not ev:
-                    self.db.open_oos_event(app, sid, sku, kind="vanished")
-                    opened += 1
-                    print(f"[prober] {app}/{sid}: {sku} VANISHED from listings "
-                          f"({miss} sweeps) — logged as vanished")
+            v_opened, v_closed = self._vanished_pass(app, sid, active_skus,
+                                                     open_oos, seen)
+            opened += v_opened
+            closed += v_closed
 
         summary.update({"opened": opened, "closed": closed,
                         "terms": len(terms), "cats": self.categories})
@@ -303,6 +281,47 @@ class StockProber:
               f"opened={opened} closed={closed} · eta={summary['eta_min']} · "
               f"{summary['sec']}s" + (f" · SUSPECT({why[:40]})" if suspect else ""))
         return summary
+
+    def _vanished_pass(self, app, sid, active_skus, open_oos, seen):
+        """One vanished-machine pass over the sighting set `seen`. Extracted
+        from sweep_store so the offline self-test can drive it directly.
+        Returns (opened, closed) event counts."""
+        # 09-04 vanished guard: only SKUs the prober has ITSELF sighted
+        # (any stock_obs row) may vanish. The watchlist is now an
+        # exhaustive catalog census (~8-24k rows/store) while a light
+        # sweep sights a few hundred SKUs/cycle — an unguarded restart
+        # would fabricate thousands of 'vanished' events per store from
+        # pure coverage gaps. A never-sighted row's delisting verdict
+        # comes from the catalog_events snapshot diff, not the prober.
+        sighted = self.db.sighted_skus(app, sid)
+        opened = closed = 0
+        for sku in (set(active_skus) | set(open_oos)) & sighted:
+            key = (app, sid, sku)
+            if sku in seen:
+                self.absence[key] = 0
+                continue
+            miss = self.absence.get(key, 0) + 1
+            self.absence[key] = miss
+            if miss < self.vanished_after:
+                continue
+            ev = self.db.open_event_state(app, sid, sku)
+            if ev and ev[0] == "oos":
+                last = self.db.last_obs_ts(app, sid, sku) or time.time()
+                self.db.close_oos_event(app, sid, sku, snapshots=miss,
+                                         kinds=("oos",), ended_at=last)
+                self.db.open_oos_event(app, sid, sku, started_at=last,
+                                       kind="vanished")
+                opened += 1
+                closed += 1
+                print(f"[prober] {app}/{sid}: {sku} oos-event stale after "
+                      f"{miss} sweeps — closed at last evidence, "
+                      f"logged vanished")
+            elif not ev:
+                self.db.open_oos_event(app, sid, sku, kind="vanished")
+                opened += 1
+                print(f"[prober] {app}/{sid}: {sku} VANISHED from listings "
+                      f"({miss} sweeps) — logged as vanished")
+        return opened, closed
 
     def run_round(self, apps=None, store_filter=None, max_terms=None):
         want_apps = {a.strip().lower() for a in (apps or []) if a.strip()}
@@ -415,5 +434,43 @@ if __name__ == "__main__":
     # wrap-around / garbage clamps to empty rather than erroring
     assert parse_sweep_windows("22-2") == set()
     assert parse_sweep_windows(["x", "1-3"]) == {1, 2, 3}
+
+    # ---- vanished guard (09-04): absence only counts for SIGHTED SKUs ----
+    # A watchlist census row the prober has never observed is a coverage gap,
+    # never churn — otherwise restarting --demand over an 8-24k catalog
+    # watchlist would fabricate thousands of 'vanished' events per store.
+    class FakeDB:
+        def __init__(self, sighted, open_oos=(), active=()):
+            self._sighted, self._open_oos, self._active = sighted, open_oos, active
+            self.opened = []      # (sku, kind) opened by the vanished machine
+        def sighted_skus(self, app, sid):
+            return self._sighted
+        def open_events_for_store(self, app, sid, kind="oos"):
+            return self._open_oos
+        def open_event_state(self, app, sid, sku):
+            return None
+        def open_oos_event(self, app, sid, sku, started_at=None, kind="oos"):
+            if (sku, kind) in self.opened:      # real Store dedupes open events
+                return None
+            self.opened.append((sku, kind))
+        def close_oos_event(self, *a, **k):
+            return False
+        def last_obs_ts(self, app, sid, sku):
+            return None
+    def _vanish_once(fake, active, open_oos, seen, rounds=7):
+        pro = StockProber({"demand": {}, "schedule": {}}, fake)
+        pro.absence = {}
+        for _ in range(rounds):   # > vanished_cycles consecutive misses
+            pro._vanished_pass("blinkit", "s1", set(active), set(open_oos), set(seen))
+        return fake.opened
+    # never-sighted census rows are ignored even after many missed sweeps...
+    opened = _vanish_once(FakeDB(sighted={"seen1"}, open_oos=[]),
+                          active=["census1", "seen1"], open_oos=[], seen={"seen1"})
+    assert opened == [], opened
+    # ...a previously sighted SKU that stops appearing DOES vanish
+    opened = _vanish_once(FakeDB(sighted={"gone1"}, open_oos=[]),
+                          active=["gone1"], open_oos=[], seen=set())
+    assert opened == [("gone1", "vanished")], opened
+    print("vanished guard ok · census rows ignored · sighted SKU vanishes")
     print("offline sanity ok · sources:", srcs, "· suspect(canary-only-OOS):", sus,
           "· sweep_windows parse ok")

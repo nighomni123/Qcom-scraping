@@ -601,6 +601,21 @@ class Store:
         ).fetchone()
         return row[0] if row and row[0] is not None else None
 
+    def sighted_skus(self, app, store_id):
+        """Set of sku_keys with ANY recorded stock_obs at (app, store_id).
+
+        The prober's vanished guard (09-04): a watchlist row with no sighting
+        was never covered by a light sweep, so its absence is a coverage gap,
+        not delisting — the exhaustive catalog made the watchlist a full
+        inventory (~8-24k rows/store) while one light round sights only a few
+        hundred SKUs. Delisting verdicts for such rows come from catalog_events
+        snapshot diffs instead.
+        """
+        return {r[0] for r in self.conn.execute(
+            "SELECT DISTINCT sku_key FROM stock_obs WHERE app=? AND store_id=?",
+            (app, store_id),
+        )}
+
     def trailing_oos_streak(self, app, store_id, sku_key, lookback=12):
         """
         Reconstruct an OOS streak from recorded observations (restart-proof
