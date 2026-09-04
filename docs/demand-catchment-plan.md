@@ -105,3 +105,68 @@ Same pattern as `src/categories.py` (ordered keyword rules, zero deps):
 - Brand misattribution (THE/WHOLE tokens, multi-word brands) → B1 stop-token list + multi-word-first ordering; self-check covers the known noise.
 - Thin data = weak report (open-event storms from a stopped prober inflate "OOS hours") → report generator must note open events as "ongoing as of window end", never fabricate ended_at.
 - Unbranded SKUs (generics, store brands) → `brand_of` returns None; report states coverage % honestly (e.g. "412 of 921 SKUs attributed").
+
+---
+
+# Feature 3 — Per-app store-meta harvest (real coordinates + geofences)
+
+Source: InfoSecWriteups article "How I Scraped Most Dark Stores in India" (Jatin Banga, 03-2026, https://infosecwriteups.com/how-i-scraped-most-dark-stores-in-india-blinkit-zepto-swiggy-instamart-ad939ff17af9 — fetched via monid 09-04). Author scraped a NATIONAL census of darkstores via direct API probing; the gold fields below ride the SAME responses our browser-intercept already sees but our `extractMeta()` walker ignores because they're not ID-shaped keys.
+
+## What the article proves we're leaving on the table
+
+| App | Field in intercepted responses | Meaning | Our extractor today |
+|---|---|---|---|
+| Blinkit | `promise_time_state.DistanceInMeter` (layout/feed) | exact ROAD distance in metres from probe point to store | ignored |
+| Zepto | `storeDetailsResponse` → `latitude`/`longitude`, `name`, **`servicableGeofence`** (sic — misspelled in API) | real store coords + delivery-boundary polygon | ignored |
+| Instamart | `storesInfo` array → coords + operational status | real store coords | ignored |
+
+Key correction to our earlier belief: "the platform never exposes the warehouse's physical lat/lon" is FALSE — Zepto returns it with the geofence in one structure. This directly upgrades Feature 1: on Zepto the catchment radius becomes the app's OWN polygon, not a derived proxy.
+
+## Design: split the META layer, NOT the crawler (ponytail cut)
+
+The user instinct "separate functions per app" is right, but the correct seam is the store-metadata extractor, not the whole crawler. Rationale for keeping the rest generic:
+
+1. Generic product walker = resilience to payload reshuffles (battle-tested across 7 apps; per-app product parsers would triple the regression surface for zero product-data gain).
+2. Direct-HTTP per-app clients (article's approach: curl_cffi + forged Android headers + proxy pools) violate our documented anti-bot constraints: Zepto/Instamart sit behind AWS WAF with session-bound tokens (see AGENTS.md APK notes) — browser-harvests-signed-responses is the correct architecture. Blinkit has no WAF but consistency wins.
+3. Their mission (national census, 300K-point WorldPop-filtered grid) is a different product from our corridor demand loop; we adopt their FIELD discoveries, not their scale strategy.
+
+## Phase C1 — harvest hooks in pw_catalog.js (thin, additive)
+
+Three small per-app functions + dispatch in `extractMeta()` (each ~10 lines, merged into `store_hint`):
+
+- `harvestBlinkitMeta(node)`: on `promise_time_state`, read `DistanceInMeter` → `store_hint.distance_m`.
+- `harvestZeptoMeta(node)`: on `storeDetailsResponse`, read `latitude`, `longitude`, `name`, `servicableGeofence` → `store_hint.store_coords` + `store_hint.geofence` (array of [lat,lon] pairs; store VERBATIM — it's the app's own boundary).
+- `harvestInstamartMeta(node)`: on `storesInfo`, read coords + operational status per store.
+- New keys are additive to the final `console.log` JSON (line ~1374); `base.py` `_browser_catalog_full` meta passthrough extended to carry them; `locality.py` persists coords (optional: only when present — don't fabricate).
+
+Schema (additive, per AGENTS.md rules): `darkstores` gains optional columns `store_lat`, `store_lon`, `geofence_json` (TEXT, nullable) — backfill-safe; existing rows keep NULL until re-probed.
+
+## Phase C2 — Blinkit micro-grid convergence (50m store accuracy)
+
+Article's trick, adapted to our session model (NO new crawl mode): the layout/feed `DistanceInMeter` tells us exact road distance from our anchor to the store. After `--map-locality` resolves a store ID at an anchor, run a second pass: generate an 11×11 micro-grid around the anchor (~121 points in one browser session via the existing visit-queue machinery), take the minimum reported distance, converge. This is the same machinery as the mirror-pagination pattern — reuse the visit queue, one session per store (invariant preserved).
+
+Alternatively (cheaper): single-session iterative refinement — binary-search the distance field from 4 compass points, ~20 visits per store instead of 121. The distance is exact (metres, road distance), so 4 probes triangulate to <100m; 8 probes to ~50m. Choose at implementation time based on rate-budget.
+
+## Phase C3 — geofence → catchment boundary (unifies with Feature 1)
+
+When `store_hint.geofence` is present (Zepto), compute catchment metrics from the polygon:
+- `catch_radius_m` = max distance from store coords to polygon vertices (replaces derived anchor-spread on Zepto).
+- Store the polygon in the locality JSON export; dashboard `/location` map can draw it later (the pins already exist there).
+- Feature 1's anchor-spread radius stays as the FALLBACK for apps without geofences (Blinkit/Instamart).
+- Anchor→store assignment can be validated: does the anchor fall inside the serving store's geofence? Cheap sanity check on mapping honesty.
+
+## Phase C4 — verification + docs
+
+- `DSH_BODY_DIR` re-discovery pass on one Zepto run to CONFIRM `storeDetailsResponse` appears in OUR intercepted traffic (article saw it on the authenticated get_page endpoint — our guest sessions may see a subset; verify before relying). Same for Blinkit `promise_time_state` and Instamart `storesInfo`.
+- Honest ceiling note: article notes Zepto's deep store data needed an AUTHENTICATED endpoint (Bearer token from a logged-in session) — we do NOT log in (no fake accounts invariant). So C1 hooks may yield partial data on Zepto; the unauthenticated serviceability storeId (what we use today) still works. Document whatever we actually capture vs. the article's authenticated reach.
+- AGENTS.md per-app quirk notes + README + this doc updated with verified findings.
+
+## Constraints / invariants preserved
+- One browser session per store per sweep (micro-grid C2 runs INSIDE the existing visit queue).
+- No forging, no direct-HTTP clients, no proxy-pool national census (rate-limit + research-scale rules).
+- No login (Zepto authenticated endpoint stays off-limits; document the gap honestly).
+- Schema additive only; existing `darkstores` rows never fabricated (NULL coords until re-probed).
+
+## Sequencing
+- C4 verification FIRST (prove the fields appear in our traffic before building hooks), then C1, then C3, then C2 last (optional accuracy polish).
+- Feature 1 (catchment) proceeds independently; on Zepto C3 supersedes its derived radius when geofence data exists.
