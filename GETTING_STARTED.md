@@ -41,7 +41,10 @@ elsewhere and wired via `anti_block.*` in config).
 
 ## Stage 1 — Open the dashboard (2 min)
 
-    python3 run.py --ui            # http://127.0.0.1:8787
+    python3 run.py --ui            # http://127.0.0.1:8787 — dashboard ONLY,
+                                    # starts no loops; add --bot and/or --monitor
+                                    # to also run them, or start loops from
+                                    # Features below
 
 Tour, left to right: **Status** (live crawl events + alerts), **Categories**
 (what your crawls actually cover), **Demand Radar** (DPI table, onset

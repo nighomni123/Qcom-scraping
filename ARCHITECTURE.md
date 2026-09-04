@@ -221,6 +221,8 @@ Moneymaker/
 
 `--bot` runs the glitch monitor loop in a background thread while the bot
 polls Telegram in the foreground — both features operate simultaneously.
+Bare `--ui` is dashboard-only (no loops); add `--bot` and/or `--monitor`
+to run them alongside the dashboard, or start loops from the Features panel.
 
 > The browser layer is driven through the **pre-installed Node Playwright**
 > (`../Do not delete folder/node_modules` + `.pw-browsers`, wired in

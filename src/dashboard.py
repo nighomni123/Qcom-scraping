@@ -77,9 +77,10 @@ FEATURE_CATALOG = [
      ]},
     {"id": "demo", "label": "Demo pipeline", "service": False,
      "desc": "Offline end-to-end test: injects a fake glitch into a synthetic "
-             "store and verifies crawl → detect → alert → store. Touches no "
-             "live app.",
-     "meta": "SAFE anytime · ~10 s · use as a health check",
+              "store and verifies crawl → detect → alert → store. Touches no "
+              "live app.",
+      "meta": "RESETS deals.db (auto-backup kept as deals.db.bak-demo-*) · "
+              "~10 s · use as a health check",
      "cmd": [sys.executable, "-u", "run.py", "--demo"]},
     {"id": "qc_status", "label": "QC health probe", "service": False,
      "desc": "One live probe per quick-commerce app to verify extraction "
@@ -280,7 +281,7 @@ class FeatureManager:
     terminated when the dashboard shuts down — never orphan crawlers.
     """
 
-    LOG_LINES = 400
+    LOG_LINES = 2000
 
     def __init__(self, catalog=None, cwd=_ROOT):
         self.catalog = {f["id"]: dict(f) for f in (catalog or FEATURE_CATALOG)}
@@ -310,13 +311,19 @@ class FeatureManager:
                 })
         return {"features": out}
 
-    def log_tail(self, fid, limit=120):
+    def log_tail(self, fid, limit=None):
         with self._lock:
             st = self.procs.get(fid)
             lines = list(st["log"]) if st else []
         running = bool(st and st["proc"].poll() is None)
+        try:
+            n = int(limit) if limit is not None else self.LOG_LINES
+        except (TypeError, ValueError):
+            n = self.LOG_LINES
+        n = max(1, min(n, self.LOG_LINES))
         return {"id": fid, "running": running,
-                "lines": lines[-max(1, min(limit, self.LOG_LINES)):],
+                "lines": lines[-n:],
+                "total": len(lines),
                 "returncode": st["returncode"] if st and not running else None}
 
     # -- control ----------------------------------------------------------
@@ -848,9 +855,13 @@ class Dashboard:
                         self._json(st)
                     except Exception as ex:
                         self._json({"available": False, "reason": str(ex)[:200]})
-                elif self.path.startswith("/features/") and self.path.endswith("/log"):
-                    fid = self.path[len("/features/"):-len("/log")]
-                    self._json(dash.features.log_tail(fid))
+                elif self.path.split("?", 1)[0].startswith("/features/") and self.path.split("?", 1)[0].endswith("/log"):
+                    # /features/<id>/log?limit=N (default: whole retained buffer)
+                    from urllib.parse import urlparse as _lp, parse_qs as _lqs
+                    _lparts = _lp(self.path)
+                    fid = _lparts.path[len("/features/"):-len("/log")]
+                    _lim = (_lqs(_lparts.query).get("limit") or [None])[0]
+                    self._json(dash.features.log_tail(fid, limit=_lim))
                 elif self.path == "/db":
                     try:
                         self._json(_sqlite_files())

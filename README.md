@@ -108,6 +108,8 @@ soft-blocks instead of faking demand). Query it:
 
     python3 run.py --bot            # telegram bot + monitor, simultaneously
     python3 run.py --bot --no-monitor   # bot only
+    python3 run.py --ui             # dashboard ONLY (no loops); add --bot
+                                    # and/or --monitor to also run them alongside
     python3 run.py --search "amul milk" # CLI, no telegram needed
 
 Setup the bot once:
@@ -224,6 +226,9 @@ Never commit `.env`. The old repo accidentally had a Gmail app-password in
   pools of anchor coordinates.
 
 ## Live dashboard (`--ui`, http://127.0.0.1:8787)
+
+Bare `--ui` is dashboard-ONLY (starts no loops — start them from Features
+below, or launch with `--ui --bot` / `--ui --monitor` to run them alongside).
 
 Real-time view of everything the process does, plus the exit switch:
 

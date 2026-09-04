@@ -13,7 +13,6 @@ from __future__ import annotations
 import time
 import random
 import datetime
-import math
 
 from .geo import Corridor, resolve_store
 from .store import Store

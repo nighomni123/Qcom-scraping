@@ -780,23 +780,36 @@ async function featAction(id, action){
   } catch(e){ alert('failed: '+e); }
   loadFeatures();
 }
-let logTimer = null;
+let logTimer = null, logFollow = true;
 async function openLog(id){
   clearInterval(logTimer);
+  logFollow = true;
   const f = FEATURES.find(x=>x.id===id) || {};
   document.getElementById('mtitle').textContent = `📜 ${f.label||id} — output`;
   const paint = async () => {
     try {
-      const r = await fetch(`/features/${id}/log`); const d = await r.json();
+      const r = await fetch(`/features/${id}/log?limit=2000`); const d = await r.json();
       const pre = document.getElementById('logPre');
       if (!pre) return;
-      pre.textContent = d.lines?.length ? d.lines.join('\n') : '(no output yet)';
-      pre.scrollTop = pre.scrollHeight;
+      // Stick-to-bottom: remember whether the user was already at the bottom
+      // BEFORE replacing the text, and only then jump to the latest entry.
+      // If they've scrolled up (or unticked Follow), their view stays put.
+      const nearBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 60;
+      const text = d.lines?.length ? d.lines.join('\n') : '(no output yet)';
+      if (pre.textContent !== text) pre.textContent = text;
+      if (logFollow && nearBottom) pre.scrollTop = pre.scrollHeight;
       const st = d.running ? 'running' : (d.returncode === 0 ? 'finished ✓' : ('exited rc=' + (d.returncode ?? '?')));
       document.getElementById('mtitle').textContent = `📜 ${f.label||id} — output (${st})`;
+      const n = document.getElementById('logCount');
+      if (n) n.textContent = d.lines ? `${d.lines.length} lines${d.total > d.lines.length ? ` (latest ${d.lines.length} of ${d.total})` : ''}` : '';
     } catch(e){}
   };
-  document.getElementById('mbody').innerHTML = '<pre class="logview" id="logPre"></pre>';
+  document.getElementById('mbody').innerHTML =
+    '<div class="locrow" style="margin-bottom:8px"><label style="font-size:12px;color:#9fb3c8">' +
+    '<input type="checkbox" id="logFollow" checked onchange="logFollow=this.checked"> follow latest</label>' +
+    '<span id="logCount" style="font-size:12px;color:#9fb3c8"></span>' +
+    '<button onclick="const p=document.getElementById(\'logPre\');if(p)p.scrollTop=p.scrollHeight">⤓ jump to bottom</button></div>' +
+    '<pre class="logview" id="logPre"></pre>';
   document.getElementById('modal').classList.remove('hidden');
   const oldClose = closeModal;
   window.closeModal = function(){ clearInterval(logTimer); window.closeModal = oldClose; oldClose(); };

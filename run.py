@@ -4,8 +4,13 @@ run.py — Moneymaker v2 entrypoint.
 
 Usage:
   python3 run.py            # continuous monitor loop
+  python3 run.py --monitor  # same monitor loop (explicit; pairs with --ui/--bot)
   python3 run.py --once    # single cycle (good for testing)
   python3 run.py --check   # validate config + adapter availability
+  python3 run.py --ui      # dashboard ONLY — starts no loops; add --bot
+                           # and/or --monitor to also run them alongside
+  python3 run.py --bot     # telegram bot + monitor together (--no-monitor
+                           # for bot only)
 
 Requires (for the browser-intercept QC adapters):  pip install playwright && playwright install chromium
 Without it, the orchestrator still runs the e-commerce trackers + detection engine.
@@ -235,22 +240,47 @@ def main():
         return
 
     if "--bot" in sys.argv or "--ui" in sys.argv:
-        from src.tgbot import TGBot
-        bot = TGBot(cfg)
+        want_ui = "--ui" in sys.argv
+        want_bot = "--bot" in sys.argv
+        # --ui starts NOTHING by itself (dashboard only). Loops are opt-in:
+        #   --ui --monitor          dashboard + glitch-monitor loop
+        #   --ui --bot              dashboard + telegram bot (no monitor)
+        #   --ui --bot --monitor    dashboard + bot + monitor
+        # Bare --bot keeps its historic default (bot + monitor) unless
+        # --no-monitor is passed. --no-monitor alongside --ui is an accepted
+        # no-op (dashboard is already loop-free).
+        if want_ui:
+            want_monitor = "--monitor" in sys.argv
+        else:
+            want_monitor = "--no-monitor" not in sys.argv
 
-        # Simultaneous operation: keep the monitor loop running in a background
-        # thread while the Telegram bot polls in the foreground.
-        if "--no-monitor" not in sys.argv:
-            import threading
+        bot = None
+        if want_bot:
+            from src.tgbot import TGBot
+            bot = TGBot(cfg)
+
+        import threading
+        if want_monitor:
             t = threading.Thread(target=loop, args=(cfg,), daemon=True)
             t.start()
-            mode = "dashboard + bot + monitor" if "--ui" in sys.argv else "monitor running in background; telegram bot live"
-            print(f"[mode] {mode}")
-        else:
-            print("[bot-only] monitor disabled (--no-monitor)")
+        if want_bot and want_ui:
+            # Dashboard keeps the foreground; bot polls in the background.
+            tb = threading.Thread(target=bot.run, daemon=True)
+            tb.start()
 
-        if "--ui" in sys.argv:
-            import threading, webbrowser
+        parts = []
+        if want_ui:
+            parts.append("dashboard")
+        if want_bot:
+            parts.append("bot")
+        if want_monitor:
+            parts.append("monitor")
+        print(f"[mode] {' + '.join(parts)}"
+              + ("" if (want_bot or want_monitor)
+                 else " only (no loops — add --bot/--monitor to opt in)"))
+
+        if want_ui:
+            import webbrowser
             from src.dashboard import Dashboard
             dash = Dashboard(cfg)
             threading.Timer(1.0, lambda: webbrowser.open(
@@ -270,8 +300,15 @@ def main():
 
 def reset_demo_db(cfg):
     import os
+    import shutil
+    import time
     p = cfg.get("db", "deals.db")
     if os.path.exists(p):
+        # --demo wipes the DB (including when launched from the dashboard's
+        # Demo card). Never delete without a timestamped backup first.
+        bak = f"{p}.bak-demo-{time.strftime('%Y%m%d-%H%M%S')}"
+        shutil.copy2(p, bak)
+        print(f"[demo] backed up {p} -> {bak}")
         os.remove(p)
 
 

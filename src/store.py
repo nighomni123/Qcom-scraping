@@ -12,7 +12,6 @@ import statistics
 import threading
 import time
 import os
-from collections import defaultdict
 
 from .categories import categorize
 

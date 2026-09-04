@@ -58,8 +58,11 @@ Demand Radar phases, one on search-history/category analytics). Rules:
 
 ```
 run.py                  entrypoint; ALL CLI flags live here (--check --demo
-                        --search --bot --ui --once --map-locality
-                        --build-watchlist --demand --store-inventory; flag
+                        --search --bot --ui [--bot] [--monitor] [--no-monitor]
+                        --once --map-locality --build-watchlist --demand
+                        --store-inventory; --ui alone is dashboard-ONLY (no
+                        loops); add --bot and/or --monitor to also run them
+                        alongside; bare --bot keeps bot+monitor; flag
                         args parsed by _flag_* helpers)
 config.yaml             every tunable; secrets go in .env only
 codes.yaml              delivery fees + offer codes (user-editable)
@@ -160,7 +163,9 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # source='inventory' + price_obs). Run
                                     # ALONE — no concurrent crawls (see rules).
 
-Dashboard (`--ui`, http://127.0.0.1:8787) endpoints: `/status /categories
+Dashboard (`--ui`, http://127.0.0.1:8787; dashboard-ONLY by default — starts
+no loops; add --bot and/or --monitor to also run them alongside, or start
+loops from the Features panel) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics), `/demand /heatmap?store=
 /eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`),
 `/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
