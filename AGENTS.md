@@ -522,8 +522,9 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   grid anchors rotate through the config landmark names; other apps ignore the
   flag. Default-catalog harvest still works if the modal is skipped; a failed
   localize now logs "[localize] ... modal did not re-open" instead of nothing.
-  Historical verified bindings (pre-warmup era): Andheri→1404909/7min,
-  Goregaon→1392421/6min. We do NOT log in (no fake accounts). Re-check /
+  Verified bindings (09-04 smoke, 4 distinct stores across 6 anchors):
+  Andheri→1295147/14min, Goregaon→1404958/9min, Borivali→1392421/4min,
+  grid r6c4→1403051/10min. We do NOT log in (no fake accounts). Re-check /
   debug anytime:
   `DSH_DEBUG_DIR=/tmp/imdebug node tools/pw_catalog.js --app instamart
   --url https://instamart.in/ --lat <lat> --lon <lon>` then inspect
