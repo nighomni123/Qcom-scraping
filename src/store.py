@@ -399,9 +399,11 @@ class Store:
         self.conn.commit()
         return len(payload)
 
-    def catalog_prev_snapshot(self, app, store_id, before_ts=None):
+    def catalog_prev_snapshot(self, app, store_id, before_ts=None, with_prices=False):
         """(ts, {sku_key: name}) of the newest snapshot BEFORE before_ts —
-        the diff baseline. (None, {}) when this is the first snapshot."""
+        the diff baseline. (None, {}) when this is the first snapshot.
+        with_prices=True -> {sku_key: (name, price)} for pair reconciliation
+        (same product rotating sku_key between sweeps must not read as churn)."""
         q = "SELECT MAX(ts) FROM catalog_snapshots WHERE app=? AND store_id=?"
         args = [app, store_id]
         if before_ts is not None:
@@ -411,9 +413,15 @@ class Store:
         prev_ts = row[0] if row else None
         if prev_ts is None:
             return None, {}
-        skus = {k: (n or "") for k, n in self.conn.execute(
-            "SELECT sku_key, name FROM catalog_snapshots "
-            "WHERE app=? AND store_id=? AND ts=?", (app, store_id, prev_ts))}
+        cols = "sku_key, name, price" if with_prices else "sku_key, name"
+        skus = {}
+        for row in self.conn.execute(
+                f"SELECT {cols} FROM catalog_snapshots "
+                "WHERE app=? AND store_id=? AND ts=?", (app, store_id, prev_ts)):
+            if with_prices:
+                skus[row[0]] = (row[1] or "", row[2])
+            else:
+                skus[row[0]] = row[1] or ""
         return prev_ts, skus
 
     def record_catalog_events(self, app, store_id, events):

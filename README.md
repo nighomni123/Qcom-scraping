@@ -379,9 +379,21 @@ against the previous snapshot:
 
 Guardrails (AGENTS.md invariants): delisting comes ONLY from full snapshots —
 absence from partial sweeps or the prober's light rounds is never churn; a
-snapshot whose SKU count collapses below 50% of the previous one is recorded
-but not diffed (mass absence = crawl flake, not churn); vouchers stay
+snapshot whose (name,price) pair count collapses below 70% of the previous
+one is recorded but not diffed (mass absence = crawl flake, not churn —
+09-04: keyed to pairs and raised 0.5→0.7 after a 56%-pair-count / 24.9%-pair-
+overlap Instamart sweep fabricated ~11.5k delistings); vouchers stay
 excluded. First snapshot per store is the baseline — no churn events.
+
+Key-rotation noise (09-04): shelves whose payloads omit every product-id
+field fall back to a name-slug `sku_key` (see `collect()` in
+`tools/pw_catalog.js`), and products re-key slug→id between sweeps. A raw
+key diff reads that as churn, so the diff **reconciles on exact (name,price)
+pairs**: a "new"/"delisted" key whose pair exists on the other side is a
+re-key, not churn — excluded from `catalog_events` and watchlist
+deactivation, counted in the run log as `rekeyed (not churn): N`. This
+removed ~28% of events on the 09-04 Instamart 1398452 diff; verified by
+`python3 -m src.watchlist` (offline self-test).
 
 Inspect churn with `python3 run.py --catalog-report [--store ID]` or the
 dashboard's `GET /catalog?store=` endpoint. Cadence is yours — one store per

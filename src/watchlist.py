@@ -237,15 +237,23 @@ class WatchlistBuilder:
             print(f"    … +{len(ranked) - 8} more", flush=True)
 
     # -- catalog inventory: snapshot + churn diff (09-02) -------------------
-    # SKU count collapses to <50% of the previous snapshot -> soft-block /
-    # fetch-flake signature, NOT churn (mirrors the prober's suspect-cycle
-    # freeze): the snapshot is recorded honestly, but the diff is skipped so
-    # a flaky crawl can never mass-archive a store's catalog.
-    SUSPECT_SNAPSHOT_RATIO = 0.5
+    # Snapshot pair count collapses to <70% of the previous snapshot ->
+    # soft-block / fetch-flake signature, NOT churn (mirrors the prober's
+    # suspect-cycle freeze): the snapshot is recorded honestly, but the diff
+    # is skipped so a flaky crawl can never mass-archive a store's catalog.
+    # 09-04: raised 0.5 -> 0.7 and keyed to (name,price) PAIRS. The 09-04
+    # Instamart 1398452 19:52 sweep survived at 56% pair count / 24.9% pair
+    # OVERLAP and its diff fabricated ~11.5k delistings (watchlist rows
+    # deactivated for products still on sale). 70% keeps honest same-depth
+    # sweeps (~95%+ ratio) far clear; the cost of a skip is one diff cycle —
+    # the suspect snapshot itself becomes the next baseline, so a consistent
+    # follow-up sweep diffs cleanly against it.
+    SUSPECT_SNAPSHOT_RATIO = 0.7
 
     def _catalog_snapshot_and_diff(self, app, store_id, ranked):
         now = time.time()
-        prev_ts, prev = self.db.catalog_prev_snapshot(app, store_id, before_ts=now)
+        prev_ts, prev = self.db.catalog_prev_snapshot(
+            app, store_id, before_ts=now, with_prices=True)
         n = self.db.record_catalog_snapshot(app, store_id, now, ranked)
         if prev_ts is None:
             print(f"[catalog] {app}/{store_id}: BASELINE snapshot — {n} SKUs "
@@ -253,14 +261,32 @@ class WatchlistBuilder:
                   flush=True)
             return
         cur = {r["sku_key"]: r for r in ranked}
-        if len(cur) < self.SUSPECT_SNAPSHOT_RATIO * len(prev):
-            print(f"[catalog] {app}/{store_id}: SUSPECT snapshot — {len(cur)} "
-                  f"SKUs vs {len(prev)} previously (<50%): archived, diff "
+        # Pair reconciliation (09-04): Instamart shelves sometimes omit every
+        # id field, so sku_key falls back to a name-slug there and rotates
+        # slug->id between sweeps — raw key diffs read that as churn. Reconcile
+        # on exact (name, price) pairs: a "new"/"delisted" key whose pair
+        # exists on the other side is a re-key, not churn (excluded from
+        # events + watchlist deactivation; logged as reconciled below).
+        prev_pairs = set(prev.values())            # {(name, price)}
+        cur_pairs = {(r.get("name") or "", r.get("price")) for r in ranked}
+        age_h = (now - prev_ts) / 3600.0
+        # Suspect guard on PAIRS: a depth-collapsed sweep also drops pairs
+        # wholesale, and pairs are immune to key rotation — a <50% pair drop
+        # is always a crawl flake, never churn (raw keys exaggerated it).
+        if len(cur_pairs) < self.SUSPECT_SNAPSHOT_RATIO * len(prev_pairs):
+            print(f"[catalog] {app}/{store_id}: SUSPECT snapshot — {len(cur_pairs)} "
+                  f"distinct (name,price) pairs vs {len(prev_pairs)} previously "
+                  f"(<{int(self.SUSPECT_SNAPSHOT_RATIO * 100)}%): archived, diff "
                   f"SKIPPED (mass absence = crawl flake, not churn)", flush=True)
             return
-        age_h = (now - prev_ts) / 3600.0
         new_skus = [k for k in cur if k not in prev]
         delisted_skus = [k for k in prev if k not in cur]
+        # Re-keyed products: drop from churn lists (they are NOT events).
+        reconciled_new = {k for k in new_skus if (cur[k].get("name") or "", cur[k].get("price")) in prev_pairs}
+        reconciled_del = {k for k in delisted_skus if prev[k] in cur_pairs}
+        new_skus = [k for k in new_skus if k not in reconciled_new]
+        delisted_skus = [k for k in delisted_skus if k not in reconciled_del]
+        n_rekey = len(reconciled_new) + len(reconciled_del)
         events = []
         for k in new_skus:
             r = cur[k]
@@ -269,7 +295,7 @@ class WatchlistBuilder:
                            "prev_snapshot_ts": prev_ts,
                            "detail": ",".join((r.get("collections") or [])[:3])})
         for k in delisted_skus:
-            events.append({"sku_key": k, "kind": "delisted", "name": prev[k],
+            events.append({"sku_key": k, "kind": "delisted", "name": prev[k][0],
                            "price": None, "snapshot_ts": now,
                            "prev_snapshot_ts": prev_ts,
                            "detail": "absent from full-catalog sweep"})
@@ -279,14 +305,91 @@ class WatchlistBuilder:
             self.db.deactivate_watchlist_skus(app, store_id, delisted_skus)
         print(f"[catalog] {app}/{store_id}: snapshot {n} SKUs vs "
               f"{len(prev)} {age_h:.1f}h ago -> NEW={len(new_skus)} "
-              f"DELISTED={len(delisted_skus)}", flush=True)
+              f"DELISTED={len(delisted_skus)}"
+              + (f" · rekeyed (not churn): {n_rekey}" if n_rekey else ""),
+              flush=True)
         for k in new_skus[:5]:
             r = cur[k]
             print(f"    [new] {str(r.get('name'))[:52]:<54} ₹{r.get('price')}  "
                   f"via={','.join((r.get('collections') or [])[:2])}", flush=True)
         for k in delisted_skus[:5]:
-            print(f"    [delisted] {str(prev[k])[:56]}  (was listed "
+            print(f"    [delisted] {str(prev[k][0])[:56]}  (was listed "
                   f"{age_h:.1f}h ago)", flush=True)
-        if len(new_skus) > 5 or len(delisted_skus) > 5:
+        if len(new_skus) > 5 or len(delisted_skus) > 5 or n_rekey > 5:
             print(f"    … full churn log: catalog_events table / --catalog-report",
                   flush=True)
+
+
+if __name__ == "__main__":
+    # Offline self-test: pair reconciliation + pair-based suspect guard,
+    # replaying the observed 09-04 Instamart 1398452 slug->id re-key pattern.
+    # Pure logic — a fake DB records what the diff WOULD write; no network.
+    class FakeDB:
+        def __init__(self, prev):
+            self.prev = prev
+            self.snapshots = []
+            self.events = []
+            self.deactivated = []
+
+        def catalog_prev_snapshot(self, app, store_id, before_ts=None,
+                                  with_prices=False):
+            assert with_prices, "diff must request prices for pair reconciliation"
+            ts = 1000.0
+            return (ts, {k: (n, p) for k, (n, p) in self.prev.items()}) \
+                if with_prices else (ts, {k: n for k, (n, p) in self.prev.items()})
+
+        def record_catalog_snapshot(self, app, store_id, ts, rows):
+            self.snapshots = rows
+            return len(rows)
+
+        def record_catalog_events(self, app, store_id, events):
+            self.events = events
+            return len(events)
+
+        def deactivate_watchlist_skus(self, app, store_id, keys):
+            self.deactivated = keys
+            return len(keys)
+
+    def row(k, name, price):
+        return {"sku_key": k, "name": name, "price": price,
+                "in_stock": True, "collections": ["shelf"]}
+
+    # Case 1 (the observed 09-04 Instamart pattern): Kurkure re-keys
+    # slug->id between sweeps (same name+price), Amul is stable, Bingo is
+    # genuinely delisted, OnePlus is genuinely new.
+    fake = FakeDB(prev={"slugkey": ("Kurkure Masala Munch", 20.0),
+                        "keep1":    ("Amul Gold Ice Cream", 120.0),
+                        "gonekey":  ("Bingo Mad Angles", 52.0)})
+    wb = WatchlistBuilder({"demand": {}}, fake)
+    cur = [row("01jjdlrzid", "Kurkure Masala Munch", 20.0),  # re-keyed in
+           row("keep1", "Amul Gold Ice Cream", 120.0),      # stable
+           row("brandnew", "OnePlus Nord 5", 34999.0)]       # genuinely new
+    wb._catalog_snapshot_and_diff("instamart", "s1", cur)
+    kinds = {(e["sku_key"], e["kind"]) for e in fake.events}
+    assert ("brandnew", "new") in kinds, "genuinely new must be an event"
+    assert ("gonekey", "delisted") in kinds, "vanished pair must be an event"
+    assert not any(k == "01jjdlrzid" for k, _ in kinds), "re-keyed must NOT be an event"
+    assert fake.deactivated == ["gonekey"], "only real delistings deactivate"
+    assert len(fake.events) == 2, f"expected exactly 2 events, got {len(fake.events)}"
+
+    # Case 2: suspect guard on pairs — half the catalog "vanishes" by key
+    # AND by pair => crawl flake => diff skipped, zero events.
+    big_prev = {f"k{i}": (f"Item {i}", float(i)) for i in range(100)}
+    fake2 = FakeDB(prev=big_prev)
+    wb.db = fake2
+    flake = [row(f"k{i}", f"Item {i}", float(i)) for i in range(40)]  # 40% pairs survive
+    wb._catalog_snapshot_and_diff("instamart", "s2", flake)
+    assert fake2.events == [], "collapsed sweep must record snapshot, zero events"
+    assert fake2.deactivated == [], "collapsed sweep must not deactivate"
+
+    # Case 3: healthy sweep — 100% pair survival, one re-key excluded.
+    fake3 = FakeDB(prev={f"k{i}": (f"Item {i}", float(i)) for i in range(50)})
+    wb.db = fake3
+    healthy = [row(f"k{i}", f"Item {i}", float(i)) for i in range(49)]
+    healthy.append(row("newkey", "Item 49", 49.0))  # re-keyed id for last item
+    wb._catalog_snapshot_and_diff("instamart", "s3", healthy)
+    assert fake3.events == [], "re-key-only sweep = zero churn events"
+    assert fake3.deactivated == []
+
+    print("[watchlist] self-test OK: pair reconciliation + suspect guard "
+          "(3 cases, 0 false churn events)")
