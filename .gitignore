@@ -12,3 +12,4 @@ deals.log
 .DS_Store
 apks/
 exports/ai_explain_*.md
+deals.demo.db*

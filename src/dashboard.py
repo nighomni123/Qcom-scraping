@@ -79,8 +79,8 @@ FEATURE_CATALOG = [
      "desc": "Offline end-to-end test: injects a fake glitch into a synthetic "
               "store and verifies crawl → detect → alert → store. Touches no "
               "live app.",
-      "meta": "RESETS deals.db (auto-backup kept as deals.db.bak-demo-*) · "
-              "~10 s · use as a health check",
+      "meta": "Writes only the scratch deals.demo.db · ~10 s · use as a "
+               "health check",
      "cmd": [sys.executable, "-u", "run.py", "--demo"]},
     {"id": "qc_status", "label": "QC health probe", "service": False,
      "desc": "One live probe per quick-commerce app to verify extraction "

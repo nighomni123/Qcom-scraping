@@ -184,6 +184,7 @@ straight from the DB — no crawling.
     cp .env.example .env            # fill TG_BOT_TOKEN / TG_CHAT_ID for phone push
     python3 run.py --check          # validate config + adapters
     python3 run.py --demo           # end-to-end pipeline with an injected glitch
+                                    # (writes scratch deals.demo.db — never touches deals.db)
     python3 scripts/live_sweep.py   # hunt REAL glitches across the corridor now
     python3 run.py                  # continuous loop
 

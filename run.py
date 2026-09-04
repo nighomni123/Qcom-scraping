@@ -74,10 +74,13 @@ def _flag_float(name):
 
 def main():
     cfg = load_cfg()
-    # Reset the demo db BEFORE opening the Store connection (deleting the file
-    # under an open sqlite handle causes "attempt to write a readonly database").
+    # --demo runs the pipeline against a SCRATCH database — never the
+    # production one. (09-04: --demo used to wipe whatever cfg["db"] pointed
+    # at — including the live deals.db from the dashboard's one-click Demo
+    # card — with a backup that nobody watched for. The demo runs on a clean
+    # slate by design, so it only ever needs its own throwaway file.)
     if "--demo" in sys.argv:
-        reset_demo_db(cfg)
+        cfg = {**cfg, "db": "deals.demo.db"}
     corridor = Corridor(cfg.get("geo", {}).get("corridor", []))
     honey = load_honey(cfg)
     store = Store(cfg.get("db", "deals.db"))
@@ -296,20 +299,6 @@ def main():
         return
 
     loop(cfg)
-
-
-def reset_demo_db(cfg):
-    import os
-    import shutil
-    import time
-    p = cfg.get("db", "deals.db")
-    if os.path.exists(p):
-        # --demo wipes the DB (including when launched from the dashboard's
-        # Demo card). Never delete without a timestamped backup first.
-        bak = f"{p}.bak-demo-{time.strftime('%Y%m%d-%H%M%S')}"
-        shutil.copy2(p, bak)
-        print(f"[demo] backed up {p} -> {bak}")
-        os.remove(p)
 
 
 def print_demo_report(store):

@@ -163,6 +163,10 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
 
     python3 run.py --check                 # config + adapters sanity
     python3 run.py --demo                  # offline pipeline test (injected glitch)
+                                    # 09-04: runs against scratch deals.demo.db —
+                                    # it can NEVER touch the real deals.db (it
+                                    # used to wipe cfg.db before running; the
+                                    # dashboard Demo card reset production once)
     python3 run.py --map-locality [--apps blinkit,zepto] [--max-points N]
     python3 run.py --build-watchlist [--apps …] [--store ID]
                                     [--max-per-store N] [--max-queries N]
