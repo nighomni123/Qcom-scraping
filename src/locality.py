@@ -202,10 +202,31 @@ class LocalityMapper:
         """
         seen, history = {}, []
         last_new = -1
+        # Instamart locality terms (09-04): the app's "Add your location" modal
+        # decides which darkstore a session binds, and reverse-geocoding our
+        # corridor anchors returns generic "Mumbai" — so every probe typed
+        # "Mumbai", confirmed the first suggestion ("Mumbai Central") and all
+        # anchors collapsed onto ONE downtown store. Supply the anchor's own
+        # locality name instead: landmark anchors use their config name
+        # ("Andheri"); grid anchors rotate through the config landmark names
+        # so the sweep still fans out across the corridor. Other apps ignore
+        # im_term (consumed only by the instamart branch of pw_catalog.js).
+        lm_names = []
+        loc_cfg = self.cfg.get("demand", {}).get("locality", {}) or {}
+        for lm in loc_cfg.get("landmarks", []) or []:
+            nm = str(lm.get("name", "")).strip() if isinstance(lm, dict) else str(lm).strip()
+            if nm:
+                lm_names.append(nm)
         for i, pt in enumerate(anchors):
+            im_term = None
+            if pt.get("kind") == "landmark":
+                im_term = pt["label"]
+            elif lm_names:
+                im_term = lm_names[i % len(lm_names)]
             t0 = time.time()
             try:
-                products, meta = adapter.probe_point(pt["label"], pt["lat"], pt["lon"])
+                products, meta = adapter.probe_point(pt["label"], pt["lat"], pt["lon"],
+                                                     im_term=im_term)
             except KeyboardInterrupt:
                 raise
             except Exception as ex:               # never kill the sweep for one bad point

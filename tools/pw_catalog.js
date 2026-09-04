@@ -53,6 +53,13 @@ const WAIT = parseInt(arg('wait-ms', '9000'), 10);
 // high enough to never truncate a real store; --max-out overrides.
 const MAX_OUT = parseInt(arg('max-out', '20000'), 10);
 const DUMP = process.argv.includes('--dump');
+// Instamart locality-term override (09-04): the caller supplies the exact
+// locality name to type into the app's "Add your location" modal. Without it,
+// reverse-geocoding corridor anchors returns generic "Mumbai" and the first
+// suggestion ("Mumbai Central") binds the SAME downtown darkstore for every
+// anchor. locality.py forwards each anchor's landmark name (or a rotated
+// landmark for grid anchors). Instamart-only; other apps ignore it.
+const IM_TERM = arg('im-term', null);
 // Phase 5 (08-31): optional residential proxy so the request IP matches the
 // spoofed GPS anchor (QC apps resolve the darkstore from IP — JioMart is
 // IP-locked outright). --proxy wins; else PROXY_URL env (comma list → first).
@@ -639,8 +646,8 @@ async function main() {
   const products = new Map();
   const apiHits = [];
   const apiLog = [];      // {url, status} of API-ish responses (stuck diagnostics)
-  let imLocality = null;  // Instamart: reverse-geocoded locality from address-widgets
-  let imProbe = 0;         // Instamart: per-anchor rotation counter for local term
+  let imLocality = null;     // Instamart: reverse-geocoded locality from address-widgets
+  let imTermResolved = null; // Instamart: ONE shared locality term for warm-up + target localize
   let biggest = { url: '', len: 0, head: '' };
   let browser;
   try {
@@ -811,14 +818,34 @@ async function main() {
     // localStorage) carries into the later goto() of the real target URL, so the
     // collection then fetches with store context.
     if (APP === 'instamart') {
-      const warmTerm = imLocality || await reverseGeocode(LAT, LON);
+      // ONE shared locality term for this warm-up binding AND the target-page
+      // localize below (09-04 fix). Before: warm-up reverse-geocoded — corridor
+      // anchors return generic "Mumbai", so the first suggestion "Mumbai
+      // Central" bound the SAME downtown darkstore for every anchor — while the
+      // localize pass computed a separate "rotated" term via a process-local
+      // counter that was always 0 (each probe spawns a FRESH node process), so
+      // every probe typed the same word and its re-bind silently failed.
+      // Term priority: --im-term (caller-supplied anchor locality) ->
+      // address-widgets capture -> reverse-geocode -> deterministic corridor
+      // fallback (coordinate-hash over local suburb names).
+      imTermResolved = IM_TERM || imLocality || await reverseGeocode(LAT, LON);
+      if ((!imTermResolved || /mumbai/i.test(imTermResolved)) && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
+        const locals = ['Borivali','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
+        // Deterministic per-COORDINATE index: a process-local counter cannot
+        // rotate across fresh processes (it was always locals[0] = 'Borivali').
+        imTermResolved = locals[Math.abs(Math.round((LAT + LON) * 1e4)) % locals.length];
+      }
+      if (!imTermResolved) imTermResolved = 'Mumbai';
+      console.error(`[debug] instamart imTerm resolved -> "${imTermResolved}" (LAT=${LAT} LON=${LON})`);
       await page.goto('https://instamart.in/', { timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
       await page.waitForTimeout(3000);
-      if (warmTerm) {
-        const ok = await instamartAddressFlow(page, warmTerm);
+      if (imTermResolved) {
+        const ok = await instamartAddressFlow(page, imTermResolved);
         if (ok) {
           console.error('[warmup] instamart: store bound on homepage, loading target with store context');
           await page.waitForTimeout(5000);
+        } else {
+          console.error('[warmup] instamart: location modal did not complete (store may stay unbound)');
         }
       }
     }
@@ -892,35 +919,26 @@ async function main() {
     await page.waitForTimeout(1500);
 
     // Instamart on instamart.in: the default catalog is NON-localized (no
-    // store/ETA). Drive the app's own "Add your location" modal to bind the
-    // anchor's locality so home_v2 returns a specific darkstore + ETA. Runs even
-    // when products already exist (they're the default feed until we localize).
-    let imTerm = null;
-    if (APP === 'instamart') {
-      imTerm = imLocality || await reverseGeocode(LAT, LON);
-      // Corridor-aware rotation: cycle through local names so multi-anchor
-      // locator gathers diverse darkstores instead of always 'Andheri'.
-      if ((!imTerm || /mumbai/i.test(imTerm)) && LAT >= 19.00 && LAT <= 19.30 && LON >= 72.70 && LON <= 73.00) {
-        const locals = ['Borivali','Goregaon','Andheri','Malad','Kandivali','Jogeshwari','Vile Parle'];
-        // Rotate per anchor (not per lat/lon sum, which is near-constant in a
-        // tight grid) so multi-anchor locators hit diverse local stores.
-        imProbe = (imProbe || 0) + 1;
-        imTerm = locals[(imProbe - 1) % locals.length];
-      }
-      if (!imTerm) imTerm = 'Mumbai';
-      console.error(`[debug] instamart imTerm resolved -> "${imTerm}" (LAT=${LAT} LON=${LON})`);
-      if (imTerm) {
-        console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
-        const ok = await instamartAddressFlow(page, imTerm);
-        if (ok) {
-          // Store is now bound (cookies/localStorage). The Instamart SPA does NOT
-          // auto-refetch the current route on store change, so a collection/page
-          // that is store-gated (e.g. /campaign-collection/mxn) stays empty until
-          // reloaded. Reload with the store context so products actually fetch.
-          console.error('[localize] instamart: location confirmed, reloading with store context');
-          await page.reload({ timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
-          await page.waitForTimeout(9000);
-        }
+    // store/ETA). Re-drive the app's own "Add your location" modal with the
+    // SAME term the warm-up bound (imTermResolved above) so the target page
+    // fetches under the anchor's darkstore. Runs even when products already
+    // exist (they're the default feed until we localize).
+    let imTerm = imTermResolved;
+    if (APP === 'instamart' && imTerm) {
+      console.error(`[localize] instamart: driving location modal (term="${imTerm}")`);
+      const ok = await instamartAddressFlow(page, imTerm);
+      if (ok) {
+        // Store is now bound (cookies/localStorage). The Instamart SPA does NOT
+        // auto-refetch the current route on store change, so a collection/page
+        // that is store-gated (e.g. /campaign-collection/mxn) stays empty until
+        // reloaded. Reload with the store context so products actually fetch.
+        console.error('[localize] instamart: location confirmed, reloading with store context');
+        await page.reload({ timeout: 30000, waitUntil: 'domcontentloaded' }).catch(() => {});
+        await page.waitForTimeout(9000);
+      } else {
+        // Do NOT fail silently (09-04): after the warm-up confirmed a location
+        // the modal trigger can be gone — the warm-up's store stays bound.
+        console.error('[localize] instamart: modal did not re-open (store from warm-up stays bound)');
       }
     }
 

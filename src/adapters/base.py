@@ -113,7 +113,7 @@ class Adapter:
             return [], {"error": f"{self.name}: no APP_URL defined"}
         return self._browser_catalog_full(url, f"{self.name}::health", self.name, lat, lon)
 
-    def probe_point(self, station, lat, lon):
+    def probe_point(self, station, lat, lon, im_term=None):
         """
         One PRODUCT-BEARING probe at an anchor point (Demand Radar locality
         mapping + --store-inventory). Uses PROBE_URL when the app's home page
@@ -121,12 +121,17 @@ class Adapter:
         session for catalog breadth beyond the home feed's carousels.
         Returns (products, meta). meta carries darkstore-identity candidates +
         delivery ETA extracted from the intercepted API traffic.
+        im_term (Instamart only): the locality name to type into the app's
+        "Add your location" modal so this probe binds the ANCHOR's darkstore —
+        reverse-geocoding corridor anchors returns generic "Mumbai", which
+        bound the same downtown store for every anchor. Other apps ignore it.
         """
         url = getattr(self, "PROBE_URL", None) or getattr(self, "APP_URL", None)
         if not url:
             return [], {"error": f"{self.name}: no APP_URL defined"}
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
-                                          lat, lon, terms=tuple(self.PROBE_TERMS))
+                                          lat, lon, terms=tuple(self.PROBE_TERMS),
+                                          im_term=im_term)
 
     def rotating_terms(self, n=1):
         """Next n queries from schedule.crawl_terms (round-robin per adapter
@@ -180,7 +185,8 @@ class Adapter:
 
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
                               categories=0, terms=None, skip=None, pre=None,
-                              deep_cats=False, mirror_page_ms=None, tabs=None):
+                              deep_cats=False, mirror_page_ms=None, tabs=None,
+                              im_term=None):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -216,6 +222,11 @@ class Adapter:
             cmd += ["--mirror-page-ms", str(int(mirror_page_ms))]
         if tabs:
             cmd += ["--tabs", str(int(tabs))]
+        if im_term:
+            # Instamart-only: the locality term for the "Add your location"
+            # modal (see pw_catalog.js IM_TERM). deep_sweep/catalog callers
+            # don't pass one — they target a known store's own coordinates.
+            cmd += ["--im-term", str(im_term)]
         if terms:
             cmd += ["--terms", "|".join(terms)]
         if skip:

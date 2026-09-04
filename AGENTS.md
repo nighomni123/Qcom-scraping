@@ -504,14 +504,27 @@ Full report: `docs/blinkit-apk-reverse-findings.md`.
   false, `home/v2` `items:[]`, `/api/instamart/search/v2` 403 — traced 08-24),
   but `instamart.in` is a separate storefront that serves a default catalog
   WITHOUT that gate and resolves a localized darkstore once location is set.
-  pw_catalog.js drives the app's own "Add your location" modal: it
-  reverse-geocodes the anchor client-side (BigDataCloud, keyless — the
-  `address-widgets/v2` response does NOT fire on instamart.in), types the
-  locality, taps the first suggestion, then "Confirm Location". The granted
-  browser GEOLOCATION then refines to the nearest store, so each anchor
-  resolves its OWN `podid` + ETA (verified: Andheri→1404909/7min,
-  Goregaon→1392421/6min). Default-catalog harvest still works if the modal is
-  skipped. We do NOT log in (no fake accounts). Re-check / debug anytime:
+  pw_catalog.js drives the app's own "Add your location" modal: type the
+  locality term, tap the first suggestion, then "Confirm Location" (the
+  granted browser GEOLOCATION then refines to the nearest store). The TERM is
+  resolved ONCE per run and shared by the homepage warm-up binding and the
+  target-page localize (09-04 fix; before, warm-up reverse-geocoded while
+  localize used a separate "rotated" term, and since each probe spawns a FRESH
+  node process the process-local rotation counter was always 0 — so every
+  anchor typed the same word, warm-up's first suggestion bound ONE store, and
+  the localize re-bind failed silently; all corridor anchors collapsed onto a
+  single downtown darkstore). Term priority: `--im-term` (caller-supplied) →
+  `address-widgets` capture → BigDataCloud client reverse-geocode (keyless;
+  `address-widgets/v2` does NOT fire on instamart.in) → deterministic
+  corridor fallback (coordinate-hash over local suburb names — a process-local
+  counter can never rotate across fresh processes). `src/locality.py` supplies
+  `--im-term` per anchor: landmark anchors pass their config name ("Andheri"),
+  grid anchors rotate through the config landmark names; other apps ignore the
+  flag. Default-catalog harvest still works if the modal is skipped; a failed
+  localize now logs "[localize] ... modal did not re-open" instead of nothing.
+  Historical verified bindings (pre-warmup era): Andheri→1404909/7min,
+  Goregaon→1392421/6min. We do NOT log in (no fake accounts). Re-check /
+  debug anytime:
   `DSH_DEBUG_DIR=/tmp/imdebug node tools/pw_catalog.js --app instamart
   --url https://instamart.in/ --lat <lat> --lon <lon>` then inspect
   /tmp/imdebug (products + store_hint in the last JSON line).

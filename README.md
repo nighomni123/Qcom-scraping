@@ -92,7 +92,11 @@ the search bot compares quick-commerce platforms only — re-enable via
 
 `--map-locality` resolves each app's distinct darkstores by probing a
 landmark+grid anchor set (config → `demand.locality`), enforcing our GPS on
-every intercepted API call (cached-location seeding + request rewrite).
+every intercepted API call (cached-location seeding + request rewrite). For
+Instamart, each probe also types the anchor's own locality name into the app's
+"Add your location" modal (landmark name, rotated landmark names for grid
+anchors) so the session binds that anchor's darkstore instead of one shared
+city-wide store.
 `--build-watchlist` deep-sweeps each store in ONE browser session — home feed,
 category click-throughs, staple searches — scoring every SKU (search hits >
 home presence) into the `watchlist` table. `--demand` then loops: each cycle
