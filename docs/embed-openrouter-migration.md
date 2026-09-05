@@ -1,4 +1,4 @@
-# Semantic matching — Gemini → OpenRouter migration plan
+# Semantic matching — Gemini → NVIDIA (OpenRouter was an intermediate) migration plan
 
 **Status date: 09-05.** Working notes for the embedding-provider switch: what
 was measured, what is already shipped, what is pending, and exactly how to run
@@ -28,7 +28,7 @@ Candidates (all $0 input/output on OpenRouter):
 
 | model | dims | "diet coke"→Coke Zero | "cigarette"→Marlboro | verdict |
 |---|---|---|---|---|
-| **`nvidia/llama-nemotron-embed-vl-1b-v2:free`** | 2048 | **#1/59**, cos 0.41 (margin +0.15) | **#1/59**, cos 0.286 (margin +0.03) | **CHOSEN** |
+| **`nvidia/llama-nemotron-embed-vl-1b-v2`** | 2048 | **#1/59**, cos 0.41 (margin +0.15) | **#1/59**, cos 0.286 (margin +0.03) | **CHOSEN** |
 | `nvidia/nemotron-3-embed-1b:free` | 2048 | ok | #3/59, margin **−0.108** | rejected |
 | `liquid/lfm-2.5-embedding-350m:free` | 1024 | ok | #3/59, margin −0.104 (nicotine gums outranked Marlboro) | rejected |
 
@@ -57,7 +57,7 @@ probe, never by feel.
    independent of the chat LLM (chat stays on Gemini):
    `embedding_base_url: https://openrouter.ai/api/v1`,
    `embedding_key_env: OPENROUTER_API_KEY`, `embedding_model:
-   nvidia/llama-nemotron-embed-vl-1b-v2:free`, `embedding_dims: 2048`,
+   nvidia/llama-nemotron-embed-vl-1b-v2`, `embedding_dims: 2048`,
    `embedding_batch: 1000` — all at the END of the section (miniyaml-safe),
    with the full provider-switch rationale as comments.
 2. **src/embed.py — provider-agnostic wiring**: `__init__` reads
@@ -84,10 +84,13 @@ probe, never by feel.
 7. **Docs** — AGENTS.md (repo map `embed.py` entry, "What this repo is" §2,
    `--embed-catalog` command block with both providers' quota reality),
    README.md backfill comment, GLOSSARY.md backfill entry.
-8. **`deals.db` schema unchanged** — `embeddings` table is name-PK with
-   INSERT OR REPLACE; `_db_known()` filters by (model, dims), so the 6,500
-   dormant Gemini@768 rows stay untouched and invisible until the backfill
-   overwrites them under the new key (additive, no wipe step needed).
+8. **`deals.db` schema → composite PK (model, dims, name)** — a one-time
+   in-code migration re-keys the old name-PK table in place (ALTER-via-rename).
+   The 6,500 banked Gemini@768 rows are PRESERVED untouched; new Nemotron@2048
+   rows are written ADDITIVELY alongside them, so both corpora coexist and a
+   later Gemini completion enables a match-quality A/B. The query is embedded
+   transiently as "query" type and is NEVER persisted (it would poison the
+   passage-keyed corpus). See src/embed.py `_migrate()`.
 
 ## PENDING (in order) — with runbooks
 
@@ -152,7 +155,7 @@ Only worth it if DB size ever matters (365 MB is fine). With budget available:
     curl -s https://openrouter.ai/api/v1/embeddings \
       -H "Authorization: Bearer $OPENROUTER_API_KEY" \
       -H "Content-Type: application/json" \
-      -d '{"model":"nvidia/llama-nemotron-embed-vl-1b-v2:free","input":["probe"],"dimensions":768,"encoding_format":"float"}'
+      -d '{"model":"nvidia/llama-nemotron-embed-vl-1b-v2","input":["probe"],"dimensions":768,"encoding_format":"float"}'
 
 200 + 768-dim vector → set `embedding_dims: 768` in config.yaml and RE-RUN the
 backfill (rows re-key; ~4× smaller DB). 400/unsupported → leave at 2048.
@@ -178,3 +181,40 @@ add `OPENROUTER_API_KEY_2` to `.env` — the pool scan picks it up automatically
 - **No secrets in config.yaml** — the key lives in `.env`
   (`OPENROUTER_API_KEY`), read via the same `_load_env` path as everything
   else.
+
+
+## ADDENDUM (09-05, FINAL STATE — supersedes OpenRouter-specific notes above)
+
+The backfill never ran on OpenRouter's free tier (both keys hit their 50 req/day
+cap the same day). Final provider is **NVIDIA-hosted**:
+
+- `ai.embedding_base_url: https://integrate.api.nvidia.com/v1`
+- `ai.embedding_key_env: NVIDIA_Build_API_KEY`
+- `ai.embedding_model: nvidia/llama-nemotron-embed-vl-1b-v2` (2048 dims, fixed)
+- `ai.embedding_input_type: passage` (corpus); live queries use `query` type
+
+**Asymmetric model.** nemotron is query/passage ASYMMETRIC: every request must
+carry `input_type` (scalar: `passage` for corpus, `query` for searches), a
+per-item `modality=["text"]*n`, and `truncate:"NONE"`. Same text typed query vs
+passage cosine ~0.48, so the two types must never be mixed.
+
+**Additive multi-model table.** `embeddings` is now `(model, dims, name) PRIMARY
+KEY`. Gemini's 6,500 @768 rows are preserved; Nemotron @2048 rows are added
+alongside — no overwrite, no wipe. Later Gemini completion + a match-quality A/B
+comparison become possible (never cross-model cosine — compare at the
+blend/recall level).
+
+**Transient queries.** `boost_many`/`most_similar` embed the live query as
+`query` type and score against the persisted `passage` corpus, but the query
+vector is NEVER written to the table (would corrupt the passage corpus).
+`--embed-catalog` backfill embeds corpus names as `passage` and persists them.
+
+**SEM bounds configurable.** `ai.embedding_sem_lo` / `ai.embedding_sem_hi`
+override the defaults (0.12 / 0.42) per model; the rescale is `max(0,
+min(1,(cos-lo)/(hi-lo)))`. The same model's landscape still applies, so the
+existing calibration holds; later Gemini can carry its own bounds.
+
+**Quota reality (NVIDIA).** Trial NIM is RPM-capped (~40 RPM) with no hard daily
+request wall observed; batches of 2000 verified OK (~158s). All provider keys
+round-robin per batch and retry when limits reset. Backfill is journaled to
+`logs/embed_backfill.log`; re-run `python3 run.py --embed-catalog` to resume.

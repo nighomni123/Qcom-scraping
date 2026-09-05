@@ -1,5 +1,6 @@
 .env
 __pycache__/
+.venv/
 *.pyc
 deals.db
 deals.db-shm
@@ -8,8 +9,13 @@ deals.db.bak*
 inventory_*.db
 inventory_*.db-shm
 inventory_*.db-wal
+# per-app inventory_<app>.db databases (relocated into their own folder)
+inventory/
 deals.log
 .DS_Store
 apks/
 exports/ai_explain_*.md
 deals.demo.db*
+
+# backup databases (manual + auto-generated, lives outside the live deals.db)
+backups/

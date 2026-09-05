@@ -61,7 +61,7 @@ One tool, three features (all sharing the same browser-intercept crawler):
    watch and WatchPusher (`src/tgbot.py`) pushes Telegram pings whenever a
    search result or crawl batch matches (rate-capped); `/digest` replies with
    today's cheapest find per category + Demand Radar DPI top-5. Matching is
-   token-overlap with an OPTIONAL semantic lift (`src/embed.py`: OpenRouter
+   token-overlap with an OPTIONAL semantic lift (`src/embed.py`: NVIDIA-hosted
    embeddings via ai.embedding_base_url, cached in an additive `embeddings`
    table;
    blend = max(token, semantic) so it can only add candidates, never demote;
@@ -143,14 +143,14 @@ src/
   categories.py         keyword product-category classifier (ordered rules)
   inventory.py          per-app darkstore inventories near the machine's real
                         location (public-IP derived, no spoofing) into separate
-                        inventory_<app>.db files (--store-inventory); runs
+                        inventory/inventory_<app>.db files (--store-inventory); runs
                         LocalityMapper in capture_products mode so each DB
                         also holds the probes' products (stock_obs source=
                         'inventory' + categorized price_obs)
   store.py              sqlite schema + all persistence helpers
-  embed.py              OPTIONAL semantic matching (OpenRouter embeddings,
-                        ai.embedding_base_url + OPENROUTER_API_KEY —
-                        nvidia/llama-nemotron-embed-vl-1b-v2:free @2048
+  embed.py              OPTIONAL semantic matching (NVIDIA-hosted embeddings,
+                        ai.embedding_base_url + NVIDIA_Build_API_KEY (asymmetric:
+                        corpus=passage, query=query; nvidia/llama-nemotron-embed-vl-1b-v2 @2048
                         dims; a whole 1000-name batch counts as ONE request,
                         50 req/day free tier): batched stdlib-urllib client
                         + sqlite cache in an additive `embeddings` table
@@ -225,9 +225,9 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # new/delisted churn log (catalog-inventory)
     python3 run.py --embed-catalog [--limit N]          # semantic backfill:
                                     # vectorize every distinct product name
-                                    # via OpenRouter (ai.embedding_base_url +
-                                    # OPENROUTER_API_KEY; model
-                                    # nvidia/llama-nemotron-embed-vl-1b-v2:free
+                                    # via NVIDIA (ai.embedding_base_url +
+                                    # NVIDIA_Build_API_KEY; asymmetric model
+                                    # nvidia/llama-nemotron-embed-vl-1b-v2
                                     # @2048 dims; RESUMABLE — re-run to
                                     # continue, cached names are skipped).
                                     # 09-05 PROVIDER SWITCH from Gemini:
@@ -264,7 +264,7 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                     [--radius-m N] [--max-points N]
                                     # per-app darkstore inventories around the
                                     # machine's REAL approximate location (public
-                                    # IP; no spoofing) -> inventory_<app>.db,
+                                    # IP; no spoofing) -> inventory/inventory_<app>.db,
                                     # incl. captured products (stock_obs
                                     # source='inventory' + price_obs). Run
                                     # ALONE — no concurrent crawls (see rules).
@@ -275,7 +275,7 @@ loops from the Features panel) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics), `/demand /heatmap?store=
 /eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`),
 `/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
-deals.db + inventory_*.db), `/features` + `/features/<id>/start|stop|log`
+deals.db + inventory/*.db), `/features` + `/features/<id>/start|stop|log`
 (spawn/terminate any repo feature — monitor loop, bot, --demand, demo,
 inventory sweeps… — as managed child processes; 09-02: features declare an
 editable-args spec (`args` in FEATURE_CATALOG), the panel renders inputs per

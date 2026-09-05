@@ -1,26 +1,36 @@
 """
-embed.py — semantic product-name matching (OpenRouter embeddings route).
+embed.py — semantic product-name matching (OpenAI-compatible embeddings).
 
 Turns each distinct product name into ONE vector via an OpenAI-compatible
 /embeddings endpoint (config.yaml -> ai.embedding_base_url + the env var in
-ai.embedding_key_env, default OPENROUTER_API_KEY; model
-nvidia/llama-nemotron-embed-vl-1b-v2:free, fixed 2048 dims). Vectors persist
-in an additive `embeddings` table keyed by name (one vector per distinct
-name, shared across platforms and stores; INSERT OR REPLACE means a provider
-switch transparently re-keys rows on the next backfill). Live matching embeds
-only what one search needs (query + candidates = a single batched request);
-`python3 run.py --embed-catalog` backfills the archive (resumable).
+ai.embedding_key_env; default NVIDIA-hosted
+https://integrate.api.nvidia.com/v1, model nvidia/llama-nemotron-embed-vl-1b-v2,
+fixed 2048 dims, key NVIDIA_Build_API_KEY). Vectors persist in an ADDITIVE
+`embeddings` table with a composite primary key (model, dims, name): every
+provider's corpus is additive, so already-banked Gemini rows
+(gemini-embedding-001 @768) stay untouched while Nemotron rows @2048 are
+written alongside them — later a Gemini backfill + an A/B comparison at
+MATCH-QUALITY level (never cross-model cosine) become possible. Live matching
+embeds only what one search needs; `python3 run.py --embed-catalog` backfills
+the whole archive (resumable, journaled to logs/embed_backfill.log).
 
-QUOTA REALITY (live-measured 09-05): Gemini's free /embeddings counted EACH
+QUOTA REALITY (live-measured 09-05): Gemini free /embeddings counted EACH
 INPUT ITEM as its own request (100-name batch = 100 RPM + 100 RPD; 1,000
 RPD/key => ~9 days for 44k names). OpenRouter counts a WHOLE BATCH as ONE
-request: 1000 names/request finished 44,487 names in 39 requests / 14.5 min.
-Free tier = 50 requests/day (X-RateLimit-Limit), $10 credits -> 1000/day.
-Model choice live-verified on 60 real catalog names: the only free model
-where BOTH ground-truth pairs rank #1 ("diet coke"->Coke Zero +0.15,
-"cigarette"->Marlboro +0.03); the other free candidates ranked Marlboro #3.
-ponytail: 2048 dims ~8KB/name ~= 365MB for 44k names — if the DB ever
-matters, probe `dimensions` support or switch to a smaller model then.
+request but its free tier is 50 requests/day shared across accounts. NVIDIA's
+trial NIM (integrate.api.nvidia.com) is rate-limited (~40 RPM, no hard daily
+request wall observed); batches of 2000 verified OK (~158s). All provider keys
+are round-robined per batch and retried when their limits reset.
+ponytail: 2048 dims ~8KB/name ~= 365MB for 44k names — acceptable on current
+free space; probe smaller dims only if DB growth ever matters.
+
+ASYMMETRIC MODEL: nvidia/llama-nemotron-embed-vl-1b-v2 is query/passage
+ASYMMETRIC — `input_type` (a SCALAR per request: "query" vs "passage") plus a
+per-item `modality=["text"]*n` and `truncate:"NONE"` are REQUIRED. Corpus
+names are embedded as "passage"; live search queries are embedded as "query"
+and are NEVER persisted (persisting query vectors would poison the
+passage-keyed corpus). Typing genuinely moves the vector (same text typed
+query vs passage cosine ~0.48), so the two types must never be mixed.
 
 INVARIANTS
   * Embeddings only decide WHICH products count as a match — never prices,
@@ -29,8 +39,8 @@ INVARIANTS
     retries; callers never see exceptions).
   * The blend is max(token_score, semantic_score): semantics can only LIFT a
     candidate, never demote one.
-  * Raw cosine is rescaled onto the token-score scale via SEM_LO/SEM_HI — the
-    ONE calibration knob (verified against live cosines; see self-test).
+  * Raw cosine is rescaled onto the token-score scale via SEM_LO/SEM_HI
+    (config-overridable per model via ai.embedding_sem_lo / embedding_sem_hi).
 """
 from __future__ import annotations
 
@@ -44,12 +54,14 @@ import time
 import urllib.error
 import urllib.request
 
-DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2"
 DIMS = 2048            # fixed by the model — no `dimensions` param support
 BATCH = 1000           # texts per HTTP request — OpenRouter counts a WHOLE
                        # BATCH as ONE request (free tier: 50/day), so pack
                        # big; 39 requests covered the whole 44k-name corpus
-BATCH_PAUSE_SEC = 2.0  # gentle pacing between HTTP batches
+BATCH_PAUSE_SEC = 0.5  # gentle pacing between HTTP batches (config-overridable
+                        # via ai.embedding_batch_pause; NVIDIA trial NIM is RPM-,
+                        # not req-count-, bound, so a short pause is safe)
 COOLDOWN_SEC = 300     # after an endpoint failure, stay token-only this long
 MAX_WALL_ROUNDS = 5    # consecutive whole-pool 429 sleeps -> raise: the daily
                        # request budget is spent (OpenRouter resets midnight
@@ -61,7 +73,7 @@ RPD_COOLDOWN_SEC = 3600 # daily-budget-exhausted stays token-only 1h (not 5min)
 
 # Cosine -> [0,1] rescale onto the token-score scale. min_match_score (0.5)
 # implies a semantic pass line at SEM_LO + 0.5*(SEM_HI-SEM_LO) ~= 0.27.
-# LIVE-VERIFIED 09-05 against nvidia/llama-nemotron-embed-vl-1b-v2:free
+# LIVE-VERIFIED 09-05 against nvidia/llama-nemotron-embed-vl-1b-v2
 # @2048 on 60 real catalog names: unrelated pairs floor 0.07-0.24
 # (cross-domain 0.12, same-domain-non-match ~0.25); query->genuine match
 # 0.29-0.42 ("cigarette" vs "Marlboro Advance King Size" = 0.29 — the
@@ -74,11 +86,12 @@ SEM_HI = 0.42
 
 _SQL = """
 CREATE TABLE IF NOT EXISTS embeddings (
-    name  TEXT PRIMARY KEY,
-    vec   BLOB,
-    dims  INTEGER,
     model TEXT,
-    ts    REAL
+    dims  INTEGER,
+    name  TEXT,
+    vec   BLOB,
+    ts    REAL,
+    PRIMARY KEY (model, dims, name)
 );
 """
 
@@ -89,9 +102,10 @@ class RPDExhausted(RuntimeError):
     (OpenRouter midnight UTC, Gemini midnight PT)."""
 
 
-def _map(cos):
-    """Rescale a cosine onto the token-match scale (0..1)."""
-    return max(0.0, min(1.0, (cos - SEM_LO) / (SEM_HI - SEM_LO)))
+def _map(cos, lo=SEM_LO, hi=SEM_HI):
+    """Rescale a cosine onto the token-match scale (0..1). lo/hi are the cosine
+    bounds mapped to 0/1 (per-model overridable via ai.embedding_sem_lo/hi)."""
+    return max(0.0, min(1.0, (cos - lo) / (hi - lo)))
 
 
 def _dot(a, b):
@@ -125,19 +139,48 @@ class Embedder:
     def __init__(self, cfg, db_path="deals.db"):
         ai = (cfg or {}).get("ai") or {}
         self.enabled = bool(ai.get("enabled")) and bool(ai.get("semantic_matching", True))
-        # Embeddings get their OWN endpoint + key, independent of chat (ai.base_url
-        # stays the chat LLM): a provider switch on one never disturbs the other.
-        self.base = (str(ai.get("embedding_base_url") or "").strip()
-                     or "https://openrouter.ai/api/v1").rstrip("/")
-        self.model = str(ai.get("embedding_model") or DEFAULT_MODEL).strip()
+        # Provider: "openai" (default — any OpenAI-compatible /embeddings host,
+        # currently NVIDIA's integrate.api.nvidia.com) or "ollama" (a LOCAL
+        # Ollama server: no API key, its own /api/embed request shape). Adding a
+        # provider NEVER disturbs the others — rows are keyed by (model,dims) so
+        # Ollama's vectors live beside NVIDIA's in the same additive table.
+        self.provider = str(ai.get("embedding_provider") or "openai").strip().lower()
+        if self.provider == "ollama":
+            self.base = (str(ai.get("embedding_base_url") or "").strip()
+                         or "http://localhost:11434").rstrip("/")
+            self.model = str(ai.get("embedding_model") or "embeddinggemma").strip()
+            _def_dims, _def_batch = 768, 256
+            self.num_ctx = int(ai.get("embedding_ollama_num_ctx") or 512)
+            self.query_prefix = str(ai.get("embedding_query_prefix") or "").strip()
+            self.passage_prefix = str(ai.get("embedding_passage_prefix") or "").strip()
+        else:
+            self.base = (str(ai.get("embedding_base_url") or "").strip()
+                         or "https://integrate.api.nvidia.com/v1").rstrip("/")
+            self.model = str(ai.get("embedding_model") or DEFAULT_MODEL).strip()
+            _def_dims, _def_batch = DIMS, BATCH
+            self.query_prefix = ""
+            self.passage_prefix = ""
         try:
-            self.dims = int(ai.get("embedding_dims") or DIMS)
+            self.dims = int(ai.get("embedding_dims") or _def_dims)
         except (TypeError, ValueError):
-            self.dims = DIMS
+            self.dims = _def_dims
         try:
-            self.batch = max(1, int(ai.get("embedding_batch") or BATCH))
+            self.batch = max(1, int(ai.get("embedding_batch") or _def_batch))
         except (TypeError, ValueError):
-            self.batch = BATCH
+            self.batch = _def_batch
+        try:
+            self.sem_lo = float(ai.get("embedding_sem_lo") or SEM_LO)
+        except (TypeError, ValueError):
+            self.sem_lo = SEM_LO
+        try:
+            self.sem_hi = float(ai.get("embedding_sem_hi") or SEM_HI)
+        except (TypeError, ValueError):
+            self.sem_hi = SEM_HI
+        self.input_type = str(ai.get("embedding_input_type") or "passage").strip() or "passage"
+        try:
+            self.batch_pause = float(ai.get("embedding_batch_pause") or BATCH_PAUSE_SEC)
+        except (TypeError, ValueError):
+            self.batch_pause = BATCH_PAUSE_SEC
         self.db_path = db_path
         self._conn = None       # lazy sqlite (created on first ensure)
         self._cache = {}        # name -> array('f')
@@ -156,13 +199,15 @@ class Embedder:
         # the next instead of stalling. Scan EVERY slot (never break on a
         # missing one — .env edits land while processes run); dedupe; empty
         # pool = auth-free endpoint (Ollama).
-        key_env = str(ai.get("embedding_key_env") or "OPENROUTER_API_KEY").strip()
+        key_env = str(ai.get("embedding_key_env") or "NVIDIA_Build_API_KEY").strip()
         self.keys = []
         for suffix in [""] + [f"_{i}" for i in range(1, 10)]:
             k = (env.get(f"{key_env}{suffix}")
                  or os.environ.get(f"{key_env}{suffix}") or "").strip()
             if k and k not in self.keys:
                 self.keys.append(k)
+        if self.provider == "ollama":
+            self.keys = []   # local server — auth-free, no API key
 
     @property
     def available(self):
@@ -170,7 +215,78 @@ class Embedder:
 
     # -- network ----------------------------------------------------------
 
-    def _post(self, texts):
+    def _post(self, texts, input_type="passage"):
+        """Dispatch to the provider transport. Both return raw vectors in the
+        SAME ORDER as `texts` (a list parallel to it)."""
+        if self.provider == "ollama":
+            return self._post_ollama(texts, input_type)
+        return self._post_openai(texts, input_type)
+
+    def _post_ollama(self, texts, input_type="passage"):
+        """Local Ollama /api/embed (no API key). Optional query/passage prefixes
+        tune the asymmetric embedding — embeddinggemma ignores input_type but
+        responds to an instruction prefix. Returns ONE vector per input, or None
+        for an input Ollama refused (see _embed_batch)."""
+        prefix = self.query_prefix if input_type == "query" else self.passage_prefix
+        if prefix:
+            texts = [prefix + t for t in texts]
+        return self._embed_batch(texts)
+
+    def _ollama_body(self, texts):
+        body = {"model": self.model, "input": list(texts)}
+        if self.dims and self.dims != 768:   # 768 is embeddinggemma's native dim
+            body["dimensions"] = self.dims
+        return body
+
+    def _ollama_call(self, body):
+        req = urllib.request.Request(
+            f"{self.base}/api/embed",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=300) as r:
+            return json.loads(r.read().decode())
+
+    def _embed_batch(self, texts):
+        """Embed a batch; returns a list parallel to `texts` with None for any
+        input Ollama refused. Resilient to a 400 from a SINGLE bad name in an
+        otherwise-fine batch: drops `dimensions` if that's the complaint, then
+        binary-searches to isolate and skip the offending input(s) instead of
+        aborting the whole backfill. ponytail: a handful of un-embeddable names
+        out of 44k is noise — skip, don't crash."""
+        body = self._ollama_body(texts)
+        try:
+            d = self._ollama_call(body)
+        except urllib.error.HTTPError as ex:
+            if ex.code != 400:
+                raise
+            msg = (ex.read().decode()[:400] or "").lower()
+            if "dimensions" in msg and "dimensions" in body:
+                body.pop("dimensions", None)
+                try:
+                    d = self._ollama_call(body)
+                except urllib.error.HTTPError as ex2:
+                    if ex2.code != 400:
+                        raise
+                    if len(texts) == 1:
+                        print(f"[embed] skipping un-embeddable name: {texts[0]!r}",
+                              flush=True)
+                        return [None]
+                    return self._embed_batch(texts[:len(texts) // 2]) + \
+                        self._embed_batch(texts[len(texts) // 2:])
+            if len(texts) == 1:
+                print(f"[embed] skipping un-embeddable name: {texts[0]!r}", flush=True)
+                return [None]
+            return self._embed_batch(texts[:len(texts) // 2]) + \
+                self._embed_batch(texts[len(texts) // 2:])
+        vecs = d.get("embeddings")
+        if not isinstance(vecs, list) or len(vecs) != len(texts):
+            raise RuntimeError(
+                f"ollama /api/embed returned "
+                f"{len(vecs) if isinstance(vecs, list) else 0}/{len(texts)} "
+                f"vectors (model={self.model})")
+        return vecs
+
+    def _post_openai(self, texts, input_type="passage"):
         """One POST /embeddings with up to self.batch texts. Returns raw
         vectors in input order. Key handling (quota is PER KEY — distinct
         accounts have separate buckets):
@@ -183,7 +299,10 @@ class Embedder:
             persists). Callers: ensure() degrades to token-only; the
             backfill prints the re-run hint."""
         body = {"model": self.model, "input": list(texts),
-                "encoding_format": "float"}
+                "encoding_format": "float",
+                "input_type": input_type,
+                "modality": ["text"] * len(texts),
+                "truncate": "NONE"}
         if self.dims:
             body["dimensions"] = self.dims
         rounds, throttled, no_dims = 0, set(), False
@@ -275,7 +394,7 @@ class Embedder:
             for i in range(0, total, self.batch):
                 chunk = todo[i:i + self.batch]
                 try:
-                    vecs = self._post(chunk)
+                    vecs = self._post(chunk, self.input_type)
                 except RPDExhausted as ex:
                     self._down_until = time.time() + RPD_COOLDOWN_SEC
                     if progress:
@@ -315,17 +434,43 @@ class Embedder:
                               f"{self.cached_count()})"
                               + (f" — {skip} names returned unusable vectors, "
                                  f"NOT cached, retry next run" if skip else ""))
-                time.sleep(BATCH_PAUSE_SEC)
+                time.sleep(self.batch_pause)
             return done
 
     # -- sqlite cache -----------------------------------------------------
 
+    def _migrate(self):
+        """Upgrade a pre-composite-PK `embeddings` table (name PRIMARY KEY) to
+        the additive composite (model, dims, name) PK in place. Idempotent: a
+        table that already has the composite PK is left alone. Gemini rows
+        (gemini-embedding-001 @768) already banked are preserved unchanged;
+        new provider rows are simply added alongside them. ponytail: a one-shot
+        ALTER-via-rename keeps the diff tiny and needs no external migration
+        script."""
+        try:
+            row = self._conn.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' "
+                "AND name='embeddings'").fetchone()
+        except sqlite3.Error:
+            return
+        if not row or row[0] is None or "PRIMARY KEY (model" in row[0].upper():
+            return
+        self._conn.execute("DROP TABLE IF EXISTS embeddings_old")
+        self._conn.execute("ALTER TABLE embeddings RENAME TO embeddings_old")
+        self._conn.execute(_SQL)
+        self._conn.execute(
+            "INSERT OR REPLACE INTO embeddings(model,dims,name,vec,ts) "
+            "SELECT model,dims,name,vec,ts FROM embeddings_old")
+        self._conn.execute("DROP TABLE embeddings_old")
+        self._conn.commit()
+
     def _db_known(self):
-        """(under _lock) Connect + create table + load the known-name set.
-        ponytail: whole-table name set in RAM (~4MB at 42k names) — an
+        """(under _lock) Connect + migrate + create table + load the known-name
+        set. ponytail: whole-table name set in RAM (~4MB at 42k names) — an
         incremental EXISTS probe if the archive ever grows 10x."""
         if self._conn is None:
             self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self._migrate()
             self._conn.execute(_SQL)
             self._conn.commit()
         if self._known is None:
@@ -351,7 +496,7 @@ class Embedder:
     def cached_count(self):
         with self._lock:
             if self._conn is None:
-                return 0
+                self._db_known()   # open + migrate so a fresh instance can report
             return self._conn.execute(
                 "SELECT COUNT(*) FROM embeddings WHERE model=? AND dims=?",
                 (self.model, self.dims)).fetchone()[0]
@@ -376,13 +521,27 @@ class Embedder:
         with self._lock:
             if not self.available:
                 return {}
-            self.ensure([query] + uniq)
-            self._hydrate([query] + uniq)
-        qv = self._cache.get(query)
-        if not qv:
-            return {}
+            # Candidates are passages already in the corpus (backfilled); ensure
+            # any missing ones as passages so the live path also grows the
+            # corpus. The QUERY is embedded transiently as "query" type and is
+            # NEVER persisted (persisting it would poison the passage corpus).
+            self.ensure(uniq)
+            if not self.available:
+                return {}   # ensure() may have tripped the daily cool-down
+            try:
+                raw = self._post([query], "query")
+            except RPDExhausted:
+                self._down_until = time.time() + RPD_COOLDOWN_SEC
+                return {}
+            except Exception:
+                self._down_until = time.time() + COOLDOWN_SEC
+                return {}
+            qv = _as_vec(raw[0], self.dims)
+            if not qv:
+                return {}
+            self._hydrate(uniq)
         qn = _norm(qv)
-        return {nm: _map(_cos(qv, qn, v))
+        return {nm: _map(_cos(qv, qn, v), self.sem_lo, self.sem_hi)
                 for nm in uniq if (v := self._cache.get(nm))}
 
     def most_similar(self, query, limit=10, min_score=0.5):
@@ -393,11 +552,19 @@ class Embedder:
         if not self.available or not query:
             return []
         with self._lock:
-            self.ensure([query])
-            self._hydrate([query])   # cached query must load before use
-        qv = self._cache.get(query)
-        if not qv:
-            return []
+            # The query is embedded transiently as "query" type and never
+            # persisted; it must not enter the passage-keyed corpus.
+            try:
+                raw = self._post([query], "query")
+            except RPDExhausted:
+                self._down_until = time.time() + RPD_COOLDOWN_SEC
+                return []
+            except Exception:
+                self._down_until = time.time() + COOLDOWN_SEC
+                return []
+            qv = _as_vec(raw[0], self.dims)
+            if not qv:
+                return []
         qn = _norm(qv)
         conn = sqlite3.connect(self.db_path)
         try:
@@ -410,7 +577,7 @@ class Embedder:
                     continue        # the phrase itself is not an answer
                 v = array.array("f")
                 v.frombytes(blob)
-                s = _map(_cos(qv, qn, v))
+                s = _map(_cos(qv, qn, v), self.sem_lo, self.sem_hi)
                 if s >= min_score:
                     out.append((s, nm))
         finally:
@@ -475,7 +642,7 @@ if __name__ == "__main__":
     cfg = {"ai": {"enabled": True, "semantic_matching": True,
                   "embedding_model": "fake", "embedding_dims": 4}}
 
-    # Fake vectors mirror LIVE nvidia/llama-nemotron-embed-vl-1b-v2:free
+    # Fake vectors mirror LIVE nvidia/llama-nemotron-embed-vl-1b-v2
     # cosines (09-05 probe on 60 real catalog names): same-product 0.41,
     # same-domain-non-match 0.25, cross-domain floor 0.12 — so the pass/fail
     # assertions below sit on the real landscape, not invented geometry.
@@ -491,7 +658,7 @@ if __name__ == "__main__":
     }
     calls = []
 
-    def fake_post(texts):
+    def fake_post(texts, input_type="passage"):
         calls.append(list(texts))
         out = []
         for t in texts:
@@ -501,7 +668,7 @@ if __name__ == "__main__":
     emb = Embedder(cfg, os.path.join(tmp, "t.db"))
     emb._post = fake_post
     boosts = emb.boost_many("diet coke", list(fake_vecs))
-    assert "diet coke" in calls[0], "query must be embedded with candidates"
+    assert calls[-1] == ["diet coke"], "query must be embedded as a transient query-type call"
     assert boosts.get("Coca-Cola Zero Sugar 750ml", 0) >= 0.5, \
         "same-product phrasing must clear min_match_score"
     assert boosts.get("Kinley Soda Water Bottle", 1) < 0.5, \
@@ -514,16 +681,21 @@ if __name__ == "__main__":
     assert off.boost_many("diet coke", ["Dettol Original Soap"]) == {}
     assert len(calls) == n_calls, "disabled embedder must not hit the network"
 
-    # Persistence: a FRESH Embedder on the same DB answers from sqlite with
-    # no network at all (the resumable-backfill guarantee).
+    # Persistence: a FRESH Embedder answers cached passages from sqlite with
+    # NO re-embedding — the resumable-backfill guarantee. The only network call
+    # is the transient query (which is never persisted).
     emb2 = Embedder(cfg, os.path.join(tmp, "t.db"))
+    posts = []
 
-    def boom(texts):
-        raise AssertionError("network must not be called for cached names")
-    emb2._post = boom
+    def echo_post(texts, input_type="passage"):
+        posts.append(list(texts))
+        return [q if t == "diet coke" else fake_vecs.get(t, q) for t in texts]
+    emb2._post = echo_post
     again = emb2.boost_many("diet coke", list(fake_vecs))
     assert again.get("Coca-Cola Zero Sugar 750ml", 0) >= 0.5
     assert again.get("Dettol Original Soap", 1) < 0.05
+    # cached passages come from sqlite; only the query is embedded (transient)
+    assert posts == [["diet coke"]], "cached passages must NOT be re-embedded"
     top = emb2.most_similar("diet coke", limit=3, min_score=0.5)
     assert top and top[0][0] == "Coca-Cola Zero Sugar 750ml", "archive query"
 
@@ -552,13 +724,75 @@ if __name__ == "__main__":
     finally:
         urllib.request.urlopen, time.sleep = real_urlopen, real_sleep
 
-    def rpd_boom(texts):
+    def rpd_boom(texts, input_type="passage"):
         raise RPDExhausted("daily quota spent")
     emb3._post = rpd_boom
     assert emb3.ensure(["brand new name"]) == 0, \
         "RPD exhaustion must degrade to 0, not raise"
     assert emb3._down_until >= time.time() + RPD_COOLDOWN_SEC - 1, \
         "RPD cool-down must be 1h"
+
+    # Migration: an old name-PK `embeddings` table must upgrade to the
+    # composite (model, dims, name) PK without losing rows, and the same name
+    # must be allowed under two models (additivity).
+    mig = os.path.join(tmp, "mig.db")
+    c = sqlite3.connect(mig)
+    c.execute("CREATE TABLE embeddings(name TEXT PRIMARY KEY, vec BLOB, "
+              "dims INTEGER, model TEXT, ts REAL)")
+    c.execute("INSERT INTO embeddings VALUES(?,?,?,?,?)",
+              ("Old Product", array.array("f", [1, 2, 3, 4]).tobytes(), 768,
+               "gemini-embedding-001", 1.0))
+    c.commit(); c.close()
+    m = Embedder(cfg, mig)
+    m._db_known()
+    assert m.cached_count() == 0, "migration keeps row under its own model/dims"
+    c = sqlite3.connect(mig)
+    total = c.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+    c.close()
+    assert total == 1, "migration must preserve the old row"
+    # composite PK: same name under a different model is a distinct row
+    m._conn.execute(
+        "INSERT OR REPLACE INTO embeddings(model,dims,name,vec,ts) "
+        "VALUES(?,?,?,?,?)",
+        ("fake", 4, "Old Product", array.array("f", [1, 2, 3, 4]).tobytes(), 2.0))
+    m._conn.commit()
+    c = sqlite3.connect(mig)
+    n = c.execute("SELECT COUNT(*) FROM embeddings WHERE name=?",
+                  ("Old Product",)).fetchone()[0]
+    c.close()
+    assert n == 2, "composite PK must allow the same name under two models"
+
+    # Additivity: writing model B must not disturb model A's rows.
+    add = os.path.join(tmp, "add.db")
+    a = Embedder(cfg, add)
+    a._post = lambda texts, input_type="passage": [
+        [1.0, 0, 0, 0] if t == "A1" else [0, 1.0, 0, 0] for t in texts]
+    a.ensure(["A1"])
+    cfgB = {"ai": {"enabled": True, "semantic_matching": True,
+                   "embedding_model": "other-model", "embedding_dims": 4}}
+    b = Embedder(cfgB, add)
+    b._post = lambda texts, input_type="passage": [
+        [0, 0, 1.0, 0] if t == "B1" else [0, 0, 0, 1.0] for t in texts]
+    b.ensure(["B1"])
+    a2 = Embedder(cfg, add); a2._db_known()
+    b2 = Embedder(cfgB, add); b2._db_known()
+    assert a2.cached_count() == 1, "model A rows must survive a model B write"
+    assert b2.cached_count() == 1, "model B must write its own row"
+
+    # Typed query: the live query is embedded as input_type=query and is NEVER
+    # persisted as a corpus row.
+    qdb = os.path.join(tmp, "q.db")
+    qe = Embedder(cfg, qdb)
+    types = []
+
+    def typed_post(texts, input_type="passage"):
+        types.append(input_type)
+        return [[1.0, 0, 0, 0] for _ in texts]
+    qe._post = typed_post
+    qe.boost_many("live query", ["Coca-Cola Zero Sugar 750ml", "Dettol Original Soap"])
+    assert "query" in types, "live query must be embedded as input_type=query"
+    qc = Embedder(cfg, qdb); qc._db_known()
+    assert "live query" not in qc._db_known(), "query vector must not be persisted"
 
     shutil.rmtree(tmp, ignore_errors=True)
     print("[embed] self-test OK: geometry, rescale, boost, disabled path, "

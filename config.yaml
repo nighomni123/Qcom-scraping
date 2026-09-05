@@ -205,19 +205,23 @@ ai:
   # matches whose meaning fits but whose words don't ("diet coke" ->
   # "Coca-Cola Zero Sugar 750ml"). Set semantic_matching: false to fall back
   # to token-only matching.
-  # 09-05 PROVIDER SWITCH: embeddings moved Gemini -> OpenRouter (free tier).
-  # Gemini free quota counted EACH INPUT ITEM as its own request (100-name
-  # batch = 100 RPM + 100 RPD; 1,000 RPD/key -> ~9 days for 44k names).
-  # OpenRouter counts a WHOLE BATCH as ONE request: 1000 names/request,
-  # 44,487 names done in 39 requests / 14.5 min. Quality (live-measured
-  # 09-05 on 60 real catalog names): this is the only free model where
-  # BOTH ground-truth cases rank #1 — "diet coke"->Coke Zero (margin
-  # +0.15) AND "cigarette"->Marlboro (margin +0.03); the other two free
-  # candidates ranked Marlboro #3 with negative margins. No `dimensions`
-  # support: returns fixed 2048 dims (X-RateLimit-Limit: 50 req/day free
-  # tier; $10 credits -> 1000 req/day).
-  embedding_base_url: "https://openrouter.ai/api/v1"
-  embedding_key_env: "OPENROUTER_API_KEY"
-  embedding_model: "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+  # 09-05 PROVIDER SWITCH: embeddings moved Gemini -> OpenRouter (free tier),
+  # then to NVIDIA-hosted nvidia/llama-nemotron-embed-vl-1b-v2 (integrate.api.
+  # nvidia.com). Gemini free quota counted EACH INPUT ITEM as its own request
+  # (100-name batch = 100 RPM + 100 RPD; 1,000 RPD/key -> ~9 days for 44k
+  # names). OpenRouter counted a WHOLE BATCH as ONE request (1000 names/
+  # request, 44,487 names in 39 requests / 14.5 min) but its free tier is
+  # 50 requests/day shared across accounts. NVIDIA's trial NIM is RPM-capped
+  # (~40 RPM, no hard daily request wall) and accepts batches of 2000. The
+  # model is ASYMMETRIC: corpus names embed as "passage", live queries as
+  # "query" (transient, never persisted). Gemini rows already banked
+  # (gemini-embedding-001 @768) stay untouched; Nemotron rows @2048 are
+  # additive (composite PK model,dims,name). embedding_input_type / sem_lo /
+  # sem_hi are per-model overrides; defaults live in src/embed.py.
+  embedding_base_url: "https://integrate.api.nvidia.com/v1"
+  embedding_key_env: "NVIDIA_Build_API_KEY"
+  embedding_model: "nvidia/llama-nemotron-embed-vl-1b-v2"
   embedding_dims: 2048
-  embedding_batch: 1000
+  embedding_batch: 180
+  embedding_input_type: "passage"
+  embedding_batch_pause: 0.5
