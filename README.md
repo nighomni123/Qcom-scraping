@@ -36,8 +36,10 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --catalog-report [--store 34292]  # snapshot history + new/delisted churn
     python3 run.py --embed-catalog [--limit N]      # one-time semantic backfill:
                                     # vectorize every distinct product name
-                                    # (Gemini ai.base_url; ~450 batched requests
-                                    # for 45k names; RESUMABLE — re-run to
+                                    # (OpenRouter nvidia/llama-nemotron-embed-
+                                    # vl-1b-v2:free, 2048 dims; 1000 names per
+                                    # request => ~45 requests for 45k names,
+                                    # ~15 min; RESUMABLE — re-run to
                                     # continue after a failure / new sweeps.
                                     # ALL AI_API_KEY, _2, _3… slots in .env are
                                     # a round-robin pool — every batch uses the

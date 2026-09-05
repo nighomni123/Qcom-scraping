@@ -203,8 +203,21 @@ ai:
   max_tokens: 65000
   # Semantic product matching (embeddings, src/embed.py): lifts search/watch
   # matches whose meaning fits but whose words don't ("diet coke" ->
-  # "Coca-Cola Zero Sugar 750ml"). Same base_url + AI_API_KEY as chat above.
-  # embedding_dims 768 = Matryoshka-truncated (near-full quality, ~3KB/name).
-  # Set semantic_matching: false to fall back to token-only matching.
-  embedding_model: "gemini-embedding-001"
-  embedding_dims: 768
+  # "Coca-Cola Zero Sugar 750ml"). Set semantic_matching: false to fall back
+  # to token-only matching.
+  # 09-05 PROVIDER SWITCH: embeddings moved Gemini -> OpenRouter (free tier).
+  # Gemini free quota counted EACH INPUT ITEM as its own request (100-name
+  # batch = 100 RPM + 100 RPD; 1,000 RPD/key -> ~9 days for 44k names).
+  # OpenRouter counts a WHOLE BATCH as ONE request: 1000 names/request,
+  # 44,487 names done in 39 requests / 14.5 min. Quality (live-measured
+  # 09-05 on 60 real catalog names): this is the only free model where
+  # BOTH ground-truth cases rank #1 — "diet coke"->Coke Zero (margin
+  # +0.15) AND "cigarette"->Marlboro (margin +0.03); the other two free
+  # candidates ranked Marlboro #3 with negative margins. No `dimensions`
+  # support: returns fixed 2048 dims (X-RateLimit-Limit: 50 req/day free
+  # tier; $10 credits -> 1000 req/day).
+  embedding_base_url: "https://openrouter.ai/api/v1"
+  embedding_key_env: "OPENROUTER_API_KEY"
+  embedding_model: "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+  embedding_dims: 2048
+  embedding_batch: 1000

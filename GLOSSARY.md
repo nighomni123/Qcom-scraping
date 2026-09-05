@@ -150,7 +150,8 @@ term is defined here too (or is common English).
   semantic_score)`: meaning can only ADD a candidate the word-match missed,
   never demote one that matched. Endpoint down = the old word-only behaviour.
 - **Backfill** (`--embed-catalog`) — vectorize every distinct product name
-  once (~450 batched requests for 45k names); resumable, re-run anytime.
+  once (OpenRouter counts a whole 1000-name batch as ONE request: ~45
+  requests for 45k names, ~15 min); resumable, re-run anytime.
 - **`--similar <phrase>`** — archive query: which known product names are
   semantically closest to a phrase you type.
 

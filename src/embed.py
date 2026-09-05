@@ -1,29 +1,36 @@
 """
-embed.py — semantic product-name matching (Gemini embeddings route).
+embed.py — semantic product-name matching (OpenRouter embeddings route).
 
-Turns each distinct product name into ONE vector via the same OpenAI-compatible
-endpoint the AI assistant already uses (config.yaml -> ai.base_url + AI_API_KEY
-in .env; model ai.embedding_model, default gemini-embedding-001 — Matryoshka-
-trained, so 768 output dims keep near-full quality at ~3KB per name; Google
-recommends 3072/1536/768). Vectors persist forever in an additive `embeddings`
-table keyed by name (one vector per distinct name, shared across platforms and
-stores). Live matching embeds only what one search needs (query + candidates
-~= a single batched request); `python3 run.py --embed-catalog` backfills the
-archive (resumable). QUOTA REALITY (live-measured 09-05 via the AI Studio
-dashboard): the OpenAI-compat /embeddings endpoint counts EACH INPUT ITEM as
-its own request — a 100-name batch burns 100 RPM + 100 RPD, not 1. Free tier
-per key: 100 RPM / 1,000 RPD / 30k TPM; batching saves HTTP roundtrips, NOT
-quota.
+Turns each distinct product name into ONE vector via an OpenAI-compatible
+/embeddings endpoint (config.yaml -> ai.embedding_base_url + the env var in
+ai.embedding_key_env, default OPENROUTER_API_KEY; model
+nvidia/llama-nemotron-embed-vl-1b-v2:free, fixed 2048 dims). Vectors persist
+in an additive `embeddings` table keyed by name (one vector per distinct
+name, shared across platforms and stores; INSERT OR REPLACE means a provider
+switch transparently re-keys rows on the next backfill). Live matching embeds
+only what one search needs (query + candidates = a single batched request);
+`python3 run.py --embed-catalog` backfills the archive (resumable).
+
+QUOTA REALITY (live-measured 09-05): Gemini's free /embeddings counted EACH
+INPUT ITEM as its own request (100-name batch = 100 RPM + 100 RPD; 1,000
+RPD/key => ~9 days for 44k names). OpenRouter counts a WHOLE BATCH as ONE
+request: 1000 names/request finished 44,487 names in 39 requests / 14.5 min.
+Free tier = 50 requests/day (X-RateLimit-Limit), $10 credits -> 1000/day.
+Model choice live-verified on 60 real catalog names: the only free model
+where BOTH ground-truth pairs rank #1 ("diet coke"->Coke Zero +0.15,
+"cigarette"->Marlboro +0.03); the other free candidates ranked Marlboro #3.
+ponytail: 2048 dims ~8KB/name ~= 365MB for 44k names — if the DB ever
+matters, probe `dimensions` support or switch to a smaller model then.
 
 INVARIANTS
   * Embeddings only decide WHICH products count as a match — never prices,
     stock, fees or alerts. A failed/slow/disabled endpoint degrades to the
-    historical token-only match_score everywhere (5-minute cool-down between
+    historical token-only match_score everywhere (cool-down between
     retries; callers never see exceptions).
   * The blend is max(token_score, semantic_score): semantics can only LIFT a
     candidate, never demote one.
   * Raw cosine is rescaled onto the token-score scale via SEM_LO/SEM_HI — the
-    ONE calibration knob (verified against live Gemini cosines; see self-test).
+    ONE calibration knob (verified against live cosines; see self-test).
 """
 from __future__ import annotations
 
@@ -37,29 +44,33 @@ import time
 import urllib.error
 import urllib.request
 
-DEFAULT_MODEL = "gemini-embedding-001"
-DIMS = 768              # Matryoshka output dims (768 keeps rows ~3KB)
-BATCH = 100             # texts per HTTP request (saves roundtrips, NOT quota:
-                        # each item counts as its own RPM/RPD request; 09-05)
-BATCH_PAUSE_SEC = 6.0   # pacing between HTTP batches — courtesy only; the RPM
-                        # wall is absorbed by key rotation + 429 failover
-COOLDOWN_SEC = 300      # after an endpoint failure, stay token-only this long
-MAX_WALL_ROUNDS = 5     # consecutive whole-pool 429 sleeps -> raise: the RPD
-                        # day is spent (resets midnight PT). An RPM wall clears
-                        # after ONE ~26-60s sleep, so only the daily wall ever
-                        # reaches this cap.
-RPD_COOLDOWN_SEC = 3600 # RPD-exhausted stays token-only 1h (not 5min) so the
-                        # live path never grinds walls on every search
+DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free"
+DIMS = 2048            # fixed by the model — no `dimensions` param support
+BATCH = 1000           # texts per HTTP request — OpenRouter counts a WHOLE
+                       # BATCH as ONE request (free tier: 50/day), so pack
+                       # big; 39 requests covered the whole 44k-name corpus
+BATCH_PAUSE_SEC = 2.0  # gentle pacing between HTTP batches
+COOLDOWN_SEC = 300     # after an endpoint failure, stay token-only this long
+MAX_WALL_ROUNDS = 5    # consecutive whole-pool 429 sleeps -> raise: the daily
+                       # request budget is spent (OpenRouter resets midnight
+                       # UTC; Gemini reset midnight PT). An RPM wall clears
+                       # after ONE ~26-60s sleep, so only the daily wall ever
+                       # reaches this cap.
+RPD_COOLDOWN_SEC = 3600 # daily-budget-exhausted stays token-only 1h (not 5min)
+                        # so the live path never grinds walls on every search
 
 # Cosine -> [0,1] rescale onto the token-score scale. min_match_score (0.5)
-# implies a semantic pass line of cos ~= 0.61. LIVE-VERIFIED 09-05 against
-# gemini-embedding-001 @768 dims: unrelated pairs floor at 0.50-0.55;
-# category matches 0.58-0.66 (incl. "cigarette" vs "Marlboro Advance King
-# Size" = 0.61 — the exact /watch case this module exists for); same-product
-# phrasings 0.65-0.80 ("diet coke" vs "Coca-Cola Zero Sugar 750ml" = 0.67);
-# near-exact 0.80-0.86. Adjust only with a fresh live probe, not intuition.
-SEM_LO = 0.50
-SEM_HI = 0.72
+# implies a semantic pass line at SEM_LO + 0.5*(SEM_HI-SEM_LO) ~= 0.27.
+# LIVE-VERIFIED 09-05 against nvidia/llama-nemotron-embed-vl-1b-v2:free
+# @2048 on 60 real catalog names: unrelated pairs floor 0.07-0.24
+# (cross-domain 0.12, same-domain-non-match ~0.25); query->genuine match
+# 0.29-0.42 ("cigarette" vs "Marlboro Advance King Size" = 0.29 — the
+# exact /watch case this module exists for; "diet coke" vs "Coca-Cola
+# Zero Sugar 750ml" = 0.41). Pass line ~0.27 sits just under the flagship
+# match, safely above the same-domain noise floor. Adjust only with a
+# fresh live probe, not intuition.
+SEM_LO = 0.12
+SEM_HI = 0.42
 
 _SQL = """
 CREATE TABLE IF NOT EXISTS embeddings (
@@ -73,8 +84,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 
 class RPDExhausted(RuntimeError):
-    """All keys' daily (RPD) quota is spent — free tier resets midnight PT.
-    Not an endpoint failure: the backfill re-runs cleanly after reset."""
+    """All keys' daily request budget is spent (free tier). Not an endpoint
+    failure: the backfill re-runs cleanly after the provider's reset
+    (OpenRouter midnight UTC, Gemini midnight PT)."""
 
 
 def _map(cos):
@@ -113,13 +125,19 @@ class Embedder:
     def __init__(self, cfg, db_path="deals.db"):
         ai = (cfg or {}).get("ai") or {}
         self.enabled = bool(ai.get("enabled")) and bool(ai.get("semantic_matching", True))
-        self.base = (str(ai.get("base_url") or "").strip()
-                     or "https://api.openai.com/v1").rstrip("/")
+        # Embeddings get their OWN endpoint + key, independent of chat (ai.base_url
+        # stays the chat LLM): a provider switch on one never disturbs the other.
+        self.base = (str(ai.get("embedding_base_url") or "").strip()
+                     or "https://openrouter.ai/api/v1").rstrip("/")
         self.model = str(ai.get("embedding_model") or DEFAULT_MODEL).strip()
         try:
             self.dims = int(ai.get("embedding_dims") or DIMS)
         except (TypeError, ValueError):
             self.dims = DIMS
+        try:
+            self.batch = max(1, int(ai.get("embedding_batch") or BATCH))
+        except (TypeError, ValueError):
+            self.batch = BATCH
         self.db_path = db_path
         self._conn = None       # lazy sqlite (created on first ensure)
         self._cache = {}        # name -> array('f')
@@ -132,18 +150,19 @@ class Embedder:
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
         except Exception:
             env = {}
-        # Quota is PER API KEY: round-robin the pool (AI_API_KEY, _2, _3, …)
-        # per batch so per-minute limits are spread before they're hit, and a
-        # 429 on one key fails over to the next instead of stalling. Scan
-        # EVERY slot (never break on a missing one — .env edits land while
-        # processes run); dedupe; empty pool = auth-free endpoint (Ollama).
+        # Quota is PER API KEY: round-robin the pool (EMB_KEY, EMB_KEY_2, …,
+        # default names OPENROUTER_API_KEY*) per batch so per-minute limits
+        # are spread before they're hit, and a 429 on one key fails over to
+        # the next instead of stalling. Scan EVERY slot (never break on a
+        # missing one — .env edits land while processes run); dedupe; empty
+        # pool = auth-free endpoint (Ollama).
+        key_env = str(ai.get("embedding_key_env") or "OPENROUTER_API_KEY").strip()
         self.keys = []
         for suffix in [""] + [f"_{i}" for i in range(1, 10)]:
-            k = (env.get(f"AI_API_KEY{suffix}")
-                 or os.environ.get(f"AI_API_KEY{suffix}") or "").strip()
+            k = (env.get(f"{key_env}{suffix}")
+                 or os.environ.get(f"{key_env}{suffix}") or "").strip()
             if k and k not in self.keys:
                 self.keys.append(k)
-        self.key = self.keys[0] if self.keys else ""
 
     @property
     def available(self):
@@ -152,19 +171,22 @@ class Embedder:
     # -- network ----------------------------------------------------------
 
     def _post(self, texts):
-        """One POST /embeddings with up to BATCH texts. Returns raw vectors
-        in input order. Key handling (quota is PER KEY — distinct Google
-        accounts have separate RPM/RPD buckets):
+        """One POST /embeddings with up to self.batch texts. Returns raw
+        vectors in input order. Key handling (quota is PER KEY — distinct
+        accounts have separate buckets):
           * every SUCCESSFUL batch rotates to the next key (round-robin),
           * a 429 fails over to the next key immediately (no sleep),
           * only when EVERY key was throttled within this call does it sleep
             (Retry-After or 60s) and retry the round — max MAX_WALL_ROUNDS
             consecutive whole-pool walls, then raise RPDExhausted (an RPM
-            wall clears after ONE sleep; only the spent daily bucket
+            wall clears after ONE sleep; only the spent daily budget
             persists). Callers: ensure() degrades to token-only; the
-            backfill prints "re-run tomorrow / after midnight PT"."""
-        body = {"model": self.model, "input": list(texts), "dimensions": self.dims}
-        rounds, throttled = 0, set()
+            backfill prints the re-run hint."""
+        body = {"model": self.model, "input": list(texts),
+                "encoding_format": "float"}
+        if self.dims:
+            body["dimensions"] = self.dims
+        rounds, throttled, no_dims = 0, set(), False
         while True:
             key = self.keys[0]
             req = urllib.request.Request(
@@ -174,12 +196,20 @@ class Embedder:
             if key:
                 req.add_header("Authorization", "Bearer " + key)
             try:
-                with urllib.request.urlopen(req, timeout=60) as r:
+                with urllib.request.urlopen(req, timeout=300) as r:
                     d = json.loads(r.read().decode())
                 if len(self.keys) > 1:
                     self.keys.append(self.keys.pop(0))   # round-robin
                 return self._parse_embeddings(d, texts)
             except urllib.error.HTTPError as ex:
+                if ex.code == 400 and not no_dims and "dimensions" in \
+                        (ex.read().decode()[:400] or "").lower():
+                    # endpoint rejected `dimensions` (OpenRouter/nemotron
+                    # ignores/forbids it): retry without it — _as_vec still
+                    # validates the returned length
+                    no_dims = True
+                    del body["dimensions"]
+                    continue
                 if ex.code != 429:
                     raise
                 try:
@@ -194,8 +224,9 @@ class Embedder:
                     if rounds >= MAX_WALL_ROUNDS:
                         raise RPDExhausted(
                             f"all {len(self.keys)} keys throttled for "
-                            f"{rounds} consecutive rounds — daily (RPD) quota "
-                            f"spent; resets midnight PT")
+                            f"{rounds} consecutive rounds — daily request "
+                            f"budget spent (resets at the provider's daily "
+                            f"reset: OpenRouter midnight UTC)")
                     throttled = set()
                     print(f"[embed] quota wall: all {len(self.keys)} keys throttled — sleeping {wait:.0f}s (round {rounds}/{MAX_WALL_ROUNDS})", flush=True)
                     time.sleep(wait)
@@ -225,16 +256,16 @@ class Embedder:
             if not todo:
                 return 0
             done, total = 0, len(todo)
-            for i in range(0, total, BATCH):
+            for i in range(0, total, self.batch):
                 chunk = todo[i:i + BATCH]
                 try:
                     vecs = self._post(chunk)
                 except RPDExhausted as ex:
                     self._down_until = time.time() + RPD_COOLDOWN_SEC
                     if progress:
-                        print(f"[embed] {done}/{total} done, then daily quota "
-                              f"spent: {ex} — re-run after midnight PT to "
-                              f"resume from {self.cached_count()} cached",
+                        print(f"[embed] {done}/{total} done, then daily budget "
+                              f"spent: {ex} — re-run after the provider's daily "
+                              f"reset to resume from {self.cached_count()} cached",
                               flush=True)
                     return done
                 except Exception as ex:
@@ -407,25 +438,26 @@ if __name__ == "__main__":
     assert _as_vec([1.0] * 3, 4) is None, "short vector must be unusable"
     assert abs(_cos(array.array("f", [1, 0]), 1.0, array.array("f", [0, 1]))) < 1e-9
     assert abs(_cos(array.array("f", [1, 0]), 1.0, array.array("f", [1, 0])) - 1.0) < 1e-9
-    assert _map(0.50) == 0.0 and _map(0.72) == 1.0
-    assert _map(0.55) < _map(0.65) < _map(0.70), "rescale must be monotonic"
+    assert _map(0.12) == 0.0 and _map(0.42) == 1.0
+    assert _map(0.25) < _map(0.29) < _map(0.41), "rescale must be monotonic"
 
     tmp = tempfile.mkdtemp(prefix="dsh_embed_")
     cfg = {"ai": {"enabled": True, "semantic_matching": True,
                   "embedding_model": "fake", "embedding_dims": 4}}
 
-    # Fake vectors mirror LIVE gemini-embedding-001 cosines (09-05 probe):
-    # same-product 0.672, category-adjacent 0.5745, unrelated 0.505 — so the
-    # pass/fail assertions below sit on the real landscape, not invented
-    # geometry. q = the query's vector ("diet coke").
+    # Fake vectors mirror LIVE nvidia/llama-nemotron-embed-vl-1b-v2:free
+    # cosines (09-05 probe on 60 real catalog names): same-product 0.41,
+    # same-domain-non-match 0.25, cross-domain floor 0.12 — so the pass/fail
+    # assertions below sit on the real landscape, not invented geometry.
+    # q = the query's vector ("diet coke").
     q = [1.0, 0.0, 0.0, 0.0]
 
     def _at(cos):
         return [cos, math.sqrt(1.0 - cos * cos), 0.0, 0.0]
     fake_vecs = {
-        "Coca-Cola Zero Sugar 750ml": _at(0.672),
-        "Kinley Soda Water Bottle":   _at(0.5745),
-        "Dettol Original Soap":       _at(0.505),
+        "Coca-Cola Zero Sugar 750ml": _at(0.41),
+        "Kinley Soda Water Bottle":   _at(0.25),
+        "Dettol Original Soap":       _at(0.12),
     }
     calls = []
 

@@ -61,8 +61,9 @@ One tool, three features (all sharing the same browser-intercept crawler):
    watch and WatchPusher (`src/tgbot.py`) pushes Telegram pings whenever a
    search result or crawl batch matches (rate-capped); `/digest` replies with
    today's cheapest find per category + Demand Radar DPI top-5. Matching is
-   token-overlap with an OPTIONAL semantic lift (`src/embed.py`: Gemini
-   embeddings via ai.base_url, cached in an additive `embeddings` table;
+   token-overlap with an OPTIONAL semantic lift (`src/embed.py`: OpenRouter
+   embeddings via ai.embedding_base_url, cached in an additive `embeddings`
+   table;
    blend = max(token, semantic) so it can only add candidates, never demote;
    endpoint down/disabled ⇒ exact historical token behaviour; backfill =
    `--embed-catalog`, archive query = `--similar`). A semantic catalog
@@ -147,15 +148,20 @@ src/
                         also holds the probes' products (stock_obs source=
                         'inventory' + categorized price_obs)
   store.py              sqlite schema + all persistence helpers
-  embed.py              OPTIONAL semantic matching (Gemini embeddings via the
-                        ai: config, same base_url/key as ai_assist): batched
-                        stdlib-urllib client + sqlite cache in an additive
-                        `embeddings` table (one vector per distinct name);
-                        search ranking + WatchPusher blend max(token, semantic)
-                        so semantics only LIFT candidates; endpoint down or
-                        ai.semantic_matching: false => exact historical token
-                        behaviour. Self-test: python3 -m src.embed (offline,
-                        fake transport; fake vectors mirror live cosines)
+  embed.py              OPTIONAL semantic matching (OpenRouter embeddings,
+                        ai.embedding_base_url + OPENROUTER_API_KEY —
+                        nvidia/llama-nemotron-embed-vl-1b-v2:free @2048
+                        dims; a whole 1000-name batch counts as ONE request,
+                        50 req/day free tier): batched stdlib-urllib client
+                        + sqlite cache in an additive `embeddings` table
+                        (one vector per distinct name, keyed model+dims so
+                        a provider switch re-keys cleanly); search ranking +
+                        WatchPusher blend max(token, semantic) so semantics
+                        only LIFT candidates; endpoint down or
+                        ai.semantic_matching: false => exact historical
+                        token behaviour. Self-test: python3 -m src.embed
+                        (offline, fake transport; fake vectors mirror live
+                        cosines of the current model)
   ai_assist.py          OPTIONAL LLM advisor behind the dashboard AI panel
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible
@@ -214,23 +220,33 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --catalog-report [--store ID]         # catalog snapshots +
                                     # new/delisted churn log (catalog-inventory)
     python3 run.py --embed-catalog [--limit N]          # semantic backfill:
-                                    # vectorize every distinct product name via
-                                    # the Gemini /embeddings endpoint (ai.base_url
-                                    # + AI_API_KEY; RESUMABLE — re-run to continue,
-                                    # cached names are skipped).
-                                    # 09-05 quota reality (live-measured via
-                                    # the AI Studio dashboard): Gemini's
-                                    # OpenAI-compat /embeddings counts EACH
-                                    # INPUT ITEM as its own request — a
-                                    # 100-name batch burns 100 RPM + 100
-                                    # RPD, not 1. Free tier per key: 100
-                                    # RPM / 1,000 RPD / 30k TPM. So the
-                                    # corpus (44,487 names) needs ~44k
-                                    # quota-units; with N keys in .env it
-                                    # takes ~44/N days on free tier, or
-                                    # ~1 hour on ONE billing-enabled key
-                                    # (Tier 1: RPD unlimited, ~$0.08 total).
-                                    # BATCH does not multiply throughput.)
+                                    # vectorize every distinct product name
+                                    # via OpenRouter (ai.embedding_base_url +
+                                    # OPENROUTER_API_KEY; model
+                                    # nvidia/llama-nemotron-embed-vl-1b-v2:free
+                                    # @2048 dims; RESUMABLE — re-run to
+                                    # continue, cached names are skipped).
+                                    # 09-05 PROVIDER SWITCH from Gemini:
+                                    # Gemini free /embeddings counted EACH
+                                    # INPUT ITEM as its own request (100-name
+                                    # batch = 100 RPM + 100 RPD; 1,000
+                                    # RPD/key => ~9 days for 44k names).
+                                    # OpenRouter counts a WHOLE BATCH as ONE
+                                    # request: 1000 names/request (embedding_
+                                    # batch), 44,487 names in 39 requests /
+                                    # 14.5 min (live-measured). Free tier = 50
+                                    # requests/day (X-RateLimit-Limit), $10
+                                    # credits -> 1000/day. Model choice
+                                    # live-verified on 60 real catalog names:
+                                    # the only free model where BOTH
+                                    # ground-truth pairs rank #1 ("diet coke"
+                                    # ->Coke Zero +0.15, "cigarette"->Marlboro
+                                    # +0.03). No `dimensions` support — fixed
+                                    # 2048 dims (~8KB/name ~ 365MB for 44k;
+                                    # probe smaller dims before DB growth
+                                    # ever matters). Old Gemini rows in
+                                    # `embeddings` stay (keyed model+dims);
+                                    # the backfill re-keys on re-run.
     python3 run.py --similar <phrase> [--limit N]       # semantic archive query:
                                     # names most similar to a phrase from the
                                     # embeddings table (needs --embed-catalog;
