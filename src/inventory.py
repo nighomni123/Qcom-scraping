@@ -5,7 +5,7 @@ Unlike --map-locality (a fixed configured locality feeding the shared
 deals.db), this answers "which Blinkit / Instamart / Zepto darkstores serve
 where I actually am right now?" and writes EACH APP into its OWN sqlite file:
 
-    inventory_blinkit.db · inventory_instamart.db · inventory_zepto.db
+    inventory/ (inventory_blinkit.db · inventory_instamart.db · inventory_zepto.db)
 
 Location policy (deliberate): the anchor center is the machine's APPROXIMATE
 PUBLIC-IP LOCATION (ipinfo.io, fallback ip-api.com) — we tell each app the
@@ -38,6 +38,7 @@ from .locality import LocalityMapper, QC_APPS
 DEFAULT_RADIUS_M = 3500          # bbox half-width around the resolved point
 DEFAULT_MAX_POINTS = 12          # per-app probe cap (saturation stops earlier)
 DB_NAME_TEMPLATE = "inventory_{app}.db"
+DB_DIR = "inventory"            # subfolder holding the per-app inventory databases
 
 
 def approx_location(timeout=8):
@@ -120,11 +121,12 @@ def run_inventory(cfg, apps=None, lat=None, lon=None, radius_m=None,
           "--build-watchlist crawls of the same apps get rate-limited into "
           "empty probes (see AGENTS.md).")
 
-    root = os.path.dirname(os.path.abspath(__file__))
-    root = os.path.dirname(root)                      # repo root (like deals.db)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
+    inv_dir = os.path.join(root, DB_DIR)
+    os.makedirs(inv_dir, exist_ok=True)               # keep the subfolder present
     summary = {}
     for i, app in enumerate(want):
-        db_path = os.path.join(root, DB_NAME_TEMPLATE.format(app=app))
+        db_path = os.path.join(inv_dir, DB_NAME_TEMPLATE.format(app=app))
         app_cfg = copy.deepcopy(cfg)
         app_cfg["demand"] = dict(app_cfg.get("demand") or {})
         app_cfg["demand"]["locality"] = build_locality_cfg(

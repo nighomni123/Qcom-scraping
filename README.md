@@ -78,8 +78,9 @@ open its **log** (auto-refreshes ~1.2 s). Mute with
 **Store inventory near you (`--store-inventory`):** resolves the machine's
 approximate location from its public IP (honest — no GPS spoofing; override
 with `--lat/--lon`), builds a small anchor grid around it, and maps each app's
-darkstores into SEPARATE databases: `inventory_blinkit.db`,
-`inventory_instamart.db`, `inventory_zepto.db` (each a full Store schema; the
+darkstores into SEPARATE databases in the `inventory/` folder:
+`inventory/inventory_blinkit.db`, `inventory/inventory_instamart.db`,
+`inventory/inventory_zepto.db` (each a full Store schema; the
 `darkstores` table holds that app's stores with label/coords/ETA). Every probe
 is product-bearing and CAPTURED: each store-attributed product lands in that
 app's DB as `stock_obs` (stock/price/mrp/eta, `source='inventory'`) +
@@ -302,7 +303,8 @@ Real-time view of everything the process does, plus the exit switch:
   (`http://127.0.0.1:11434/v1`). With `ai.enabled: false` (or no key) the
   panel greyed-out says exactly why.
 - **SQL databases** — browse every sqlite file in the repo (deals.db +
-  `inventory_blinkit.db` / `inventory_instamart.db` / `inventory_zepto.db`):
+  `inventory/inventory_blinkit.db` / `inventory/inventory_instamart.db` /
+  `inventory/inventory_zepto.db`):
   pick a database, pick a table, see row counts and the newest rows. The
   same data is available as JSON: `GET /db`, `GET /db/<db>/<table>`.
 - **Live feed** — every crawl, cycle, alert, and Telegram query as it happens.

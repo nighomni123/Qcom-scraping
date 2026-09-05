@@ -5,7 +5,7 @@ Stdlib only (http.server). Endpoints:
     GET  /          the single-page UI (tools/dashboard.html)
     GET  /status    JSON snapshot (counters + live event stream)
     POST /search    {"query": "..."} — run a cross-platform search now
-    GET  /db        all sqlite databases (deals.db + inventory_*.db):
+    GET  /db        all sqlite databases (deals.db + inventory/*.db):
                     per-table row counts
     GET  /db/<db>/<table>?limit=N   recent rows of one table (read-only)
     GET  /features                  feature catalog + running state
@@ -107,7 +107,7 @@ FEATURE_CATALOG = [
      ]},
     {"id": "store_inventory", "label": "Store inventory", "service": False,
      "desc": "Maps darkstores near this machine's REAL location (public IP, "
-             "no spoofing) into inventory_<app>.db per app AND captures every "
+             "no spoofing) into inventory/<app>.db per app AND captures every "
              "probe's products — browse them in SQL databases below.",
      "meta": "LIVE crawl · ~10–15 min for all 3 apps · run ALONE — concurrent "
              "crawls get rate-limited into empty results",
@@ -405,41 +405,61 @@ class FeatureManager:
 
 
 def _sqlite_files():
-    """All repo-root sqlite databases worth browsing (sidecars excluded)."""
+    """All repo-root sqlite databases worth browsing (sidecars excluded).
+
+    Also scans the `inventory/` subfolder (per-app inventory_<app>.db files) and
+    reports those under an `inventory/...` display name so the /db browser can
+    reach them. Display names are repo-relative paths (may contain a slash).
+    """
     out = []
-    for name in sorted(os.listdir(_ROOT)):
-        if not name.endswith(".db"):
-            continue
-        path = os.path.join(_ROOT, name)
-        if not os.path.isfile(path):
-            continue
-        try:
-            conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
-            tables = [r[0] for r in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
-            counts = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
-                      for t in tables}
-            conn.close()
-        except Exception as ex:
-            tables, counts = [], {"_error": str(ex)[:80]}
-        out.append({
-            "name": name,
-            "size_kb": round(os.path.getsize(path) / 1024, 1),
-            "modified": time.strftime("%d %b %H:%M", time.localtime(os.path.getmtime(path))),
-            "tables": [{"name": t, "rows": counts.get(t)} for t in tables]
-            if not counts.get("_error") else [],
-            "error": counts.get("_error"),
-        })
+
+    def _scan(folder, prefix):
+        if not os.path.isdir(folder):
+            return
+        for name in sorted(os.listdir(folder)):
+            if not name.endswith(".db"):
+                continue
+            path = os.path.join(folder, name)
+            if not os.path.isfile(path):
+                continue
+            disp = f"{prefix}{name}"
+            try:
+                conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+                tables = [r[0] for r in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' "
+                    "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+                counts = {t: conn.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+                          for t in tables}
+                conn.close()
+            except Exception as ex:
+                tables, counts = [], {"_error": str(ex)[:80]}
+            out.append({
+                "name": disp,
+                "size_kb": round(os.path.getsize(path) / 1024, 1),
+                "modified": time.strftime("%d %b %H:%M",
+                                          time.localtime(os.path.getmtime(path))),
+                "tables": [{"name": t, "rows": counts.get(t)} for t in tables]
+                if not counts.get("_error") else [],
+                "error": counts.get("_error"),
+            })
+
+    _scan(_ROOT, "")
+    _scan(os.path.join(_ROOT, "inventory"), "inventory/")
     return {"databases": out}
 
 
 def _table_preview(db_name, table, limit=30):
     """Recent rows of a table, read-only. Names validated against the DB's own
-    schema before any interpolation."""
-    if not db_name.endswith(".db") or "/" in db_name or "\\" in db_name or ".." in db_name:
+    schema before any interpolation. `db_name` is a repo-relative path that may
+    contain a single subfolder (e.g. `inventory/inventory_blinkit.db`); traversal
+    outside the repo root is rejected."""
+    if not db_name.endswith(".db") or "\\" in db_name or ".." in db_name:
         return {"error": "bad database name"}, 400
-    path = os.path.join(_ROOT, db_name)
+    path = os.path.normpath(os.path.join(_ROOT, db_name))
+    root_abs = os.path.abspath(_ROOT)
+    if os.path.abspath(path) != root_abs and not os.path.abspath(path).startswith(
+            root_abs + os.sep):
+        return {"error": "bad database name"}, 400
     if not os.path.isfile(path):
         return {"error": "no such database"}, 404
     limit = max(1, min(int(limit or 30), 200))
@@ -868,11 +888,15 @@ class Dashboard:
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "databases": []})
                 elif self.path.startswith("/db/"):
-                    # /db/<name>/<table>?limit=N
-                    from urllib.parse import urlparse, parse_qs
+                    # /db/<name>/<table>?limit=N  (name may contain '/', e.g.
+                    # inventory/inventory_blinkit.db — so everything between
+                    # 'db' and the final segment is the database path)
+                    from urllib.parse import urlparse, parse_qs, unquote
                     parts = urlparse(self.path)
-                    seg = [s for s in parts.path.split("/") if s]  # ['db', name, table]
-                    if len(seg) != 3:
+                    # unquote BEFORE splitting: the panel encodeURIComponent()s
+                    # the db name, so a subfolder slash arrives as %2F
+                    seg = [s for s in unquote(parts.path).split("/") if s]  # ['db', *name, table]
+                    if len(seg) < 3:
                         self._json({"error": "use /db/<name>/<table>"}, 400)
                         return
                     limit = (parse_qs(parts.query).get("limit") or [30])[0]
@@ -880,7 +904,9 @@ class Dashboard:
                         limit = int(limit)
                     except ValueError:
                         limit = 30
-                    data, code = _table_preview(seg[1], seg[2], limit)
+                    db_name = "/".join(seg[1:-1])
+                    table = seg[-1]
+                    data, code = _table_preview(db_name, table, limit)
                     self._json(data, code)
                 # ---- Demand Radar (phase 4) ----
                 elif self.path == "/demand":

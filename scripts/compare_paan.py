@@ -4,7 +4,7 @@ compare_paan.py — compare OUR crawler inventory vs QuickCommerce API for
 paan-shop / unconventional (non-food) items at a shared location.
 
 Reads:
-  - inventory_blinkit.db / inventory_zepto.db  (our --store-inventory output)
+  - inventory/inventory_blinkit.db / inventory/inventory_zepto.db  (our --store-inventory output)
   - docs/qcapi_paan_sweep.json                 (API paan-term sweep)
 
 Prints, per app, which paan-shop items OUR crawler captured vs what the API
@@ -34,7 +34,7 @@ PLATFORM_TO_APP = {"BlinkIt": "blinkit", "Zepto": "zepto", "Swiggy": "instamart"
 
 def our_paan_products(app):
     """Return dict name -> min price for paan-matching rows in our DB."""
-    db = os.path.join(ROOT, f"inventory_{app}.db")
+    db = os.path.join(ROOT, "inventory", f"inventory_{app}.db")
     if not os.path.exists(db):
         return None
     con = sqlite3.connect(db)
