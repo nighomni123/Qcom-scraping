@@ -36,8 +36,9 @@ PAGE_TEMPLATE = """<!doctype html>
 html, body {height: 100%; margin: 0; font-family: system-ui, sans-serif;}
 #wrap {display: flex; height: 100%;}
 #main {flex: 1; position: relative; min-width: 0;}
-#panel {width: 340px; display: none; flex-direction: column;
-        border-left: 1px solid #ddd; background: #fafafa;}
+#panel {width: 220px; max-width: 55vw; resize: horizontal; overflow-x: hidden;
+        display: none; flex-direction: column; border-left: 1px solid #ddd;
+        background: #fafafa; min-width: 160px; max-width: 55vw;}
 #panel.open {display: flex;}
 #panel header {padding: 8px 10px; font-size: 12px; color: #555;
         border-bottom: 1px solid #ddd;}
@@ -94,11 +95,11 @@ html, body {height: 100%; margin: 0; font-family: system-ui, sans-serif;}
         html.push('<div class="row"><div class="nm">' + esc(NAMES[i]) +
                   '</div>' + (PRICES[i] ? '<div class="pr">' + esc(PRICES[i]) +
                   '</div>' : '') + '</div>');
-        if (html.length >= 200) break;
+        if (html.length >= 15) break;  # cap list so panel stays compact
       }
     }
-    count.textContent = html.length ? '(' + Math.min(html.length, 200) +
-      (html.length >= 200 ? '+' : '') + ')' : '';
+    count.textContent = html.length ? '(' + html.length +
+      (html.length >= 15 ? '+' : '') + ')' : '';
     list.innerHTML = html.length ? html.join('') :
       '<div class="empty">No products within radius ' + R.toFixed(2) +
       ' of cursor.</div>';
