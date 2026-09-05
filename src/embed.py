@@ -9,7 +9,11 @@ recommends 3072/1536/768). Vectors persist forever in an additive `embeddings`
 table keyed by name (one vector per distinct name, shared across platforms and
 stores). Live matching embeds only what one search needs (query + candidates
 ~= a single batched request); `python3 run.py --embed-catalog` backfills the
-archive (~430 batched requests for 42k names, resumable).
+archive (resumable). QUOTA REALITY (live-measured 09-05 via the AI Studio
+dashboard): the OpenAI-compat /embeddings endpoint counts EACH INPUT ITEM as
+its own request — a 100-name batch burns 100 RPM + 100 RPD, not 1. Free tier
+per key: 100 RPM / 1,000 RPD / 30k TPM; batching saves HTTP roundtrips, NOT
+quota.
 
 INVARIANTS
   * Embeddings only decide WHICH products count as a match — never prices,
@@ -35,9 +39,17 @@ import urllib.request
 
 DEFAULT_MODEL = "gemini-embedding-001"
 DIMS = 768              # Matryoshka output dims (768 keeps rows ~3KB)
-BATCH = 100             # texts per API request (free-tier batching)
-BATCH_PAUSE_SEC = 6.0   # ~10 req/min, the observed free-tier project RPM wall
+BATCH = 100             # texts per HTTP request (saves roundtrips, NOT quota:
+                        # each item counts as its own RPM/RPD request; 09-05)
+BATCH_PAUSE_SEC = 6.0   # pacing between HTTP batches — courtesy only; the RPM
+                        # wall is absorbed by key rotation + 429 failover
 COOLDOWN_SEC = 300      # after an endpoint failure, stay token-only this long
+MAX_WALL_ROUNDS = 5     # consecutive whole-pool 429 sleeps -> raise: the RPD
+                        # day is spent (resets midnight PT). An RPM wall clears
+                        # after ONE ~26-60s sleep, so only the daily wall ever
+                        # reaches this cap.
+RPD_COOLDOWN_SEC = 3600 # RPD-exhausted stays token-only 1h (not 5min) so the
+                        # live path never grinds walls on every search
 
 # Cosine -> [0,1] rescale onto the token-score scale. min_match_score (0.5)
 # implies a semantic pass line of cos ~= 0.61. LIVE-VERIFIED 09-05 against
@@ -58,6 +70,11 @@ CREATE TABLE IF NOT EXISTS embeddings (
     ts    REAL
 );
 """
+
+
+class RPDExhausted(RuntimeError):
+    """All keys' daily (RPD) quota is spent — free tier resets midnight PT.
+    Not an endpoint failure: the backfill re-runs cleanly after reset."""
 
 
 def _map(cos):
@@ -136,21 +153,17 @@ class Embedder:
 
     def _post(self, texts):
         """One POST /embeddings with up to BATCH texts. Returns raw vectors
-        in input order. Key handling (quota is PER KEY, so a pool spreads
-        per-minute limits):
+        in input order. Key handling (quota is PER KEY — distinct Google
+        accounts have separate RPM/RPD buckets):
           * every SUCCESSFUL batch rotates to the next key (round-robin),
           * a 429 fails over to the next key immediately (no sleep),
           * only when EVERY key was throttled within this call does it sleep
-            (Retry-After or 60s) and retry the round — max 2 full rounds,
-            then raise (caller applies the cool-down).
-        Live-observed 09-05: full-throttle backfill trips 429s constantly;
-        3 keys + round-robin keep ~3x RPM with no stalls."""
+            (Retry-After or 60s) and retry the round — max MAX_WALL_ROUNDS
+            consecutive whole-pool walls, then raise RPDExhausted (an RPM
+            wall clears after ONE sleep; only the spent daily bucket
+            persists). Callers: ensure() degrades to token-only; the
+            backfill prints "re-run tomorrow / after midnight PT"."""
         body = {"model": self.model, "input": list(texts), "dimensions": self.dims}
-        # Live 09-05: with 3 keys round-robining, ALL throttle after ~9
-        # batches — the RPM wall is per Google CLOUD PROJECT (shared by all
-        # keys), so rotation spreads auth, not quota. Clear it: pace under
-        # the wall (BATCH_PAUSE_SEC) and, when the pool still trips, sleep
-        # and CONTINUE (backfill is long but resumable; never give up).
         rounds, throttled = 0, set()
         while True:
             key = self.keys[0]
@@ -178,10 +191,14 @@ class Embedder:
                     self.keys.append(self.keys.pop(0))  # next key, no sleep
                 if len(throttled) >= len(self.keys):    # whole pool down
                     rounds += 1
+                    if rounds >= MAX_WALL_ROUNDS:
+                        raise RPDExhausted(
+                            f"all {len(self.keys)} keys throttled for "
+                            f"{rounds} consecutive rounds — daily (RPD) quota "
+                            f"spent; resets midnight PT")
                     throttled = set()
-                    print(f"[embed] quota wall: all {len(self.keys)} keys throttled — sleeping {wait:.0f}s (round {rounds})")
+                    print(f"[embed] quota wall: all {len(self.keys)} keys throttled — sleeping {wait:.0f}s (round {rounds}/{MAX_WALL_ROUNDS})", flush=True)
                     time.sleep(wait)
-        raise RuntimeError("embeddings endpoint: unrecoverable failure (non-429)")
 
     def _parse_embeddings(self, d, texts):
         data = sorted((d.get("data") or []),
@@ -212,6 +229,14 @@ class Embedder:
                 chunk = todo[i:i + BATCH]
                 try:
                     vecs = self._post(chunk)
+                except RPDExhausted as ex:
+                    self._down_until = time.time() + RPD_COOLDOWN_SEC
+                    if progress:
+                        print(f"[embed] {done}/{total} done, then daily quota "
+                              f"spent: {ex} — re-run after midnight PT to "
+                              f"resume from {self.cached_count()} cached",
+                              flush=True)
+                    return done
                 except Exception as ex:
                     self._down_until = time.time() + COOLDOWN_SEC
                     if progress:
@@ -439,6 +464,40 @@ if __name__ == "__main__":
     assert again.get("Dettol Original Soap", 1) < 0.05
     top = emb2.most_similar("diet coke", limit=3, min_score=0.5)
     assert top and top[0][0] == "Coca-Cola Zero Sugar 750ml", "archive query"
+
+    # RPD wall-cap: an always-429 transport must raise RPDExhausted after
+    # MAX_WALL_ROUNDS whole-pool rounds (MAX-1 sleeps — an RPM wall clears
+    # on the first sleep and never reaches the cap), and ensure() must
+    # swallow it into a 1h token-only cool-down, never re-raise.
+    emb3 = Embedder(cfg, os.path.join(tmp, "t.db"))
+    emb3.keys = ["k1", "k2"]
+    slept = []
+    real_urlopen, real_sleep = urllib.request.urlopen, time.sleep
+
+    def always_429(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 429, "Too Many Requests",
+            {"Retry-After": "60"}, None)
+    urllib.request.urlopen, time.sleep = always_429, slept.append
+    try:
+        try:
+            emb3._post(["x", "y"])
+            raise AssertionError("RPD wall must raise RPDExhausted")
+        except RPDExhausted:
+            pass
+        assert len(slept) == MAX_WALL_ROUNDS - 1, \
+            f"cap must fire after {MAX_WALL_ROUNDS} rounds; slept {len(slept)}"
+    finally:
+        urllib.request.urlopen, time.sleep = real_urlopen, real_sleep
+
+    def rpd_boom(texts):
+        raise RPDExhausted("daily quota spent")
+    emb3._post = rpd_boom
+    assert emb3.ensure(["brand new name"]) == 0, \
+        "RPD exhaustion must degrade to 0, not raise"
+    assert emb3._down_until >= time.time() + RPD_COOLDOWN_SEC - 1, \
+        "RPD cool-down must be 1h"
+
     shutil.rmtree(tmp, ignore_errors=True)
     print("[embed] self-test OK: geometry, rescale, boost, disabled path, "
-          "persistence (5 checks, 0 network calls after backfill)")
+          "persistence, RPD wall-cap (6 checks, 0 network calls after backfill)")
