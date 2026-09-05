@@ -605,10 +605,14 @@ def backfill_catalog(cfg, db_path, limit=None):
     emb = get_embedder(cfg, db_path)
     conn = sqlite3.connect(db_path)
     try:
-        names = [r[0] for r in conn.execute(
+        # Strip + dedupe: ensure() embeds the STRIPPED name, so the pending/
+        # limit accounting below must compare the same normalization (a raw
+        # name with trailing whitespace would read as phantom "pending" even
+        # once its stripped twin is cached).
+        names = list(dict.fromkeys(r[0].strip() for r in conn.execute(
             "SELECT DISTINCT name FROM catalog_snapshots WHERE TRIM(COALESCE(name,''))<>'' "
             "UNION SELECT DISTINCT name FROM watchlist WHERE TRIM(COALESCE(name,''))<>'' "
-            "UNION SELECT DISTINCT name FROM price_obs WHERE TRIM(COALESCE(name,''))<>''")]
+            "UNION SELECT DISTINCT name FROM price_obs WHERE TRIM(COALESCE(name,''))<>''")))
     finally:
         conn.close()
     if limit:
