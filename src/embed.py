@@ -36,7 +36,7 @@ import urllib.request
 DEFAULT_MODEL = "gemini-embedding-001"
 DIMS = 768              # Matryoshka output dims (768 keeps rows ~3KB)
 BATCH = 100             # texts per API request (free-tier batching)
-BATCH_PAUSE_SEC = 0.6   # gentle pacing between backfill batches (~100 req/min ceiling)
+BATCH_PAUSE_SEC = 6.0   # ~10 req/min, the observed free-tier project RPM wall
 COOLDOWN_SEC = 300      # after an endpoint failure, stay token-only this long
 
 # Cosine -> [0,1] rescale onto the token-score scale. min_match_score (0.5)
@@ -146,8 +146,13 @@ class Embedder:
         Live-observed 09-05: full-throttle backfill trips 429s constantly;
         3 keys + round-robin keep ~3x RPM with no stalls."""
         body = {"model": self.model, "input": list(texts), "dimensions": self.dims}
+        # Live 09-05: with 3 keys round-robining, ALL throttle after ~9
+        # batches — the RPM wall is per Google CLOUD PROJECT (shared by all
+        # keys), so rotation spreads auth, not quota. Clear it: pace under
+        # the wall (BATCH_PAUSE_SEC) and, when the pool still trips, sleep
+        # and CONTINUE (backfill is long but resumable; never give up).
         rounds, throttled = 0, set()
-        while rounds < 2:
+        while True:
             key = self.keys[0]
             req = urllib.request.Request(
                 f"{self.base}/embeddings",
@@ -174,8 +179,9 @@ class Embedder:
                 if len(throttled) >= len(self.keys):    # whole pool down
                     rounds += 1
                     throttled = set()
+                    print(f"[embed] quota wall: all {len(self.keys)} keys throttled — sleeping {wait:.0f}s (round {rounds})")
                     time.sleep(wait)
-        raise RuntimeError("embeddings endpoint: all keys throttled for 2 rounds")
+        raise RuntimeError("embeddings endpoint: unrecoverable failure (non-429)")
 
     def _parse_embeddings(self, d, texts):
         data = sorted((d.get("data") or []),
@@ -358,7 +364,8 @@ def backfill_catalog(cfg, db_path, limit=None):
     finally:
         conn.close()
     if limit:
-        names = names[:limit]
+        known = emb._db_known()          # limit counts NEW names this run,
+        names = [n for n in names if n not in known][:limit]  # not re-embeds
     n = emb.ensure(names, progress=True)
     print(f"[embed-catalog] {n} newly embedded of {len(names)} distinct names "
           f"({emb.cached_count()} total cached)")
