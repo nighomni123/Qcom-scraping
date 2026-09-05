@@ -159,7 +159,7 @@ demand:
   # categories" sweep over-samples milk. These case-insensitive substrings
   # skip matching category labels; freed queue slots go to the NEXT
   # categories (snacks, personal care, electronics, ...). Empty list = off.
-  skip_categories: ["dairy", "milk", "bread", "bakery", "eggs", "paneer", "curd"]
+  skip_categories: []
   # Voucher de-biasing (09-02): digital vouchers / gift cards (Steam, Roblox,
   # Xbox, Blinkit Gift Card, retail vouchers…) are NOT commodities — their
   # "stock-outs" are code-pool replenishments that skew Demand Radar DPI.
