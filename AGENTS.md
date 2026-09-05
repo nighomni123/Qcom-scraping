@@ -161,7 +161,11 @@ src/
                         ai.semantic_matching: false => exact historical
                         token behaviour. Self-test: python3 -m src.embed
                         (offline, fake transport; fake vectors mirror live
-                        cosines of the current model)
+                        cosines of the current model). Backfill attempts are
+                        journaled to logs/embed_backfill.log (run start,
+                        per-batch counts, stop reason + resume hint; the
+                        embeddings table itself stays the source of truth
+                        for which names are done)
   ai_assist.py          OPTIONAL LLM advisor behind the dashboard AI panel
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible

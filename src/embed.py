@@ -239,6 +239,19 @@ class Embedder:
             raise RuntimeError(f"endpoint returned {len(vecs)}/{len(texts)} vectors")
         return vecs
 
+    def _log(self, msg):
+        """Append one line to logs/embed_backfill.log next to the DB (dir
+        created on demand). Best-effort: a logging failure never breaks
+        embedding. This file + the embeddings table ARE the resume ledger:
+        the table says which names are done, the log says what was tried."""
+        try:
+            d = os.path.join(os.path.dirname(os.path.abspath(self.db_path)) or ".", "logs")
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "embed_backfill.log"), "a") as f:
+                f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+        except OSError:
+            pass
+
     def ensure(self, names, progress=False):
         """Embed + persist any uncached names (batched). Returns how many were
         newly embedded; 0 when unavailable or nothing to do. Resumable: names
@@ -256,13 +269,18 @@ class Embedder:
             if not todo:
                 return 0
             done, total = 0, len(todo)
+            if progress:
+                self._log(f"start: {total} names to embed "
+                          f"(model={self.model} dims={self.dims} batch={self.batch})")
             for i in range(0, total, self.batch):
-                chunk = todo[i:i + BATCH]
+                chunk = todo[i:i + self.batch]
                 try:
                     vecs = self._post(chunk)
                 except RPDExhausted as ex:
                     self._down_until = time.time() + RPD_COOLDOWN_SEC
                     if progress:
+                        self._log(f"stopped at {done}/{total}: daily budget spent "
+                                  f"— resume: re-run `python3 run.py --embed-catalog`")
                         print(f"[embed] {done}/{total} done, then daily budget "
                               f"spent: {ex} — re-run after the provider's daily "
                               f"reset to resume from {self.cached_count()} cached",
@@ -271,6 +289,8 @@ class Embedder:
                 except Exception as ex:
                     self._down_until = time.time() + COOLDOWN_SEC
                     if progress:
+                        self._log(f"stopped at {done}/{total}: endpoint failed "
+                                  f"({str(ex)[:140]}) — resume: re-run the same command")
                         print(f"[embed] endpoint failed after {done}/{total}: "
                               f"{str(ex)[:140]} — re-run the same command to resume",
                               flush=True)
@@ -288,8 +308,13 @@ class Embedder:
                     self._conn.commit()
                     known.update(r[0] for r in rows)
                 done += len(chunk)
+                skip = len(chunk) - len(rows)
                 if progress:
                     print(f"[embed] {done}/{total} names", flush=True)
+                    self._log(f"batch ok: {done}/{total} names (cached "
+                              f"{self.cached_count()})"
+                              + (f" — {skip} names returned unusable vectors, "
+                                 f"NOT cached, retry next run" if skip else ""))
                 time.sleep(BATCH_PAUSE_SEC)
             return done
 
@@ -423,8 +448,13 @@ def backfill_catalog(cfg, db_path, limit=None):
         known = emb._db_known()          # limit counts NEW names this run,
         names = [n for n in names if n not in known][:limit]  # not re-embeds
     n = emb.ensure(names, progress=True)
+    known = emb._db_known()
+    pending = sum(1 for x in names if x not in known)
+    emb._log(f"run done: +{n} this run; {len(known)} names cached "
+             f"({emb.model}@{emb.dims}); {pending} still pending of the "
+             f"{len(names)} names in this run's list")
     print(f"[embed-catalog] {n} newly embedded of {len(names)} distinct names "
-          f"({emb.cached_count()} total cached)")
+          f"({emb.cached_count()} total cached, {pending} pending)")
 
 
 if __name__ == "__main__":

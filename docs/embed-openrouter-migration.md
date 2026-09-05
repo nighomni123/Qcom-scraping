@@ -114,6 +114,11 @@ Then:
   "re-run after the provider's daily reset to resume from N cached" — by
   design (`MAX_WALL_ROUNDS=5` → `RPDExhausted` → `ensure()` returns, 1h
   cool-down). Just re-run after reset.
+- Every attempt is journaled to `logs/embed_backfill.log` (run start,
+  per-batch cumulative counts, stop reason + resume hint; per-name vectors
+  are never logged — the file stays small). The `embeddings` table is the
+  source of truth for which names are DONE; the log is the human-readable
+  attempt ledger, so "where did we stop" survives terminal restarts.
 
 DB growth: 44,487 × 2048 × 4 B ≈ **365 MB** (+ ~20 MB dormant Gemini rows) —
 fine on current free disk; the config comment and AGENTS.md note the
