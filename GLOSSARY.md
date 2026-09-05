@@ -136,6 +136,24 @@ term is defined here too (or is common English).
 - **DB browser** — read-only view of every sqlite file in the repo.
 - **Log tail** — the last N lines of a feature's output.
 
+## Semantic matching (embeddings)
+
+- **Embedding** — a list of numbers (a **vector**) that a model assigns to a
+  piece of text so that texts with similar MEANING get similar vectors, even
+  with zero shared words ("diet coke" vs "Coca-Cola Zero Sugar 750ml").
+- **Cosine similarity** — the standard 0–1 measure of "how close" two vectors
+  are (angle between them). In this repo, live Gemini cosines: unrelated
+  products ~0.50, category matches ~0.58–0.66, same product ~0.65–0.80.
+- **`embeddings` table** — the cache in deals.db: one vector per distinct
+  product name (additive; nothing else reads it, safe to ignore or wipe).
+- **Semantic lift** — search/watch scores become `max(token_score,
+  semantic_score)`: meaning can only ADD a candidate the word-match missed,
+  never demote one that matched. Endpoint down = the old word-only behaviour.
+- **Backfill** (`--embed-catalog`) — vectorize every distinct product name
+  once (~450 batched requests for 45k names); resumable, re-run anytime.
+- **`--similar <phrase>`** — archive query: which known product names are
+  semantically closest to a phrase you type.
+
 ## AI panel ("Understand the results")
 
 - **LLM** — Large Language Model; the chat AI answering in the panel.

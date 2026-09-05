@@ -223,6 +223,39 @@ def main():
                       f"₹{price if price is not None else '—'}{cat}")
         return
 
+    if "--embed-catalog" in sys.argv:
+        # One-time (resumable) backfill: vectorize every distinct product
+        # name in catalog_snapshots + watchlist + price_obs via the
+        # Gemini-compatible /embeddings endpoint (ai: config). Names already
+        # in the embeddings table are skipped, so re-running after a failure
+        # or after new catalog sweeps only embeds what's new.
+        from src.embed import backfill_catalog
+        backfill_catalog(cfg, cfg.get("db", "deals.db"),
+                         limit=_flag_int("--limit"))
+        return
+
+    if "--similar" in sys.argv:
+        # Semantic archive query: names most similar to the phrase across
+        # everything ever embedded. Needs the embeddings table (run
+        # --embed-catalog first for whole-catalog coverage; search/watch
+        # matching builds it lazily for names it actually sees).
+        i = sys.argv.index("--similar")
+        rest = sys.argv[i + 1:]
+        q = rest[:rest.index("--limit")] if "--limit" in rest else rest
+        query = " ".join(q)
+        if not query:
+            print("usage: python3 run.py --similar <product phrase> [--limit N]")
+            return
+        from src.embed import get_embedder
+        emb = get_embedder(cfg, cfg.get("db", "deals.db"))
+        rows = emb.most_similar(query, limit=_flag_int("--limit") or 10)
+        if not rows:
+            print(f"[similar] no vectors above threshold — run "
+                  "`python3 run.py --embed-catalog` first")
+            return
+        for nm, s in rows:
+            print(f"  {s:.2f}  {nm}")
+
     if "--search" in sys.argv:
         i = sys.argv.index("--search")
         query = " ".join(sys.argv[i + 1:]) or "amul milk"

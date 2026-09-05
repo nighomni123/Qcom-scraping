@@ -201,3 +201,10 @@ ai:
   # If a response still truncates (finish_reason=length), chat() auto-retries
   # once with 4x this budget.
   max_tokens: 65000
+  # Semantic product matching (embeddings, src/embed.py): lifts search/watch
+  # matches whose meaning fits but whose words don't ("diet coke" ->
+  # "Coca-Cola Zero Sugar 750ml"). Same base_url + AI_API_KEY as chat above.
+  # embedding_dims 768 = Matryoshka-truncated (near-full quality, ~3KB/name).
+  # Set semantic_matching: false to fall back to token-only matching.
+  embedding_model: "gemini-embedding-001"
+  embedding_dims: 768

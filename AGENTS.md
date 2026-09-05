@@ -60,7 +60,14 @@ One tool, three features (all sharing the same browser-intercept crawler):
    plus proactive keyword watches: `/watch <product>` stores a chat-level
    watch and WatchPusher (`src/tgbot.py`) pushes Telegram pings whenever a
    search result or crawl batch matches (rate-capped); `/digest` replies with
-   today's cheapest find per category + Demand Radar DPI top-5.
+   today's cheapest find per category + Demand Radar DPI top-5. Matching is
+   token-overlap with an OPTIONAL semantic lift (`src/embed.py`: Gemini
+   embeddings via ai.base_url, cached in an additive `embeddings` table;
+   blend = max(token, semantic) so it can only add candidates, never demote;
+   endpoint down/disabled ⇒ exact historical token behaviour; backfill =
+   `--embed-catalog`, archive query = `--similar`). A semantic catalog
+   re-key guard was evaluated and REJECTED 09-05 — brand-sibling names
+   cosine above genuine relabels, see src/watchlist.py.
 3. **Demand Radar** — per-darkstore stock-out intelligence for a locality
    (Andheri West first). Design + status: `DEMAND_RADAR.md`. Pipeline:
    `--map-locality` → `--build-watchlist` → `--demand` → (phase 4: analysis).
@@ -140,6 +147,15 @@ src/
                         also holds the probes' products (stock_obs source=
                         'inventory' + categorized price_obs)
   store.py              sqlite schema + all persistence helpers
+  embed.py              OPTIONAL semantic matching (Gemini embeddings via the
+                        ai: config, same base_url/key as ai_assist): batched
+                        stdlib-urllib client + sqlite cache in an additive
+                        `embeddings` table (one vector per distinct name);
+                        search ranking + WatchPusher blend max(token, semantic)
+                        so semantics only LIFT candidates; endpoint down or
+                        ai.semantic_matching: false => exact historical token
+                        behaviour. Self-test: python3 -m src.embed (offline,
+                        fake transport; fake vectors mirror live cosines)
   ai_assist.py          OPTIONAL LLM advisor behind the dashboard AI panel
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible
@@ -156,7 +172,8 @@ docs/                   research reports: QuickCommerce API vetting + Zepto/Swig
 scripts/live_sweep.py   one-shot real-glitch hunt
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
                         stock_obs, oos_events, searches, search_results,
-                        keyword_watches, catalog_snapshots, catalog_events
+                        keyword_watches, catalog_snapshots, catalog_events,
+                        embeddings (semantic cache, src/embed.py)
 ```
 
 ## Commands
@@ -196,6 +213,23 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --demand-report [--store ID] [--csv]  # DPI table + heatmap summary
     python3 run.py --catalog-report [--store ID]         # catalog snapshots +
                                     # new/delisted churn log (catalog-inventory)
+    python3 run.py --embed-catalog [--limit N]          # semantic backfill:
+                                    # vectorize every distinct product name via
+                                    # the Gemini /embeddings endpoint (ai.base_url
+                                    # + AI_API_KEY; ~450 batched requests for 45k
+                                    # names; RESUMABLE — re-run to continue after
+                                    # a 429/failure or after new catalog sweeps.
+                                    # 09-05: API keys rotate — ALL AI_API_KEY,
+                                    # AI_API_KEY_2, AI_API_KEY_3… slots in .env
+                                    # form a round-robin pool: every batch uses
+                                    # the next key (spreads per-minute quota),
+                                    # a 429 fails over to the next key, and it
+                                    # sleeps only when the WHOLE pool is
+                                    # throttled)
+    python3 run.py --similar <phrase> [--limit N]       # semantic archive query:
+                                    # names most similar to a phrase from the
+                                    # embeddings table (needs --embed-catalog;
+                                    # one live request for the phrase itself)
     python3 run.py --purge-vouchers [--dry-run]          # wipe voucher/gift-card
                                     # rows from watchlist/stock_obs/oos_events
                                     # (idempotent; --demand also auto-purges at

@@ -284,6 +284,11 @@ class WatchlistBuilder:
         # Re-keyed products: drop from churn lists (they are NOT events).
         reconciled_new = {k for k in new_skus if (cur[k].get("name") or "", cur[k].get("price")) in prev_pairs}
         reconciled_del = {k for k in delisted_skus if prev[k] in cur_pairs}
+        # A semantic re-key guard (embeddings) was evaluated and REJECTED
+        # 09-05: live gemini cosines put brand-siblings ("Marlboro Advance"
+        # vs "Marlboro Gold Advance" = 0.96) ABOVE genuine relabels (0.80-
+        # 0.90), so no threshold can separate them — it would reconcile real
+        # churn away. Exact (name,price) pairs remain the only verdict.
         new_skus = [k for k in new_skus if k not in reconciled_new]
         delisted_skus = [k for k in delisted_skus if k not in reconciled_del]
         n_rekey = len(reconciled_new) + len(reconciled_del)

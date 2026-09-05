@@ -34,6 +34,18 @@ is a plain-English index of every jargon term in this repo.
                                                     # every category, no search
                                                     # terms (~20-60 min, run ALONE)
     python3 run.py --catalog-report [--store 34292]  # snapshot history + new/delisted churn
+    python3 run.py --embed-catalog [--limit N]      # one-time semantic backfill:
+                                    # vectorize every distinct product name
+                                    # (Gemini ai.base_url; ~450 batched requests
+                                    # for 45k names; RESUMABLE — re-run to
+                                    # continue after a failure / new sweeps.
+                                    # ALL AI_API_KEY, _2, _3… slots in .env are
+                                    # a round-robin pool — every batch uses the
+                                    # next key, 429s fail over, whole pool
+                                    # throttled = sleep + retry)
+    python3 run.py --similar <phrase> [--limit 10]  # semantic archive query:
+                                    # most similar archived names (needs
+                                    # --embed-catalog first)
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary

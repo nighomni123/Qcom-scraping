@@ -46,6 +46,13 @@ class SearchEngine:
         self.station = scfg.get("station", "Andheri")
         self.per_platform = int(scfg.get("per_platform_limit", 3))
         self.min_score = float(scfg.get("min_match_score", 0.5))
+        # Semantic fallback: lifts candidates whose meaning matches the query
+        # but whose words don't ("diet coke" -> "Coca-Cola Zero Sugar 750ml").
+        # Blend = max(token, semantic), so semantics can only ADD candidates,
+        # never demote a token match. Degraded (no key/endpoint down) =>
+        # boost_scores is {} and ranking is exactly the historical one.
+        from .embed import get_embedder
+        self.emb = get_embedder(cfg, cfg.get("db", "deals.db"))
         self.platforms = scfg.get("platforms",
                                   ["blinkit", "zepto, instamart".split(",")[0], "instamart",
                                    "amazon", "flipkart"])
@@ -99,10 +106,14 @@ class SearchEngine:
 
         results = []
         seen_names = set()
+        # ONE batched embeddings call (query + every candidate name) covers
+        # the whole search; names already cached answer from sqlite.
+        boost = self.emb.boost_many(query, [pr.get("name") for prs in raw.values() for pr in prs])
         for platform, prods in raw.items():
             scored = []
             for pr in prods:
                 s = match_score(query, pr.get("name"), pr.get("collections"))
+                s = max(s, boost.get(pr.get("name") or "", 0.0))
                 if s >= self.min_score and pr.get("price"):
                     scored.append((s, pr))
             scored.sort(key=lambda x: (-x[0], x[1]["price"]))

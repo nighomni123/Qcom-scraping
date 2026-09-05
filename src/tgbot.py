@@ -53,6 +53,11 @@ class WatchPusher:
         self.store = store
         self.min_score = float(cfg.get("search", {}).get("min_match_score", 0.5))
         self.rate_cap = int(cfg.get("alert", {}).get("rate_cap", 10))
+        # Semantic watch matching: a "cold drinks" watch should also catch
+        # "Kinley Soda Lemontini". Falls back to token-only when embeddings
+        # are unavailable — pushes never depend on the endpoint.
+        from .embed import get_embedder
+        self.emb = get_embedder(cfg, getattr(store, "path", "deals.db"))
         env = _load_env()
         self.token = env.get("TG_BOT_TOKEN") or os.environ.get("TG_BOT_TOKEN") or ""
         self._sent = []  # epoch times of successful pushes (hourly window)
@@ -94,10 +99,14 @@ class WatchPusher:
             if last_ts and now - last_ts < WATCH_COOLDOWN_SEC:
                 continue
             hit = None
+            # One batched embeddings call per keyword (query + all names),
+            # not per row — a per-row probe would fire one request per
+            # product. Falls back to token-only when embeddings are down.
+            boost = self.emb.boost_many(kw, [r.get("name") for r in rows])
             for r in rows:  # first matching product of this batch is enough
                 nm = (r.get("name") or "").strip()
                 if nm:
-                    s = match_score(kw, nm)
+                    s = max(match_score(kw, nm), boost.get(nm, 0.0))
                     if s >= self.min_score:
                         hit = (r, nm, s)
                         break
