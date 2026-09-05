@@ -197,9 +197,12 @@ scripts/embed_3d_map.py  3D inventory embedding map: PCA(2048->50->3) +
                         k-means color clusters over the `embeddings` table
                         -> exports/embedding_map.html (self-contained plotly
                         WebGL; run with .venv/bin/python — needs sklearn/plotly;
-                        checkbox opens a live side panel listing the products +
-                        latest price_obs prices within a radius of the hovered
-                        point — all client-side, prices joined read-only)
+                        --model nemotron|gemma renders from either provider's
+                        vectors: nemotron (default, 2048d) -> embedding_map.html,
+                        gemma (768d) -> embedding_map_gemma.html; checkbox opens
+                        a live side panel listing the products + latest price_obs
+                        prices within a radius of the hovered point — all
+                        client-side, prices joined read-only)
 .tools/ollama/          workspace-local Ollama binary (gitignored; models in
                         .ollama/, server HOME in .ollama_home/ — ~800MB total,
                         never commit)

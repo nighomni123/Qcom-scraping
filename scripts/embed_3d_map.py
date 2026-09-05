@@ -5,7 +5,9 @@ Reads every product-name vector for one model from deals.db `embeddings`,
 reduces 2048-D -> 3-D via PCA, clusters (k-means) for color grouping, and
 writes a single self-contained interactive HTML (plotly WebGL scatter).
 
-Run:  .venv/bin/python scripts/embed_3d_map.py [--model M] [--k N] [--out FILE]
+Run:  .venv/bin/python scripts/embed_3d_map.py [--model nemotron|gemma|M]
+      [--k N] [--out FILE]   (gemma/nemotron are aliases for the two full
+      catalog models; anything else is matched verbatim against the table)
 
 ponytail: PCA-3 axes (not UMAP/t-SNE) — one dep-light path, minutes not
 hours at 44k points; clusters still carry the semantic grouping. Upgrade
@@ -20,6 +22,11 @@ import numpy as np
 
 DB = os.path.join(os.path.dirname(__file__), "..", "deals.db")
 DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2"
+# friendly aliases -> exact `embeddings.model` strings
+MODEL_ALIASES = {
+    "nemotron": DEFAULT_MODEL,
+    "gemma": "embeddinggemma",
+}
 
 PAGE_TEMPLATE = """<!doctype html>
 <html>
@@ -141,15 +148,23 @@ def load_vectors(db_path, model):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default=DEFAULT_MODEL)
+    ap.add_argument("--model", default="nemotron",
+                    help="nemotron | gemma | exact model string in the table")
     ap.add_argument("--k", type=int, default=24, help="k-means cluster count")
-    ap.add_argument("--out", default=os.path.join(
-        os.path.dirname(__file__), "..", "exports", "embedding_map.html"))
+    ap.add_argument("--out", default=None)
     ap.add_argument("--db", default=DB)
     args = ap.parse_args()
 
-    print(f"loading {args.model} ...")
-    names, mat = load_vectors(args.db, args.model)
+    model = MODEL_ALIASES.get(args.model, args.model)
+    # per-model output file so renders from different vectors coexist
+    if args.out is None:
+        tag = args.model if args.model in MODEL_ALIASES else model.replace("/", "-")
+        args.out = os.path.join(os.path.dirname(__file__), "..", "exports",
+                                "embedding_map.html" if model == DEFAULT_MODEL
+                                else f"embedding_map_{tag}.html")
+
+    print(f"loading {model} ...")
+    names, mat = load_vectors(args.db, model)
     n, d = mat.shape
     print(f"loaded {n} vectors x {d} dims")
 
@@ -221,7 +236,7 @@ def main():
             marker=dict(size=1.6, opacity=0.7),
         ))
     fig.update_layout(
-        title=(f"Inventory embedding map — {n} products, {args.model}, "
+        title=(f"Inventory embedding map — {n} products, {model}, "
                f"{args.k} clusters (PCA of cosine-normalized vectors)"),
         scene=dict(xaxis_title="PC1", yaxis_title="PC2", zaxis_title="PC3"),
         legend=dict(font=dict(size=9)),
