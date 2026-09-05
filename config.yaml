@@ -225,3 +225,18 @@ ai:
   embedding_batch: 180
   embedding_input_type: "passage"
   embedding_batch_pause: 0.5
+  # --- Local embeddings via Ollama (embeddinggemma-300m) ---------------------
+  # Run Google's embeddinggemma-300m LOCALLY to drop the per-request quota
+  # entirely. Requires `ollama serve` + `ollama pull embeddinggemma` (Ollama
+  # binary under .tools/ollama/ or on PATH). Flip embedding_provider to
+  # "ollama" to use it; rows are keyed (model,dims,name) so they sit BESIDE the
+  # NVIDIA rows and never overwrite them. embeddinggemma is 768-dim native
+  # (matryoshka allows 256). It is asymmetric: for best retrieval set
+  # embedding_query_prefix: "query: " (Gemma-family convention); the passage
+  # side needs no prefix. Test harness: scripts/test_embeddinggemma.py.
+  # embedding_provider: "ollama"
+  # embedding_model: "embeddinggemma"
+  # embedding_dims: 768
+  # embedding_base_url: "http://localhost:11434"
+  # embedding_batch: 256
+  # embedding_query_prefix: "query: "

@@ -19,3 +19,12 @@ deals.demo.db*
 
 # backup databases (manual + auto-generated, lives outside the live deals.db)
 backups/
+
+# workspace-local Ollama install (embeddinggemma backfill, src/embed.py):
+# binary + models + server HOME ≈ 800 MB, never commit
+.tools/
+.ollama/
+.ollama_home/
+
+# runtime logs (catalog sweeps, embed backfill journal)
+logs/

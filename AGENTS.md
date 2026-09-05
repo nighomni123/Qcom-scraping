@@ -62,8 +62,9 @@ One tool, three features (all sharing the same browser-intercept crawler):
    search result or crawl batch matches (rate-capped); `/digest` replies with
    today's cheapest find per category + Demand Radar DPI top-5. Matching is
    token-overlap with an OPTIONAL semantic lift (`src/embed.py`: NVIDIA-hosted
-   embeddings via ai.embedding_base_url, cached in an additive `embeddings`
-   table;
+   embeddings via ai.embedding_base_url, or the OPT-IN local Ollama
+   embeddinggemma provider — ai.embedding_provider: "ollama"; cached in an
+   additive `embeddings` table;
    blend = max(token, semantic) so it can only add candidates, never demote;
    endpoint down/disabled ⇒ exact historical token behaviour; backfill =
    `--embed-catalog`, archive query = `--similar`). A semantic catalog
@@ -165,7 +166,14 @@ src/
                         journaled to logs/embed_backfill.log (run start,
                         per-batch counts, stop reason + resume hint; the
                         embeddings table itself stays the source of truth
-                        for which names are done)
+                        for which names are done). OPT-IN local provider
+                        (ai.embedding_provider: "ollama"): embeddinggemma-300m
+                        via the workspace-local Ollama server (.tools/ollama/),
+                        no API key; its 768-dim rows sit BESIDE the NVIDIA
+                        @2048 rows. Batch 256 is the measured optimum on this
+                        2-core/8GB box (flat ~8 items/s for B=64→256; B≥512
+                        exhausts free RAM and kills the Ollama runner — see
+                        Environment quirks)
   ai_assist.py          OPTIONAL LLM advisor behind the dashboard AI panel
                         (/ai/*): result explanations, whitelisted demand-probe
                         tuning, product-focus staple_queries; OpenAI-compatible
@@ -180,6 +188,14 @@ docs/                   research reports: QuickCommerce API vetting + Zepto/Swig
                         APK reverse-engineering findings (source .apkm files live in
                         apks/, gitignored — too large to commit)
 scripts/live_sweep.py   one-shot real-glitch hunt
+scripts/test_embeddinggemma.py  local-Ollama embeddinggemma backfill + demo
+                        queries (self-managing: starts serve, pulls model)
+scripts/compare_embeddings.py   embeddinggemma-vs-NVIDIA neighbour-agreement
+                        comparison (numpy in .venv/ — run with .venv/bin/python)
+scripts/bench_ollama_batch.py   Ollama batch-size throughput/RAM benchmark
+.tools/ollama/          workspace-local Ollama binary (gitignored; models in
+                        .ollama/, server HOME in .ollama_home/ — ~800MB total,
+                        never commit)
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
                         stock_obs, oos_events, searches, search_results,
                         keyword_watches, catalog_snapshots, catalog_events,
@@ -251,6 +267,14 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # ever matters). Old Gemini rows in
                                     # `embeddings` stay (keyed model+dims);
                                     # the backfill re-keys on re-run.
+                                    # 09-05 LOCAL OPTION (opt-in): set
+                                    # ai.embedding_provider: "ollama" to embed
+                                    # via workspace-local Ollama +
+                                    # embeddinggemma-300m (768 dims, ZERO
+                                    # quota). Harness: scripts/
+                                    # test_embeddinggemma.py; quality
+                                    # comparison vs NVIDIA: scripts/
+                                    # compare_embeddings.py.
     python3 run.py --similar <phrase> [--limit N]       # semantic archive query:
                                     # names most similar to a phrase from the
                                     # embeddings table (needs --embed-catalog;
@@ -448,6 +472,24 @@ tools/pw_catalog.js` + `python3 run.py --check`. `src/prober.py` and
   `device_id`/`session_id` (from the app's cookies), making this robust to signature
   gating. The only hard gate observed is IP-reputation (403 login wall — see
   Instamart note), not signature validation.
+- **Local embeddings via workspace Ollama** (added 09-05, OPT-IN): the Ollama
+  server binary lives INSIDE the repo workspace at `.tools/ollama/ollama`
+  (Intel-Mac build v0.33.3 from GitHub releases — no brew on this box), models
+  in `.ollama/` (~621MB `embeddinggemma` = google/embeddinggemma-300m, gemma3
+  family, 768-dim native, matryoshka 256), server HOME in `.ollama_home/`.
+  SANDBOX QUIRK: Ollama writes its id_ed25519 key under `$HOME/.ollama`, which
+  the sandbox denies — `HOME`/`OLLAMA_HOME` MUST point into the workspace or
+  `ollama serve` dies instantly with "could not create directory" (`OLLAMA_HOME`
+  alone is NOT honored for the key dir; set `HOME`). Batch-size reality
+  (benchmarked 09-05 via scripts/bench_ollama_batch.py on this 2-physical-core
+  / 8GB box): throughput is FLAT ~8 items/s from B=64→256 — CPU-bound, request
+  overhead is NOT the bottleneck locally, so single-item embeds are never
+  better — and free RAM bleeds as the runner holds its KV-cache high-water
+  mark; **B≥512 exhausts free RAM and the runner process dies**, surfacing as
+  HTTP 400 `Post "http://127.0.0.1:<port>/tokenize": connection reset by peer`
+  (NOT a validation error — the server still answers /api/tags but rejects
+  every embed until restarted). Hence `embedding_batch: 256` is the optimum;
+  `.tools/`, `.ollama/`, `.ollama_home/` are all gitignored.
 
 ## Demand Radar invariants (do not break)
 

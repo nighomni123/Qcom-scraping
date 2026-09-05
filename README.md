@@ -36,15 +36,23 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --catalog-report [--store 34292]  # snapshot history + new/delisted churn
     python3 run.py --embed-catalog [--limit N]      # one-time semantic backfill:
                                     # vectorize every distinct product name
-                                    # (OpenRouter nvidia/llama-nemotron-embed-
-                                    # vl-1b-v2:free, 2048 dims; 1000 names per
-                                    # request => ~45 requests for 45k names,
-                                    # ~15 min; RESUMABLE — re-run to
-                                    # continue after a failure / new sweeps.
-                                    # ALL AI_API_KEY, _2, _3… slots in .env are
-                                    # a round-robin pool — every batch uses the
-                                    # next key, 429s fail over, whole pool
-                                    # throttled = sleep + retry)
+                                    # (NVIDIA-hosted nvidia/llama-nemotron-
+                                    # embed-vl-1b-v2 @2048 dims via
+                                    # ai.embedding_base_url +
+                                    # NVIDIA_Build_API_KEY; RESUMABLE — re-run
+                                    # to continue, cached names are skipped).
+                                    # LOCAL OPT-IN ALTERNATIVE (zero quota):
+                                    # set ai.embedding_provider: "ollama" ->
+                                    # workspace-local Ollama +
+                                    # embeddinggemma-300m @768 dims. Harness:
+                                    # scripts/test_embeddinggemma.py (starts
+                                    # the server + pulls the model itself);
+                                    # quality comparison vs NVIDIA:
+                                    # scripts/compare_embeddings.py (numpy in
+                                    # .venv/ — run with .venv/bin/python);
+                                    # batch-size benchmark:
+                                    # scripts/bench_ollama_batch.py (batch 256
+                                    # is the measured optimum on this box)
     python3 run.py --similar <phrase> [--limit 10]  # semantic archive query:
                                     # most similar archived names (needs
                                     # --embed-catalog first)

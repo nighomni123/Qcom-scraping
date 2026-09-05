@@ -145,13 +145,17 @@ term is defined here too (or is common English).
   are (angle between them). In this repo, live Gemini cosines: unrelated
   products ~0.50, category matches ~0.58–0.66, same product ~0.65–0.80.
 - **`embeddings` table** — the cache in deals.db: one vector per distinct
-  product name (additive; nothing else reads it, safe to ignore or wipe).
+  product name, keyed (model, dims, name) so different providers live side
+  by side (NVIDIA Nemotron @2048, Gemini @768, local embeddinggemma @768);
+  additive — nothing else reads it, safe to ignore or wipe.
 - **Semantic lift** — search/watch scores become `max(token_score,
   semantic_score)`: meaning can only ADD a candidate the word-match missed,
   never demote one that matched. Endpoint down = the old word-only behaviour.
 - **Backfill** (`--embed-catalog`) — vectorize every distinct product name
-  once (OpenRouter counts a whole 1000-name batch as ONE request: ~45
-  requests for 45k names, ~15 min); resumable, re-run anytime.
+  once. Provider is NVIDIA-hosted Nemotron by default; OPT-IN local
+  alternative: `ai.embedding_provider: "ollama"` runs Google's
+  embeddinggemma-300m on the machine itself (zero quota, ~8 names/sec on
+  this box, batch 256). Resumable — re-run anytime to continue.
 - **`--similar <phrase>`** — archive query: which known product names are
   semantically closest to a phrase you type.
 
