@@ -216,16 +216,21 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
     python3 run.py --embed-catalog [--limit N]          # semantic backfill:
                                     # vectorize every distinct product name via
                                     # the Gemini /embeddings endpoint (ai.base_url
-                                    # + AI_API_KEY; ~450 batched requests for 45k
-                                    # names; RESUMABLE — re-run to continue after
-                                    # a 429/failure or after new catalog sweeps.
-                                    # 09-05: API keys rotate — ALL AI_API_KEY,
-                                    # AI_API_KEY_2, AI_API_KEY_3… slots in .env
-                                    # form a round-robin pool: every batch uses
-                                    # the next key (spreads per-minute quota),
-                                    # a 429 fails over to the next key, and it
-                                    # sleeps only when the WHOLE pool is
-                                    # throttled)
+                                    # + AI_API_KEY; RESUMABLE — re-run to continue,
+                                    # cached names are skipped).
+                                    # 09-05 quota reality (live-measured via
+                                    # the AI Studio dashboard): Gemini's
+                                    # OpenAI-compat /embeddings counts EACH
+                                    # INPUT ITEM as its own request — a
+                                    # 100-name batch burns 100 RPM + 100
+                                    # RPD, not 1. Free tier per key: 100
+                                    # RPM / 1,000 RPD / 30k TPM. So the
+                                    # corpus (44,487 names) needs ~44k
+                                    # quota-units; with N keys in .env it
+                                    # takes ~44/N days on free tier, or
+                                    # ~1 hour on ONE billing-enabled key
+                                    # (Tier 1: RPD unlimited, ~$0.08 total).
+                                    # BATCH does not multiply throughput.)
     python3 run.py --similar <phrase> [--limit N]       # semantic archive query:
                                     # names most similar to a phrase from the
                                     # embeddings table (needs --embed-catalog;
