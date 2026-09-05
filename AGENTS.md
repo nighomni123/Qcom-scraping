@@ -193,6 +193,10 @@ scripts/test_embeddinggemma.py  local-Ollama embeddinggemma backfill + demo
 scripts/compare_embeddings.py   embeddinggemma-vs-NVIDIA neighbour-agreement
                         comparison (numpy in .venv/ — run with .venv/bin/python)
 scripts/bench_ollama_batch.py   Ollama batch-size throughput/RAM benchmark
+scripts/embed_3d_map.py  3D inventory embedding map: PCA(2048->50->3) +
+                        k-means color clusters over the `embeddings` table
+                        -> exports/embedding_map.html (self-contained plotly
+                        WebGL; run with .venv/bin/python — needs sklearn/plotly)
 .tools/ollama/          workspace-local Ollama binary (gitignored; models in
                         .ollama/, server HOME in .ollama_home/ — ~800MB total,
                         never commit)
