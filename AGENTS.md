@@ -193,16 +193,23 @@ scripts/test_embeddinggemma.py  local-Ollama embeddinggemma backfill + demo
 scripts/compare_embeddings.py   embeddinggemma-vs-NVIDIA neighbour-agreement
                         comparison (numpy in .venv/ — run with .venv/bin/python)
 scripts/bench_ollama_batch.py   Ollama batch-size throughput/RAM benchmark
-scripts/embed_3d_map.py  3D inventory embedding map: PCA(2048->50->3) +
-                        k-means color clusters over the `embeddings` table
-                        -> exports/embedding_map.html (self-contained plotly
-                        WebGL; run with .venv/bin/python — needs sklearn/plotly;
-                        --model nemotron|gemma renders from either provider's
-                        vectors: nemotron (default, 2048d) -> embedding_map.html,
-                        gemma (768d) -> embedding_map_gemma.html; checkbox opens
-                        a live side panel listing the products + latest price_obs
-                        prices within a radius of the hovered point — all
-                        client-side, prices joined read-only)
+scripts/embed_3d_map.py  Inventory Atlas: dark-themed semantic explorer over
+                        the `embeddings` table -> exports/embedding_map.html
+                        (self-contained; run with .venv/bin/python — needs
+                        sklearn/plotly/scipy; --model nemotron|gemma renders
+                        from either provider's vectors: nemotron (default,
+                        2048d) -> embedding_map.html, gemma (768d) ->
+                        embedding_map_gemma.html). Pipeline: cosine-normalize
+                        -> PCA-50 -> k-means (--k, default 24) -> PCA-3 + PCA-2
+                        (--projection umap upgrades both, needs umap-learn)
+                        -> cheapest-latest price/store/category/stock join per
+                        name -> one HTML (3D map + 2D hull-territory overview +
+                        cluster explorer + click-to-select product inspector
+                        with similar-products list; Semantic/Price/Store/
+                        Category/Density modes restyle the same geometry).
+                        --sample N renders N random names for fast UI testing;
+                        --seed N fixes PCA/k-means/sampling; --neighbors N
+                        sizes the inspector list (default 20)
 .tools/ollama/          workspace-local Ollama binary (gitignored; models in
                         .ollama/, server HOME in .ollama_home/ — ~800MB total,
                         never commit)

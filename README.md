@@ -56,6 +56,17 @@ is a plain-English index of every jargon term in this repo.
     python3 run.py --similar <phrase> [--limit 10]  # semantic archive query:
                                     # most similar archived names (needs
                                     # --embed-catalog first)
+    .venv/bin/python scripts/embed_3d_map.py [--model nemotron|gemma] [--k 24]
+                                    # Inventory Atlas: self-contained dark-themed
+                                    # HTML explorer of the embedding archive ->
+                                    # exports/embedding_map[_<model>].html
+                                    # (3D semantic map + 2D overview + cluster
+                                    # explorer + product inspector; Semantic /
+                                    # Price / Store / Category / Density modes;
+                                    # needs sklearn/plotly/scipy in .venv/;
+                                    # --projection umap needs umap-learn;
+                                    # --sample N renders N random names for
+                                    # fast UI testing)
     python3 run.py --demand                          # continuous stock probing loop
     python3 run.py --demand --once --apps blinkit --store 47578   # single round
     python3 run.py --demand-report --csv             # DPI ranking + heatmap summary
