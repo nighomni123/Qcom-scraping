@@ -34,6 +34,7 @@ The plan was reviewed and adjusted before coding; the approved spec is the
 | 9 | Docs | README + AGENTS: Commands, Repo map, collections/category distinction | ✅ Done | README prose+commands; AGENTS repo map + commands |
 | 10 | Tests | `tests/` (stdlib unittest) incl. provenance round-trip | ✅ Done | `python3 -m unittest` → 12/12 OK |
 | 11 | A.4 — incremental capture | `tools/pw_catalog.js` `emitVisitBatch` per-visit JSON + `base.py` main-thread streaming + `watchlist.py` flush-every-2-visits buffer | ✅ Done | `node --check` OK; `tests/test_inventory_capture.py` → 2/2; full suite 14/14 OK |
+| 12 | A.5 — product URL | `Store._derive_product_url` (Blinkit `/prn/<slug>/prid/<id>` from captured `product_id`; other apps untouched) + backfill of 795 existing rows | ✅ Done | derivation unit-checked; all 795 `inventory_blinkit.db` rows now have canonical url |
 
 ---
 
@@ -193,6 +194,30 @@ The plan was reviewed and adjusted before coding; the approved spec is the
   and lost — the accepted "~1 visit" loss — plus a full-run variant asserting all
   15 rows via the terminal summary. Full suite: `python3 -m unittest` → 14/14 OK.
 
+### 12. Product URL for Blinkit (requirement: "including product's url")
+- **Investigation (user chose "find real URL in payload"):** ran a short Blinkit
+  crawl with `DSH_BODY_DIR` dumping every intercepted JSON response and grepped
+  all bodies. **Blinkit's catalog API does NOT return a per-product URL in any
+  intercepted endpoint** — every `url` key is a CDN image URL (`cdn.grofers.com`)
+  or an ad-tracker beacon; every `link` key is footer nav (`/terms`, `/faq`…);
+  product nodes carry `product_id` (or `id`) but no `url`/`web_url`/`seo_url`/
+  `slug`. The already-captured 419 `inventory_catalog` rows confirmed the same
+  (raw has `product_id`, no url field). Zepto/Instamart payloads do carry a URL
+  and are left untouched (the crawler already lifts `node.url||node.link||
+  node.seo_url`).
+- **Resolution:** derive the canonical Blinkit URL — its real, working shape is
+  `/prn/<slug>/prid/<product_id>` (per AGENTS.md), and `product_id` is already
+  captured in `raw`. Added `Store._derive_product_url(app, rec)` called from
+  `upsert_inventory_catalog` (the single write chokepoint, mirroring how
+  `category` is derived from `name` there). It preserves an explicit `url` if
+  present, derives for Blinkit from `raw.product_id` (fallback `sku_key`), and
+  returns `''` for other apps (never invents a URL). Verified: Blinkit
+  no-url→`https://blinkit.com/prn/mysore-sandal-soap-75-g/prid/19934`; explicit
+  url preserved; Zepto no-url→''; Zepto explicit url preserved.
+- **Backfill:** the 795 existing `inventory_blinkit.db` rows (a live partial
+  run had grown from 419→795) had empty `url`; backfilled all 795 with the
+  derived canonical URL (idempotent, only filled empty values).
+
 ---
 
 ## Comments & deviations
@@ -245,6 +270,8 @@ _(updated as work completes)_
     can now be stopped early and the partial `inventory_catalog` it wrote every
     2 visits is retained** — so the end-to-end acceptance gate no longer requires
     an uninterrupted full sweep; the user can validate the capture path on a short
-    partial run and inspect `inventory_<app>.db.inventory_catalog`.
+    partial run and inspect `inventory_<app>.db.inventory_catalog`. The live `inventory_blinkit.db`
+     already shows this working (grew 419→795 rows from a stopped partial run, all
+     with derived product URLs).
   - M2 (vectors + Atlas) is where `attach_embeddings` and the semantic
     confirmation become first-class.

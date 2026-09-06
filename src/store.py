@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 import statistics
 import threading
@@ -351,6 +352,31 @@ class Store:
     # shared column). `category` is OUR normalized internal taxonomy. See M1 plan.
     _RAW_JSON_CAP = 16 * 1024  # 16 KB safety valve per product payload
 
+    def _derive_product_url(self, app, rec):
+        """Best-effort canonical product URL.
+
+        Blinkit's catalog API does NOT return a URL in its listing payloads
+        (verified by dumping intercepted responses: the only `url` keys are CDN
+        image URLs and ad-tracker beacons; product nodes carry `product_id` only).
+        The real, working Blinkit product URL is `/prn/<slug>/prid/<product_id>`
+        (AGENTS.md), so we derive it from the already-captured `product_id`.
+        Other apps (zepto/instamart) expose a `url`/`link`/`seo_url` in their
+        payloads and are left untouched. Returns '' when nothing is available.
+        """
+        if rec.get("url"):
+            return rec["url"]
+        if app == "blinkit":
+            raw = rec.get("raw")
+            pid = None
+            if isinstance(raw, dict):
+                pid = raw.get("product_id") or raw.get("id")
+            if not pid:
+                pid = rec.get("sku_key")
+            if pid:
+                slug = re.sub(r"[^a-z0-9]+", "-", str(rec.get("name") or "").lower()).strip("-")
+                return f"https://blinkit.com/prn/{slug}/prid/{pid}"
+        return ""
+
     def upsert_inventory_catalog(self, app, store_id, rec):
         """Persist one rich inventory record. `rec` carries at least
         sku_key/name; optional price/mrp/in_stock/url/collections/raw.
@@ -400,7 +426,7 @@ class Store:
             (time.time(), app, store_id, rec.get("sku_key"), rec.get("name"),
              rec.get("price"), rec.get("mrp"),
              None if rec.get("in_stock") is None else int(rec["in_stock"]),
-             rec.get("url") or "", cols, categorize(rec.get("name")),
+             self._derive_product_url(app, rec), cols, categorize(rec.get("name")),
              raw_json, truncated, nbytes),
         )
         self.conn.commit()
