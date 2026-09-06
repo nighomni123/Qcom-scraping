@@ -28,3 +28,4 @@ backups/
 
 # runtime logs (catalog sweeps, embed backfill journal)
 logs/
+reference/
