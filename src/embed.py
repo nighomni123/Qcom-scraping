@@ -614,6 +614,10 @@ SEM_SILOS = [
 
 
 def _expand_silo(conn, model, dims, seed_vec, seed_name, limit, min_score):
+    # Returns RAW cosine (signed, [-1,1]) -- not the 0..1 _map used for token
+    # blending. Raw cosine is the honest, cross-silo-comparable similarity for a
+    # "show me nearest neighbours" view; the per-model baseline differs, so the
+    # UI shows the actual number rather than a saturated 1.00.
     out = []
     qn = _norm(seed_vec)
     cur = conn.execute(
@@ -624,18 +628,19 @@ def _expand_silo(conn, model, dims, seed_vec, seed_name, limit, min_score):
             continue
         v = array.array("f")
         v.frombytes(blob)
-        s = _map(_cos(seed_vec, qn, v), SEM_LO, SEM_HI)
+        s = _cos(seed_vec, qn, v)
         if s >= min_score:
             out.append((s, nm))
-    out.sort(key=lambda t: (-t[0], t[1]))
+    out.sort(key=lambda t: -t[0])
     return [(nm, s) for s, nm in out[:limit]]
 
 
-def similar_across_silos(db_path, name, limit=12, min_score=0.5):
+def similar_across_silos(db_path, name, limit=12, min_score=-1.0):
     """Offline expansion: for a seed product *name* already in embeddings, return
     its nearest neighbours from every silo that contains it. Returns
-    {label: [(name, score), ...]}; a silo maps to [] when the seed was never
-    vectorised by that provider (e.g. Gemini's partial backfill)."""
+    {label: [(name, raw_cosine), ...]} (highest first); a silo maps to [] when
+    the seed was never vectorised by that provider (e.g. Gemini's partial
+    backfill). No embedding-model call -- pure sqlite + cosine."""
     name = (name or "").strip()
     if not name:
         return {lab: [] for _, _, lab in SEM_SILOS}

@@ -369,7 +369,10 @@ loops from the Features panel) endpoints: `/status /categories
 /searches /search/<id>` (bot analytics), `/demand /heatmap?store=
 /eta /qc` (Demand Radar, DB-backed — live probing stays in `--qc-status`),
 `/db` + `/db/<db>/<table>` (read-only browser over ALL repo sqlite files:
-deals.db + inventory/*.db), `/features` + `/features/<id>/start|stop|log`
+deals.db + inventory/*.db), `/semsearch?q=<text>` (offline lexical product-name
+lookup) + `/semsearch?seed=<name>` (offline stored-vector expansion across the
+gemma/google/nematron silos — the Semantic search tab's 3 panels; no
+embedding-model call), `/features` + `/features/<id>/start|stop|log`
 (spawn/terminate any repo feature — monitor loop, bot, --demand, demo,
 inventory sweeps… — as managed child processes; 09-02: features declare an
 editable-args spec (`args` in FEATURE_CATALOG), the panel renders inputs per

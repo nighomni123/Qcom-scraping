@@ -495,7 +495,7 @@
       <div id="semSeeds" class="seeds" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
     </div>
     <div class="panel">
-      <h2>Similar across each vector database</h2>
+      <h2>Similar across each vector database <span class="chip">raw cosine · higher = closer</span></h2>
       <div id="semPanels"><div class="muted">pick a product name above to populate the three panels</div></div>
     </div>
   </section>
@@ -749,7 +749,7 @@ function semPick(i){
     box.innerHTML = '<div class="sem3">' + labs.map(([k,title])=>{
       const rows = (d.panels && d.panels[k]) || [];
       const body = rows.length
-        ? rows.map(([nm,s])=>`<li><span class="sc">${s.toFixed(2)}</span>${esc(nm)}</li>`).join('')
+        ? rows.map(([nm,s])=>`<li><span class="sc">${s.toFixed(3)}</span>${esc(nm)}</li>`).join('')
         : '<li class="muted">no neighbours — seed not backfilled by this provider, or none above threshold</li>';
       return `<div class="spanel"><h3>${title}</h3><ul class="semul">${body}</ul></div>`;
     }).join('') + '</div>';
