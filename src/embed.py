@@ -598,6 +598,99 @@ class Embedder:
         return [(nm, s) for s, nm in out[:limit]]
 
 
+# --- Offline, model-free expansion across every vector silo -----------------
+# The semantic cache (embeddings) is keyed by (model, dims, name). A product's
+# vector already in the DB can be reused to find its neighbours WITHOUT calling
+# the embedding model -- comparing two stored vectors is pure cosine. This powers
+# a lexical-bootstrap -> click -> expand search UX that needs no model access.
+# ponytail: reuses _cos/_norm/_map/_as_vec + array; no Embedder, no network.
+
+# Canonical silos for the dashboard's 3-panel view. (model, dims, label)
+SEM_SILOS = [
+    ("nvidia/llama-nemotron-embed-vl-1b-v2", 2048, "nematron"),
+    ("embeddinggemma", 768, "gemma"),
+    ("gemini-embedding-001", 768, "google"),
+]
+
+
+def _expand_silo(conn, model, dims, seed_vec, seed_name, limit, min_score):
+    out = []
+    qn = _norm(seed_vec)
+    cur = conn.execute(
+        "SELECT name, vec FROM embeddings WHERE model=? AND dims=?",
+        (model, dims))
+    for nm, blob in cur:
+        if nm == seed_name:
+            continue
+        v = array.array("f")
+        v.frombytes(blob)
+        s = _map(_cos(seed_vec, qn, v), SEM_LO, SEM_HI)
+        if s >= min_score:
+            out.append((s, nm))
+    out.sort(key=lambda t: (-t[0], t[1]))
+    return [(nm, s) for s, nm in out[:limit]]
+
+
+def similar_across_silos(db_path, name, limit=12, min_score=0.5):
+    """Offline expansion: for a seed product *name* already in embeddings, return
+    its nearest neighbours from every silo that contains it. Returns
+    {label: [(name, score), ...]}; a silo maps to [] when the seed was never
+    vectorised by that provider (e.g. Gemini's partial backfill)."""
+    name = (name or "").strip()
+    if not name:
+        return {lab: [] for _, _, lab in SEM_SILOS}
+    conn = sqlite3.connect(db_path)
+    try:
+        res = {}
+        for model, dims, lab in SEM_SILOS:
+            row = conn.execute(
+                "SELECT vec FROM embeddings WHERE model=? AND dims=? AND name=?",
+                (model, dims, name)).fetchone()
+            if not row:
+                res[lab] = []
+                continue
+            seed = array.array("f")
+            seed.frombytes(row[0])
+            res[lab] = _expand_silo(conn, model, dims, seed, name, limit, min_score)
+    finally:
+        conn.close()
+    return res
+
+
+def lexical_seeds(db_path, query, limit=30):
+    """Offline product-name finder: distinct catalogue names matching the free
+    query (case-insensitive token/substring), best first. The model-free
+    bootstrap that lands a user on a real product whose vector we already
+    have, so the click can expand it semantically."""
+    query = (query or "").strip()
+    if not query:
+        return []
+    toks = [t for t in query.lower().split() if t]
+    if not toks:
+        return []
+    conn = sqlite3.connect(db_path)
+    try:
+        names = [r[0] for r in conn.execute(
+            "SELECT DISTINCT name FROM catalog_snapshots WHERE TRIM(name)<>'' "
+            "UNION SELECT DISTINCT name FROM watchlist WHERE TRIM(name)<>'' "
+            "UNION SELECT DISTINCT name FROM price_obs WHERE TRIM(name)<>'' ")]
+    finally:
+        conn.close()
+    scored = []
+    for nm in names:
+        low = (nm or "").lower()
+        if not low:
+            continue
+        if low == query.lower():
+            scored.append((0, len(toks), low, nm))   # exact name wins
+            continue
+        hit = sum(1 for t in toks if t in low)
+        if hit:
+            scored.append((1, hit, low, nm))
+    scored.sort(key=lambda x: (x[0], -x[1], x[2]))
+    return [nm for *_, nm in scored[:limit]]
+
+
 _EMB = {}
 _EMB_LOCK = threading.Lock()
 

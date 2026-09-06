@@ -230,6 +230,16 @@
   .tab:hover { border-color: var(--blue); color: var(--blue); }
   .tab.active { background: var(--blue); color: #04121f; border-color: var(--blue); }
   .tabpane[hidden] { display: none; }
+  /* semantic search (offline vector expansion) */
+  .sbtn { background: var(--bg); border: 1px solid var(--border); color: var(--text);
+          border-radius: 14px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 12px; }
+  .sbtn:hover { border-color: var(--blue); color: var(--blue); }
+  .sem3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 10px; }
+  .sem3 .spanel { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .sem3 .spanel h3 { margin: 0 0 8px; font-size: 13px; color: var(--blue); }
+  ul.semul { list-style: none; margin: 0; padding: 0; }
+  ul.semul li { padding: 4px 0; border-bottom: 1px solid #21262d; font-size: 12px; }
+  ul.semul li .sc { color: var(--green); font-weight: 700; margin-right: 8px; font-variant-numeric: tabular-nums; }
   .runningnow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .runningnow .rchip { background: rgba(63,185,80,.15); border: 1px solid var(--green); color: var(--green);
                        border-radius: 10px; padding: 1px 9px; font-size: 11px; font-weight: 600; }
@@ -257,6 +267,7 @@
     <button class="tab" data-tab="demand" onclick="switchTab('demand')">Demand radar</button>
     <button class="tab" data-tab="explorer" onclick="switchTab('explorer')">Data explorer</button>
     <button class="tab" data-tab="setup" onclick="switchTab('setup')">Setup</button>
+    <button class="tab" data-tab="semsearch" onclick="switchTab('semsearch')">Semantic search</button>
   </nav>
 
   <!-- ============ OVERVIEW ============ -->
@@ -469,6 +480,23 @@
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="tabpane" data-tab="semsearch" hidden>
+    <div class="panel">
+      <h2>Semantic search — offline vector expansion <span class="chip">no embedding-model call</span></h2>
+      <p class="muted">Type a product word to match real catalogue names (lexical, offline). Click a name to expand it
+        into its nearest neighbours using the <b>stored vectors</b> — compared across all three embedding providers.</p>
+      <div class="searchbox">
+        <input id="semq" placeholder="e.g. coke — matches Coca-Cola, coconut, cocoa…" onkeydown="if(event.key==='Enter')semSuggest()">
+        <button onclick="semSuggest()">Find names</button>
+      </div>
+      <div id="semSeeds" class="seeds" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
+    </div>
+    <div class="panel">
+      <h2>Similar across each vector database</h2>
+      <div id="semPanels"><div class="muted">pick a product name above to populate the three panels</div></div>
     </div>
   </section>
 
@@ -697,6 +725,35 @@ async function doSearch(){
     document.getElementById('searchOut').textContent = 'search failed: ' + err;
   }
   btn.disabled = false;
+}
+
+// ---------- semantic search (offline: lexical bootstrap -> stored-vector expansion) ----------
+let SEM_SEEDS = [];
+function semSuggest(){
+  const q = (document.getElementById('semq').value || '').trim();
+  const box = document.getElementById('semSeeds');
+  if (!q){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="muted">matching product names…</div>';
+  fetch('/semsearch?q=' + encodeURIComponent(q)).then(r=>r.json()).then(d=>{
+    if (!d.seeds || !d.seeds.length){ box.innerHTML = '<div class="muted">no product names match “'+esc(q)+'”</div>'; return; }
+    SEM_SEEDS = d.seeds;
+    box.innerHTML = d.seeds.map((n,i)=>`<button class="sbtn" onclick="semPick(${i})">${esc(n)}</button>`).join('');
+  }).catch(e=>{ box.innerHTML = '<div class="muted">lookup failed: '+esc(e)+'</div>'; });
+}
+function semPick(i){
+  const name = SEM_SEEDS[i];
+  const box = document.getElementById('semPanels');
+  box.innerHTML = '<div class="muted">expanding from stored vectors (no model call)…</div>';
+  fetch('/semsearch?seed=' + encodeURIComponent(name)).then(r=>r.json()).then(d=>{
+    const labs = [['gemma','Gemma (Ollama 768)'],['google','Google Gemini 768'],['nematron','Nematron (NVIDIA 2048)']];
+    box.innerHTML = '<div class="sem3">' + labs.map(([k,title])=>{
+      const rows = (d.panels && d.panels[k]) || [];
+      const body = rows.length
+        ? rows.map(([nm,s])=>`<li><span class="sc">${s.toFixed(2)}</span>${esc(nm)}</li>`).join('')
+        : '<li class="muted">no neighbours — seed not backfilled by this provider, or none above threshold</li>';
+      return `<div class="spanel"><h3>${title}</h3><ul class="semul">${body}</ul></div>`;
+    }).join('') + '</div>';
+  }).catch(e=>{ box.innerHTML = '<div class="muted">expand failed: '+esc(e)+'</div>'; });
 }
 
 async function shutdown(){

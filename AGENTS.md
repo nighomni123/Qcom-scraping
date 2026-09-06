@@ -93,6 +93,13 @@ Demand Radar phases, one on search-history/category analytics). Rules:
 - **Document as you go**: new CLI flags → README + the Commands list here;
   new modules/tables → Repo map; new behavioral invariants → the invariants
   section. Undocumented behavior will get broken by the next agent.
+- **Single implementation log**: all milestone/phase logs (M1, M2, …) live in
+  ONE file — `IMPLEMENTATION_LOG.md` at repo root — NEVER per-phase files
+  (`M1_*.md`, `M2_*.md`, etc.). Update it **proactively** as each step
+  completes (do NOT wait to be reminded); append the next phase's status table
+  + steps when its work begins. Keep the "Comments & deviations" as **one-line
+  entries that state the reason for every deviation** from
+  `PRODUCT_SPACE_PLAN.md`.
 - **The repo is git-managed** (branch `main`, baseline `b7f3502` = verified
   merged state of all workstreams). `git status` must be clean when you start;
   commit after every verified milestone with a descriptive message. Never

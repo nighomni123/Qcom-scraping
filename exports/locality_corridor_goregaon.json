@@ -1,0 +1,160 @@
+{
+  "locality": "Corridor \u00b7 Goregaon",
+  "generated_ts": 1788265263.511924,
+  "anchor_count": 7,
+  "anchors": [
+    {
+      "label": "Corridor \u00b7 Goregaon center",
+      "lat": 19.166,
+      "lon": 72.852,
+      "kind": "landmark"
+    },
+    {
+      "label": "grid r4c4",
+      "lat": 19.16869,
+      "lon": 72.85485,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c4",
+      "lat": 19.1624,
+      "lon": 72.85485,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r4c3",
+      "lat": 19.16869,
+      "lon": 72.84819,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r3c3",
+      "lat": 19.1624,
+      "lon": 72.84819,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c4",
+      "lat": 19.17498,
+      "lon": 72.85485,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r5c3",
+      "lat": 19.17498,
+      "lon": 72.84819,
+      "kind": "grid"
+    }
+  ],
+  "apps": {
+    "instamart": {
+      "stores": [
+        {
+          "store_id": "1404909",
+          "label": "instamart store 1404909",
+          "points": [
+            {
+              "label": "Corridor \u00b7 Goregaon center",
+              "lat": 19.166,
+              "lon": 72.852
+            },
+            {
+              "label": "grid r4c4",
+              "lat": 19.16869,
+              "lon": 72.85485
+            },
+            {
+              "label": "grid r3c4",
+              "lat": 19.1624,
+              "lon": 72.85485
+            },
+            {
+              "label": "grid r4c3",
+              "lat": 19.16869,
+              "lon": 72.84819
+            },
+            {
+              "label": "grid r3c3",
+              "lat": 19.1624,
+              "lon": 72.84819
+            },
+            {
+              "label": "grid r5c4",
+              "lat": 19.17498,
+              "lon": 72.85485
+            }
+          ],
+          "eta_min": 10
+        }
+      ],
+      "history": [
+        {
+          "label": "Corridor \u00b7 Goregaon center",
+          "lat": 19.166,
+          "lon": 72.852,
+          "kind": "landmark",
+          "resolved_store": "1404909",
+          "eta_min": 11,
+          "products": 295,
+          "error": null,
+          "sec": 49.1
+        },
+        {
+          "label": "grid r4c4",
+          "lat": 19.16869,
+          "lon": 72.85485,
+          "kind": "grid",
+          "resolved_store": "1404909",
+          "eta_min": 11,
+          "products": 296,
+          "error": null,
+          "sec": 48.5
+        },
+        {
+          "label": "grid r3c4",
+          "lat": 19.1624,
+          "lon": 72.85485,
+          "kind": "grid",
+          "resolved_store": "1404909",
+          "eta_min": 11,
+          "products": 296,
+          "error": null,
+          "sec": 46.8
+        },
+        {
+          "label": "grid r4c3",
+          "lat": 19.16869,
+          "lon": 72.84819,
+          "kind": "grid",
+          "resolved_store": "1404909",
+          "eta_min": 10,
+          "products": 296,
+          "error": null,
+          "sec": 47.8
+        },
+        {
+          "label": "grid r3c3",
+          "lat": 19.1624,
+          "lon": 72.84819,
+          "kind": "grid",
+          "resolved_store": "1404909",
+          "eta_min": 10,
+          "products": 296,
+          "error": null,
+          "sec": 46.1
+        },
+        {
+          "label": "grid r5c4",
+          "lat": 19.17498,
+          "lon": 72.85485,
+          "kind": "grid",
+          "resolved_store": "1404909",
+          "eta_min": 11,
+          "products": 296,
+          "error": null,
+          "sec": 49.1
+        }
+      ]
+    }
+  }
+}

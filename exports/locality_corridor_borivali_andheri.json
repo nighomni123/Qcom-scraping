@@ -1,0 +1,175 @@
+{
+  "locality": "Corridor \u00b7 Borivali-Andheri",
+  "generated_ts": 1788514773.5266309,
+  "anchor_count": 6,
+  "anchors": [
+    {
+      "label": "Andheri",
+      "lat": 19.119,
+      "lon": 72.846,
+      "kind": "landmark"
+    },
+    {
+      "label": "Goregaon",
+      "lat": 19.166,
+      "lon": 72.852,
+      "kind": "landmark"
+    },
+    {
+      "label": "Borivali",
+      "lat": 19.23,
+      "lon": 72.856,
+      "kind": "landmark"
+    },
+    {
+      "label": "grid r7c4",
+      "lat": 19.17559,
+      "lon": 72.85424,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r7c3",
+      "lat": 19.17559,
+      "lon": 72.84568,
+      "kind": "grid"
+    },
+    {
+      "label": "grid r6c4",
+      "lat": 19.16751,
+      "lon": 72.85424,
+      "kind": "grid"
+    }
+  ],
+  "apps": {
+    "instamart": {
+      "stores": [
+        {
+          "store_id": "1295147",
+          "label": "instamart store 1295147",
+          "points": [
+            {
+              "label": "Andheri",
+              "lat": 19.119,
+              "lon": 72.846
+            },
+            {
+              "label": "grid r7c4",
+              "lat": 19.17559,
+              "lon": 72.85424
+            }
+          ],
+          "eta_min": 14
+        },
+        {
+          "store_id": "1404958",
+          "label": "instamart store 1404958",
+          "points": [
+            {
+              "label": "Goregaon",
+              "lat": 19.166,
+              "lon": 72.852
+            },
+            {
+              "label": "grid r7c3",
+              "lat": 19.17559,
+              "lon": 72.84568
+            }
+          ],
+          "eta_min": 9
+        },
+        {
+          "store_id": "1392421",
+          "label": "instamart store 1392421",
+          "points": [
+            {
+              "label": "Borivali",
+              "lat": 19.23,
+              "lon": 72.856
+            }
+          ],
+          "eta_min": 4
+        },
+        {
+          "store_id": "1403051",
+          "label": "instamart store 1403051",
+          "points": [
+            {
+              "label": "grid r6c4",
+              "lat": 19.16751,
+              "lon": 72.85424
+            }
+          ],
+          "eta_min": 10
+        }
+      ],
+      "history": [
+        {
+          "label": "Andheri",
+          "lat": 19.119,
+          "lon": 72.846,
+          "kind": "landmark",
+          "resolved_store": "1295147",
+          "eta_min": 14,
+          "products": 258,
+          "error": null,
+          "sec": 62.6
+        },
+        {
+          "label": "Goregaon",
+          "lat": 19.166,
+          "lon": 72.852,
+          "kind": "landmark",
+          "resolved_store": "1404958",
+          "eta_min": 10,
+          "products": 251,
+          "error": null,
+          "sec": 57.7
+        },
+        {
+          "label": "Borivali",
+          "lat": 19.23,
+          "lon": 72.856,
+          "kind": "landmark",
+          "resolved_store": "1392421",
+          "eta_min": 4,
+          "products": 290,
+          "error": null,
+          "sec": 42.0
+        },
+        {
+          "label": "grid r7c4",
+          "lat": 19.17559,
+          "lon": 72.85424,
+          "kind": "grid",
+          "resolved_store": "1295147",
+          "eta_min": 15,
+          "products": 283,
+          "error": null,
+          "sec": 61.1
+        },
+        {
+          "label": "grid r7c3",
+          "lat": 19.17559,
+          "lon": 72.84568,
+          "kind": "grid",
+          "resolved_store": "1404958",
+          "eta_min": 9,
+          "products": 251,
+          "error": null,
+          "sec": 58.1
+        },
+        {
+          "label": "grid r6c4",
+          "lat": 19.16751,
+          "lon": 72.85424,
+          "kind": "grid",
+          "resolved_store": "1403051",
+          "eta_min": 10,
+          "products": 285,
+          "error": null,
+          "sec": 70.0
+        }
+      ]
+    }
+  }
+}

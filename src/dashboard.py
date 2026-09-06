@@ -988,6 +988,28 @@ class Dashboard:
                         st.close()
                     except Exception as ex:
                         self._json({"error": str(ex)[:200], "apps": []})
+                elif self.path.split("?", 1)[0] == "/semsearch":
+                    # Offline semantic search: lexical name lookup (?q=) or
+                    # stored-vector expansion across all silos (?seed=). No
+                    # embedding-model call -- pure sqlite + cosine.
+                    from urllib.parse import urlparse, parse_qs
+                    qs = parse_qs(urlparse(self.path).query)
+                    db = dash.cfg.get("db", "deals.db")
+                    try:
+                        from .embed import similar_across_silos, lexical_seeds
+                        seed = (qs.get("seed") or [None])[0]
+                        q = (qs.get("q") or [None])[0]
+                        limit = int((qs.get("limit") or ["12"])[0])
+                        if seed:
+                            self._json({"seed": seed,
+                                         "panels": similar_across_silos(db, seed, limit=limit)})
+                        elif q:
+                            self._json({"query": q,
+                                         "seeds": lexical_seeds(db, q, limit=max(limit * 2, 20))})
+                        else:
+                            self._json({"error": "pass ?q=<text> or ?seed=<name>"}, 400)
+                    except Exception as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
                 elif self.path.startswith("/search/") and self.path.count("/") == 2:
                     try:
                         sid = int(self.path.rsplit("/", 1)[1])
