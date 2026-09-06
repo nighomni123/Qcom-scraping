@@ -55,7 +55,7 @@
 - **No exported components** declared; single RN activity.
 - **Network security config**: Zepto's own domains are **HTTPS-only (no cleartext, no cert pinning on Zepto hosts)**. Cleartext is permitted *only* for OTP/carrier partners: `*.safr.sekuramobile.com`, `partnerapi.jio.com`, `in-vil.ipification.com`, `api-csp.airtel.in`. ⇒ Our Playwright interception (browser-level capture, not MITM) is unaffected.
 
-## 8. Implications for the Moneymaker crawler (pw_catalog.js)
+## 8. Implications for the qcom-scraping crawler (pw_catalog.js)
 - The web-signing (`request-signature` etc.) already documented in AGENTS.md remains authoritative; the APK does not override it.
 - The **AWS WAF token** is the real gate for `bff-gateway.zepto.com`. In a real browser (Playwright), the AWS WAF JS SDK runs naturally and yields the `aws-waf-token`, so the current "harvest already-signed responses" approach is correct — **do not try to forge the WAF token** (it's a solved challenge bound to the session). The only hard gate remains IP reputation (403), as AGENTS.md notes.
 - `api_key.txt` (Amazon LWA) is irrelevant to crawling Zepto; don't confuse it with an `x-api-key`.

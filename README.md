@@ -1,4 +1,4 @@
-# Moneymaker v2 — Glitch & Deal Monitor
+# qcom-scraping v2 — Glitch & Deal Monitor
 
 Two features in one tool:
 
@@ -218,7 +218,7 @@ straight from the DB — no crawling.
 
 ## Setup
 
-    cd ~/Documents/Projects/Moneymaker
+    cd ~/Documents/Projects/qcom-scraping
     pip install pyyaml            # optional; a stdlib fallback parser is built in
 
     # Browser layer uses the PRE-INSTALLED Playwright + Chromium (no install needed):

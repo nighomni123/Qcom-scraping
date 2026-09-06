@@ -298,7 +298,7 @@ def focus_digest(cfg, db_path):
 # ---------------- prompts + task wrappers ----------------
 
 _BASE_SYSTEM = (
-    "You assist Moneymaker, a research tool that monitors Indian quick-commerce "
+    "You assist qcom-scraping, a research tool that monitors Indian quick-commerce "
     "apps (Blinkit/Zepto/Swiggy Instamart) for price glitches and stock-out "
     "based demand signals. Rules: interpret ONLY the provided data; never "
     "invent numbers; remember stock-outs are a DEMAND PROXY, not sales; "

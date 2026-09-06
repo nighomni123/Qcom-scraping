@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-run.py — Moneymaker v2 entrypoint.
+run.py — qcom-scraping v2 entrypoint.
 
 Usage:
   python3 run.py            # continuous monitor loop

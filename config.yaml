@@ -1,4 +1,4 @@
-# Moneymaker v2 config — tunables only. Secrets live in .env (never commit it).
+# qcom-scraping v2 config — tunables only. Secrets live in .env (never commit it).
 
 schedule:
   # Base seconds between full cycles. Jittered +/- 30% at runtime.

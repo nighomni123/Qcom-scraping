@@ -52,7 +52,7 @@ Confirmed hints they themselves state:
 |---|---|---|
 | 1 | "Q-commerce backends **fingerprint datacenter IPs fast**. After a few hundred requests you need **pools of residential proxies**." | They use residential/mobile proxy rotation. |
 | 2 | "**Headless Chrome + stealth plugins** become a forever war." | They do NOT rely on headless Chrome at scale => they use reverse-engineered native/signed APIs. |
-| 3 | "**Reverse-engineered private APIs** change without changelog." | Explicit admission; same category as Moneymaker's `pw_catalog.js`. |
+| 3 | "**Reverse-engineered private APIs** change without changelog." | Explicit admission; same category as qcom-scraping's `pw_catalog.js`. |
 | 4 | "**Fake session cookies or map pin selection** breaks constantly." => they pass lat/lon/pincode as first-class params. | Proper geolocation injection; their `x-geolocation-pincode` header normalizes each platform's quirk. |
 | 5 | LinkedIn Pulse piece openly lists: multi-proxy rotation, dynamic header manipulation, automated captcha solving, request throttling, retry. | Published under their brand => signals it's in their stack (generic SEO filler, but telling). |
 
@@ -77,10 +77,10 @@ throttling under their own stated **100 req/min** ceiling.
   and compliance risk."*
 - Blinkit-scraper FAQ: *"Using a maintained API reduces ToS and operational
   risk versus a homegrown scraper."*
-- Even they concede the ToS gray zone — relevant if Moneymaker ever
+- Even they concede the ToS gray zone — relevant if qcom-scraping ever
   commercializes.
 
-## Relevance to Moneymaker (ties to `AGENTS.md`)
+## Relevance to qcom-scraping (ties to `AGENTS.md`)
 
 - **Same fundamental technique.** `tools/pw_catalog.js` runs the real app in
   headless Chromium, intercepts **signed API calls**, seeds
@@ -152,7 +152,7 @@ Raw payloads saved as `qcapi_sample_swiggy_mumbai.search.json` (117 KB, 100
 products) and `qcapi_sample_swiggy_mumbai.eta.json` for schema reference.
 (Test consumed 4 of 100 trial credits; 96 remaining.)
 
-### Response schema notes (for any future Moneymaker integration)
+### Response schema notes (for any future qcom-scraping integration)
 
 Product fields from `/v1/search` → our `price_obs` mapping:
 
@@ -274,7 +274,7 @@ This is a **coverage-config gap, not a hard crawler limitation** — we *could*
 capture paan items by adding paan search terms to the probe set, but out-of-the-
 box inventory capture is grocery-skewed.
 
-**Conclusion for Moneymaker:** for the live-price/glitch monitor (grocery
+**Conclusion for qcom-scraping:** for the live-price/glitch monitor (grocery
 staples) our crawler is fine and price-accurate (see ₹77 Zepto milk parity).
 But for **non-food / paan-shop / unconventional SKUs**, the API is currently the
 only one that surfaces them at a chosen location — and it does so for Instamart

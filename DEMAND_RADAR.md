@@ -1,6 +1,6 @@
 # Demand Radar — per-darkstore stock-out intelligence
 
-Extends Moneymaker v2 (glitch monitor) with a second mission: **map darkstores in a
+Extends qcom-scraping v2 (glitch monitor) with a second mission: **map darkstores in a
 locality (e.g. Andheri West), track in/out-of-stock + ETA over time, and derive a
 chronological demand-pressure heatmap from stock-out events.**
 

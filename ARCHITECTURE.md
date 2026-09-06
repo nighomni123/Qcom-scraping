@@ -1,4 +1,4 @@
-# Moneymaker v2 — Glitch & Deal Monitor
+# qcom-scraping v2 — Glitch & Deal Monitor
 
 ## The core problem we are solving
 
@@ -150,7 +150,7 @@ Two discoveries shaped the design (full story: DEMAND_RADAR.md, AGENTS.md):
 ## Files
 
 ```
-Moneymaker/
+qcom-scraping/
   ARCHITECTURE.md        this file
   README.md              how to run
   AGENTS.md              agent/operator onboarding: quirks, invariants,

@@ -2,7 +2,7 @@
 # qcapi_probe.sh — live-test QuickCommerce API's claimed anti-bot bypass.
 #
 # Part of option (b) from docs/quickcommerce-api-vetting.md. Reproduces the
-# exact case where Moneymaker's own crawler is currently blocked: Instamart
+# exact case where qcom-scraping's own crawler is currently blocked: Instamart
 # (their API name "Swiggy") at a Mumbai (Andheri West) lat/lon.
 #
 # Usage:
@@ -42,7 +42,7 @@ except Exception:
 echo "================================================================"
 echo "QuickCommerce API live probe"
 echo "target: platform=$PLATFORM  lat=$LAT lon=$LON  q=$Q"
-echo "from IP/egress of this machine (where Moneymaker crawler is blocked)"
+echo "from IP/egress of this machine (where qcom-scraping crawler is blocked)"
 echo "================================================================"
 
 echo; echo ">>> [1] PUBLIC /v1/supported-platforms (no key) — reachability"

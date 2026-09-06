@@ -503,7 +503,7 @@ def _save_ai_report(kind, model, text):
         exp = os.path.join(_ROOT, "exports")
         os.makedirs(exp, exist_ok=True)
         fname = time.strftime(f"{kind}_%Y-%m-%d_%H%M%S.md")
-        head = (f"# Moneymaker AI report — {kind.removeprefix('ai_').replace('_', ' ')}\n\n"
+        head = (f"# qcom-scraping AI report — {kind.removeprefix('ai_').replace('_', ' ')}\n\n"
                 f"- generated: {time.strftime('%Y-%m-%d %H:%M:%S %Z')}\n"
                 f"- model: {model}\n\n---\n\n")
         with open(os.path.join(exp, fname), "w", encoding="utf-8") as f:

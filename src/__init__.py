@@ -1,1 +1,1 @@
-# Moneymaker v2 — package marker
+# qcom-scraping v2 — package marker

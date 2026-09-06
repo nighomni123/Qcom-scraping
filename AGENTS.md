@@ -41,7 +41,7 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 
 Canonical install: `.tools/ponytail` (update with `git pull`; source of the six `/ponytail*` skills — review, audit, debt, gain, help — and of this ruleset). When asked to review a diff or repo for over-engineering, follow `skills/ponytail-review/SKILL.md` and `skills/ponytail-audit/SKILL.md` there.
 
-# AGENTS.md — Moneymaker
+# AGENTS.md — qcom-scraping
 
 Notes for humans and agents working on this repo. Read this before changing
 anything; it covers the non-obvious environment quirks and the invariants that
