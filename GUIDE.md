@@ -436,3 +436,654 @@ accumulation first.
   engineering reports on the apps' APIs/APKs. **`scripts/`** — one-off
   tools. **`apks/`** — raw installer files for reverse-engineering
   (gitignored, too big).
+
+**The most useful way to think about the **final Opportunity Engine** is not “find empty spaces on the map.” It is:**
+
+> **Given the products, prices, pack sizes, assortment, stock pressure, and historical catalog behavior we can actually observe, tell me where the market appears underserved and what kind of product/assortment change could address it.**
+
+For this repo specifically, I would expect the finished engine to produce several classes of outputs.
+
+## 1. Cross-app assortment gaps
+
+This is the easiest and highest-confidence use case.
+
+Suppose the engine finds:
+
+```text
+Category: Protein bars
+
+Blinkit:       14 relevant SKUs
+Zepto:         17
+Instamart:      6
+
+Product group:
+"Brand X Chocolate Protein Bar 60g"
+
+Blinkit:       ✓
+Zepto:         ✓
+Instamart:     ✗
+```
+
+The engine can say:
+
+> **Assortment gap:** Instamart is missing a product that is established in the comparable Blinkit/Zepto assortment.
+
+That's not necessarily a new-product opportunity. It could be:
+
+**“Stock this existing product.”**
+
+This is exactly why the tailored plan puts assortment gaps before the more speculative geometric gaps. 
+
+---
+
+# 2. Price/pack-size gaps
+
+This is probably one of the most interesting opportunities for your actual grocery dataset.
+
+Imagine the engine discovers:
+
+```text
+Detergent
+
+₹40 / 250g
+₹65 / 500g
+₹120 / 1kg
+₹210 / 2kg
+```
+
+and there is a strong concentration around those products, but almost nothing around:
+
+```text
+~750g
+~₹85
+```
+
+The engine could produce:
+
+> **Potential pack-size gap**
+>
+> The category has established products below and above this point, but very little assortment around the 750g / ₹80–₹90 position.
+
+This is much more actionable than “there's an empty part of the UMAP.”
+
+Your M1 design specifically introduces normalized pack size and `unit_price`, which makes this kind of analysis possible. 
+
+---
+
+# 3. Unit-price gaps
+
+This may actually be even more useful than raw price.
+
+Imagine:
+
+```text
+Protein snack category
+
+₹8 / 10g
+₹9 / 10g
+₹11 / 10g
+₹15 / 10g
+```
+
+and almost nothing around:
+
+```text
+₹12 / 10g
+```
+
+The engine could identify:
+
+> A missing mid-premium price position.
+
+That can suggest:
+
+```text
+same category
+same general product format
+different price/value proposition
+```
+
+rather than blindly recommending a completely new category.
+
+This is one reason I think `unit_price` is going to become a surprisingly important feature in your system.
+
+---
+
+# 4. Brand-tier gaps
+
+Suppose the engine sees:
+
+```text
+Budget brands
+████████████
+
+Premium brands
+████████████
+
+Mid-premium
+██
+```
+
+while the category itself has:
+
+* substantial catalog density
+* strong neighboring DPI
+* healthy availability
+* established demand
+
+It could identify:
+
+> **Brand-position gap:** strong category presence with weak representation in the mid-premium price/value tier.
+
+That doesn't necessarily mean:
+
+> launch a new SKU.
+
+It could mean:
+
+> introduce a private-label or mid-tier brand.
+
+---
+
+# 5. Demand-backed assortment gaps
+
+This is where your existing Demand Radar becomes very valuable.
+
+Imagine:
+
+```text
+Category:
+Chocolate protein bars
+
+Nearby products:
+
+Product A
+DPI: very high
+
+Product B
+DPI: high
+
+Product C
+DPI: high
+```
+
+But a related segment has almost no assortment.
+
+The engine could produce:
+
+> **Demand-backed assortment gap**
+>
+> Products in this semantic/price neighborhood exhibit elevated stock-out pressure, while assortment in the adjacent segment remains thin.
+
+That's much stronger than:
+
+> "This region is sparse."
+
+Because now you have:
+
+```text
+gap
++
+market density
++
+observed stock pressure
+```
+
+The repo's DPI is explicitly designed as a demand-pressure proxy rather than direct sales data, so the output should phrase this carefully. 
+
+---
+
+# 6. “What product should we stock?” rather than “what product should we invent?”
+
+This is perhaps the most immediately valuable practical use case.
+
+Suppose:
+
+```text
+Product group X
+
+Zepto:       widely present
+Blinkit:     widely present
+Instamart:   absent
+```
+
+The Opportunity Engine can effectively become an **assortment recommendation engine**:
+
+```text
+Recommendation:
+Add Product X to Instamart assortment
+
+Evidence:
+- present on 2 competing apps
+- comparable stores covered
+- category has sufficient coverage
+- product observed repeatedly
+- no crawl anomaly detected
+```
+
+This is a very defensible first commercial use case.
+
+---
+
+# 7. “What are competitors carrying that we aren't?”
+
+This is a natural extension.
+
+The system could generate:
+
+```text
+                  ASSORTMENT GAP REPORT
+
+Instamart vs Blinkit
+
+Largest missing product groups:
+
+1. Product A
+2. Product B
+3. Product C
+4. Product D
+```
+
+Then rank them by:
+
+```text
+DPI around category
+coverage
+cross-app prevalence
+catalog persistence
+```
+
+So the system isn't just a map anymore.
+
+It's answering:
+
+> **What should this app consider adding?**
+
+---
+
+# 8. Local assortment gaps
+
+This gets particularly interesting because your system works at darkstore/store level.
+
+Suppose:
+
+```text
+Product X
+
+Store A: ✓
+Store B: ✓
+Store C: ✗
+Store D: ✗
+```
+
+and the missing stores are within the same general market.
+
+The engine could say:
+
+> **Local assortment gap:** product is established in nearby stores but absent from this store cluster.
+
+That is different from a product-development opportunity.
+
+It's a **distribution / inventory-assortment opportunity**.
+
+---
+
+# 9. Persistent gaps vs temporary gaps
+
+This is an underrated use case.
+
+The system could discover:
+
+```text
+Gap observed:
+Week 1 ✓
+Week 2 ✓
+Week 3 ✓
+Week 4 ✓
+Week 5 ✓
+```
+
+versus:
+
+```text
+Gap observed:
+Week 1 ✓
+Week 2 ✗
+Week 3 ✗
+Week 4 ✓
+```
+
+The first might be:
+
+> **structural assortment gap**
+
+The second might just be:
+
+> temporary stock/coverage issue.
+
+Because the repository already tracks catalog snapshots and catalog events, the final engine can make that distinction. 
+
+---
+
+# 10. Emerging product segments
+
+This is where the system starts becoming more strategic.
+
+Imagine the product space changes like this:
+
+```text
+Month 1   ● ●
+Month 2   ● ● ●
+Month 3   ● ● ● ● ●
+Month 4   ● ● ● ● ● ● ● ●
+Month 5   ● ● ● ● ● ● ● ● ● ●
+```
+
+The engine notices a previously tiny semantic region expanding rapidly.
+
+It could report:
+
+> **Emerging segment detected**
+
+with:
+
+```text
+products: +240%
+new brands: +5
+new SKUs: +18
+DPI: rising
+apps carrying category: increasing
+```
+
+That isn't necessarily a "gap."
+
+It's a **trend/opportunity signal**.
+
+---
+
+# 11. Product-space “white space”
+
+This is the closest to the original idea you had.
+
+Imagine:
+
+```text
+                 Premium
+                    ●
+                 ● ● ●
+              ● ● ● ● ●
+            ● ● ○ ● ●
+              ● ● ●
+                 ●
+
+                  ↑
+             candidate gap
+```
+
+The system could identify a region that is:
+
+* inside a well-populated category
+* adjacent to established products
+* sparse relative to its neighborhood
+* supported by meaningful attribute variation
+
+and produce:
+
+> **Potential product-space white space**
+
+For example:
+
+```text
+Category:
+Ready-to-drink protein beverages
+
+Observed:
+₹80–₹120
+200–250 ml
+
+Observed:
+₹150–₹180
+300–350 ml
+
+Gap:
+₹110–₹140
+300 ml
+```
+
+This could lead to:
+
+> Potential mid-price / larger-pack product configuration.
+
+But this should have **lower confidence** than a directly observed assortment gap.
+
+---
+
+# 12. “What combination is missing?”
+
+This is the genuinely exciting long-term version.
+
+Suppose the category has:
+
+```text
+small + cheap
+small + premium
+large + premium
+```
+
+but almost no:
+
+```text
+large + mid-price
+```
+
+The Opportunity Engine can construct:
+
+```text
+candidate:
+
+larger pack
+mid-range unit price
+same general category
+```
+
+and then search the semantic neighborhood to see whether anything equivalent already exists.
+
+That starts to approach:
+
+> **new product concept discovery**
+
+rather than assortment optimization.
+
+---
+
+# 13. Opportunity prioritization
+
+Eventually you won't want:
+
+> 4,000 detected gaps.
+
+You'll want:
+
+```text
+TOP OPPORTUNITIES
+
+#1  Add existing Product X to App Y
+    Score: 91
+    Confidence: A
+
+#2  Mid-price / larger-pack segment in Category Z
+    Score: 82
+    Confidence: B
+
+#3  Emerging subcategory with weak assortment
+    Score: 77
+    Confidence: B
+```
+
+This is where the Opportunity Engine becomes a **decision-support layer**.
+
+---
+
+# 14. The really interesting combined output
+
+I think the most valuable final output will combine multiple signals.
+
+For example:
+
+```text
+OPPORTUNITY #17
+
+Category:
+Protein Snacks
+
+Candidate:
+Mid-priced 4-pack protein bars
+
+Why flagged:
+
+Semantic space
+──────────────
+Dense surrounding market
+Sparse candidate region
+
+Attributes
+──────────
+Existing:
+₹45–₹65 single bars
+₹110–₹150 large packs
+
+Missing:
+~₹80–₹100 / multipack position
+
+Market
+──────
+3 apps carry adjacent products
+1 app has no equivalent
+
+Demand
+──────
+Neighbor DPI: High
+
+History
+───────
+Gap persists for 5 weekly snapshots
+
+Coverage
+────────
+Good
+
+Validation
+──────────
+No equivalent current product found
+
+Score
+─────
+86 / 100
+
+Confidence
+──────────
+B+
+```
+
+Now that's something a human could actually act on.
+
+---
+
+# 15. There are really three products hiding inside the Opportunity Engine
+
+I would think of the final system as having three increasingly ambitious layers.
+
+### Level 1 — Assortment Intelligence
+
+> **What products should this app/store carry that it currently doesn't?**
+
+High confidence.
+
+Uses:
+
+```text
+cross-app identity
+catalog coverage
+store coverage
+catalog persistence
+DPI
+```
+
+### Level 2 — Market White-Space Intelligence
+
+> **What product/price/pack-size regions appear underserved?**
+
+Medium confidence.
+
+Uses:
+
+```text
+semantic embeddings
+unit price
+pack size
+density
+neighbors
+DPI
+temporal stability
+```
+
+### Level 3 — Product Concept Discovery
+
+> **What plausible product configuration appears to be missing from the market?**
+
+Lower confidence, but potentially much more valuable.
+
+Uses:
+
+```text
+semantic space
+attribute space
+interpolation
+hypothetical candidate generation
+external existence validation
+LLM interpretation
+```
+
+The current repo should absolutely build them in that order.
+
+---
+
+## The final Opportunity Engine, visually
+
+I would ultimately want the Atlas to let you switch from:
+
+```text
+EXPLORE
+```
+
+to:
+
+```text
+OPPORTUNITIES
+```
+
+and see something like:
+
+```text
+                  ● ● ●
+              ● ● ● ● ● ●
+            ● ● ● ◎ ● ● ●
+              ● ● ● ● ●
+                 ◉
+
+        ◎  Candidate gap
+        ◉  High-confidence opportunity
+        ●  Existing product
+```
+
+Click `◉`, and the inspector tells you:
+
+> **Why is this an opportunity?**
+
+not just:
+
+> "This point is located here."
+
+That's the fundamental distinction between the current Inventory Atlas and the eventual **Product-Space Intelligence Engine**.
+
+And importantly, the current repo-specific plan is already moving toward exactly this hierarchy: **assortment gaps first, then density/attribute gaps, then DPI/churn scoring, validation, and finally AI interpretation.**
