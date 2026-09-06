@@ -334,6 +334,7 @@ function collect(node, out, depth, label) {
         mrp: Number.isFinite(mrp) && mrp > 0 ? mrp : null,
         url: node.url || node.link || node.seo_url || '',
         in_stock: stock,
+        raw: node,  // full app-specific payload; preserved opaquely downstream
         ...(badges.length ? { badges } : {}),
       };
       const prev = out.get(key);
@@ -346,6 +347,7 @@ function collect(node, out, depth, label) {
         if (rec.url) prev.url = rec.url;
         if (rec.in_stock !== null) prev.in_stock = rec.in_stock;
         if (rec.badges) prev.badges = rec.badges;
+        prev.raw = rec.raw;  // keep the most recent raw payload
         if (!prev.collections.includes(C)) prev.collections.push(C);
       } else {
         rec.collections = [C];
@@ -399,13 +401,14 @@ function collectLdJson(node, out, label) {
     if (m) key = 'pvid:' + m[1].toLowerCase();
     const rec = { sku_key: key, name: String(name).slice(0, 140),
                   price, mrp: (Number.isFinite(mrp) && mrp > 0) ? mrp : null,
-                  url: url || '', in_stock: stock };
+                  url: url || '', in_stock: stock, raw: src };
     const prev = out.get(key);
     if (prev) {
       if (rec.price) prev.price = rec.price;
       if (rec.in_stock !== null) prev.in_stock = rec.in_stock;
       if (rec.mrp) prev.mrp = rec.mrp;
       if (rec.url) prev.url = rec.url;
+      prev.raw = rec.raw;
       if (!prev.collections.includes(C)) prev.collections.push(C);
     } else {
       rec.collections = [C];
@@ -1286,6 +1289,21 @@ async function main() {
       } catch (_) {}
     };
 
+    // Emit a per-visit product batch on stdout so the Python side can persist
+    // inventory incrementally (one row-set per visit) instead of waiting for the
+    // whole sweep to finish. Interrupting a long crawl then keeps what was
+    // already gathered. The terminal summary JSON (emitted last) carries no 'type'.
+    const emitVisitBatch = (v, before) => {
+      const batch = [];
+      for (const k of products.keys()) {
+        if (!before.has(k)) batch.push(products.get(k));
+      }
+      if (batch.length) {
+        console.log(JSON.stringify({ type: 'batch', label: v ? v.label : 'home',
+                                    count: batch.length, products: batch }));
+      }
+    };
+
     const TABS = Math.max(1, parseInt(arg('tabs', '1'), 10));
     if (TABS > 1) {
       // Spawn extra tabs in the SAME browser context (same store, same
@@ -1306,7 +1324,9 @@ async function main() {
         while (true) {
           const v = visits.shift();
           if (!v) { if (visits.length === 0) break; await sleep(300); continue; }
+          const before = new Set(products.keys());
           await sweepVisit(pg, pg._apiHits, v);
+          emitVisitBatch(v, before);
         }
       })()));
       // Per-tab mirror replay of a few signed calls for extra coverage.
@@ -1324,7 +1344,9 @@ async function main() {
       let vi = 0;
       while (vi < visits.length) {
         const v = visits[vi++];
+        const before = new Set(products.keys());
         await sweepVisit(page, apiHits, v);
+        emitVisitBatch(v, before);
       }
       // Mirror up to 3 captured signed calls for extra coverage (original path).
       for (const hit of apiHits.slice(0, 3)) {

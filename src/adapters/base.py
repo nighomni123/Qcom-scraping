@@ -150,7 +150,7 @@ class Adapter:
 
     def deep_sweep(self, station, lat, lon, categories=0, terms=None,
                    deep_cats=False, skip_override=None,
-                   mirror_page_ms=None, tabs=None):
+                   mirror_page_ms=None, tabs=None, on_batch=None):
         """
         Demand Radar watchlist sweep for ONE store anchor in ONE browser
         session: home harvest -> optional DOM category click-through ->
@@ -175,7 +175,8 @@ class Adapter:
         return self._browser_catalog_full(url, f"{self.name}::{station}", self.name,
                                           lat, lon, categories=categories, terms=terms,
                                           skip=skip or None, deep_cats=deep_cats,
-                                          mirror_page_ms=mirror_page_ms, tabs=tabs)
+                                          mirror_page_ms=mirror_page_ms, tabs=tabs,
+                                          on_batch=on_batch)
 
     def _browser_catalog(self, url, store_id, app_label, lat=None, lon=None, pre=None):
         """Compat wrapper returning products only; see _browser_catalog_full."""
@@ -186,7 +187,7 @@ class Adapter:
     def _browser_catalog_full(self, url, store_id, app_label, lat=None, lon=None,
                               categories=0, terms=None, skip=None, pre=None,
                               deep_cats=False, mirror_page_ms=None, tabs=None,
-                              im_term=None):
+                              im_term=None, on_batch=None):
         """
         Run the real app in headless chromium (via the Node helper in tools/),
         intercept + mirror its signed catalog calls. Returns (products, meta).
@@ -277,25 +278,27 @@ class Adapter:
         # grandchildren (the browser) holding the pipe write-ends, which would
         # block a pipe-EOF read forever — wait() returns as soon as the helper
         # itself is gone.
-        out_chunks = []
+        # Inline-stream stdout on the MAIN thread so the caller's `on_batch`
+        # (which writes to sqlite on this same connection/thread) can persist
+        # inventory incrementally — a mid-run kill/timeout keeps everything
+        # gathered so far. stderr still drains on a background thread (it can
+        # block the helper if unconsumed). Batching: each per-visit 'batch'
+        # JSON line is dispatched to on_batch immediately; the terminal summary
+        # JSON (no 'type' key) is kept as the final result.
+        final = {}
+        batches_seen = 0
 
-        def _drain(fh, sink, prefix=None):
+        def _drain_stderr(fh, prefix):
             try:
                 for line in fh:
                     line = line.rstrip("\n")
-                    if not line:
-                        continue
-                    if sink is not None:
-                        sink.append(line)
-                    elif stream:
+                    if line and stream:
                         print(f"{prefix}{line}", file=sys.stderr, flush=True)
             except Exception:
                 pass
 
-        threads = [threading.Thread(target=_drain, args=(proc.stdout, out_chunks), daemon=True),
-                   threading.Thread(target=_drain, args=(proc.stderr, None, f"[{app_label}] "), daemon=True)]
-        for t in threads:
-            t.start()
+        stderr_t = threading.Thread(target=_drain_stderr, args=(proc.stderr, f"[{app_label}] "), daemon=True)
+        stderr_t.start()
         timed_out = {"v": False}
 
         def _kill():
@@ -314,25 +317,51 @@ class Adapter:
         timer = threading.Timer(timeout_s, _kill)
         timer.daemon = True
         timer.start()
+
+        # Watchdog: if the helper exits but leaves browser grandchildren holding
+        # the stdout pipe write-ends, the inline read below would block forever
+        # (the browser never closes the pipe). Once the process is gone, SIGKILL
+        # the group to force EOF. (Ctrl-C / timer kill also land here.)
+        def _reap_watchdog():
+            while True:
+                if proc.poll() is not None:
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                    except Exception:
+                        pass
+                    return
+                time.sleep(2)
+
+        reap_t = threading.Thread(target=_reap_watchdog, daemon=True)
+        reap_t.start()
         try:
-            proc.wait()
+            for raw in proc.stdout:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    obj = _json.loads(line)
+                except ValueError:
+                    continue
+                if obj.get("type") == "batch":
+                    batches_seen += 1
+                    if on_batch:
+                        on_batch(obj.get("products") or [])
+                    continue
+                final["v"] = obj  # terminal summary (no type) — last wins
         finally:
             timer.cancel()
-        # Helper gone (or killed). Unblock the drainers in case grandchildren
-        # still hold the pipe write-ends, then give them a moment to finish.
-        for fh in (proc.stdout, proc.stderr):
             try:
-                fh.close()
+                proc.wait(timeout=5)
             except Exception:
                 pass
-        for t in threads:
-            t.join(timeout=10)
-        drained = "".join(out_chunks)
+        # Helper gone (or killed). Let the stderr drainer finish.
+        stderr_t.join(timeout=10)
         if timed_out["v"]:
             print(f"[warn] {app_label} browser crawl timed out after {timeout_s}s")
             self.available = False
             return [], {"error": f"timeout after {timeout_s}s"}
-        data = _json.loads(drained.strip().splitlines()[-1]) if drained.strip() else {}
+        data = final.get("v", {})
         if data.get("error"):
             print(f"[{app_label}] browser: {data['error'][:120]}")
             self.available = False
@@ -346,11 +375,12 @@ class Adapter:
             "resolved_lat": data.get("lat"),
             "resolved_lon": data.get("lon"),
         }
-        if prods:
+        if prods or batches_seen:
             n_stock = sum(1 for p in prods if p.get("in_stock") is not None)
             print(f"[{app_label}] browser-intercept ok @ {store_id}: {len(prods)} products "
                   f"({n_stock} w/ stock state), eta={meta['eta_min']}, "
-                  f"{meta['api_endpoints_seen']} api endpoints seen")
+                  f"{meta['api_endpoints_seen']} api endpoints seen"
+                  + (f", {batches_seen} incremental batches streamed" if batches_seen else ""))
         return prods, meta
 
 

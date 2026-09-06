@@ -90,9 +90,13 @@ DEFAULT_STAPLES = [
 
 
 class WatchlistBuilder:
-    def __init__(self, cfg, db):
+    def __init__(self, cfg, db, inventory_db=None):
         self.cfg = cfg
         self.db = db
+        # Optional per-app inventory DB (inventory_<app>.db): when set, every
+        # captured product is also written there as a rich, complete record
+        # (url + raw_json + collections) — see Product-Space Intelligence M1.
+        self.inventory_db = inventory_db
         dem = cfg.get("demand", {}) or {}
         self.categories = int(dem.get("categories_per_store", 6))
         self.staples = list(dem.get("staple_queries") or DEFAULT_STAPLES)
@@ -158,6 +162,27 @@ class WatchlistBuilder:
         for app, sid, total, active in self.db.watchlist_stats():
             print(f"    {app:<10} {sid:<28} active={active}/{total}", flush=True)
 
+    # -- single-store entrypoint (Product-Space Intelligence: --store-inventory) -
+    def build_one_store(self, app, store_id, lat, lon, catalog=True,
+                        categories=None, skip_override=None, deep_cats=True,
+                        mirror_page_ms=None, tabs=None, label=None):
+        """Target ONE store (any store, real location or not) and run a full
+        every-category sweep. Unlike `build`, this does NOT require the store to
+        exist in `darkstores` — callers pass `lat/lon` directly (e.g. discovered
+        via --map-locality, or an explicit --lat/--lon override). Reuses the exact
+        catalog-sweep engine `build(catalog=True)` uses (no duplicated crawl
+        logic). Writes the rich capture to `self.inventory_db` (if set) and the
+        operational snapshot to `self.db` (deals.db) for continuity."""
+        dem = self.cfg.get("demand", {}) or {}
+        cap = int(dem.get("watchlist_max_per_store", 300))
+        self._build_store(app, store_id, lat, lon, cap, [],
+                         index=None, total=None, label=label,
+                         catalog=catalog,
+                         categories=int(categories or self.catalog_categories),
+                         skip_override=([] if skip_override is None else skip_override),
+                         deep_cats=deep_cats,
+                         mirror_page_ms=mirror_page_ms, tabs=tabs)
+
     # -- per store ---------------------------------------------------------
     def _build_store(self, app, store_id, lat, lon, cap, staples,
                      index=None, total=None, label=None, catalog=False,
@@ -174,11 +199,48 @@ class WatchlistBuilder:
               f"{len(staples)} searches = {n_visits} visits · per-visit "
               f"progress streams below", flush=True)
         t0 = time.time()
+
+        # Incremental capture: persist each per-visit product batch to the
+        # inventory DB as the crawl streams it (not only at the end). A mid-run
+        # kill/timeout therefore keeps everything gathered so far. We buffer and
+        # flush every 2 visits so a hard interrupt loses at most ~1 visit.
+        _inv_buf = []
+        _inv_visits = [0]
+
+        def _inv_rec(p):
+            cols = p.get("collections") or ["home"]
+            return {
+                "sku_key": p["sku_key"],
+                "name": p.get("name"),
+                "collections": cols,
+                "price": p.get("price"),
+                "mrp": p.get("mrp"),
+                "in_stock": p.get("in_stock"),
+                "url": p.get("url") or "",
+                "raw": p.get("raw"),
+            }
+
+        def _flush_inv_buf(a, s, buf):
+            if self.inventory_db is None:
+                buf.clear()
+                return
+            for r in buf:
+                self.inventory_db.upsert_inventory_catalog(a, s, r)
+            buf.clear()
+
+        def _persist_batch(batch):
+            for p in batch:
+                _inv_buf.append(_inv_rec(p))
+            _inv_visits[0] += 1
+            if _inv_visits[0] % 2 == 0 and _inv_buf:
+                _flush_inv_buf(app, store_id, _inv_buf)
+
         products, meta = adapter.deep_sweep(store_id, lat, lon,
                                             categories=categories, terms=staples,
                                             deep_cats=deep_cats,
                                             skip_override=skip_override,
-                                            mirror_page_ms=mirror_page_ms, tabs=tabs)
+                                            mirror_page_ms=mirror_page_ms, tabs=tabs,
+                                            on_batch=_persist_batch)
         if not products:
             print(f"[watchlist] warn: {app} sweep returned no products "
                   f"({meta.get('error') or 'feed blocked'}) — store skipped")
@@ -193,9 +255,19 @@ class WatchlistBuilder:
                 "name": p.get("name"),
                 "collections": cols,
                 "price": p.get("price"),
+                "mrp": p.get("mrp"),
                 "in_stock": p.get("in_stock"),
+                "url": p.get("url") or "",
+                "raw": p.get("raw"),
                 "score": round(score, 2),
             }
+        # COMPLETE INVENTORY capture: write every product (including vouchers)
+        # to the per-app inventory DB before any business filtering. The capture
+        # layer must reflect what the store returned; voucher/assortment filtering
+        # is a downstream concern (union layer / Demand Radar).
+        if self.inventory_db is not None:
+            for r in agg.values():
+                self.inventory_db.upsert_inventory_catalog(app, store_id, r)
         if self.exclude_vouchers:
             # Gift cards / instant vouchers ride along on category rails
             # (Blinkit's "E-Gift Cards" shelf) and staple searches. Their

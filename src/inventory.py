@@ -1,79 +1,40 @@
 """
-inventory.py — per-app darkstore INVENTORY around the machine's real location.
+inventory.py — per-app darkstore INVENTORY capture (single-store, full-category).
 
-Unlike --map-locality (a fixed configured locality feeding the shared
-deals.db), this answers "which Blinkit / Instamart / Zepto darkstores serve
-where I actually am right now?" and writes EACH APP into its OWN sqlite file:
+This is the Product-Space Intelligence capture layer (M1). Given ONE store
+(app + store_id), it runs a full every-category sweep and writes a RICH,
+COMPLETE record to the per-app database:
 
-    inventory/ (inventory_blinkit.db · inventory_instamart.db · inventory_zepto.db)
+    inventory_<app>.db  ->  inventory_catalog  (url + raw_json + collections +
+                                                 price/mrp/in_stock/name)
 
-Location policy (deliberate): the anchor center is the machine's APPROXIMATE
-PUBLIC-IP LOCATION (ipinfo.io, fallback ip-api.com) — we tell each app the
-truth about where we are, no GPS spoofing to some other neighborhood. The
-browser-intercept layer still enforces that same coordinate on every request
-only so cached client-side locations can't silently serve a different city.
-Override the auto-detected point with --lat/--lon if needed.
+while ALSO writing the operational catalog snapshot to deals.db
+(catalog_snapshots / watchlist / churn) so Demand Radar, --embed-catalog and the
+union layer keep working.
 
-Discovery itself is the proven --map-locality machinery (LocalityMapper over a
-small centered bbox grid, saturation early-stop, politeness gaps) pointed at a
-per-app Store instance, so nothing here touches deals.db. It runs in product-
-capture mode (LocalityMapper capture_products=True): every probe's products
-are persisted store-attributed — stock_obs (stock/price/mrp/eta,
-source='inventory') + price_obs (name/price/url, auto-categorized) — so each
-inventory DB holds the stores AND what they currently stock. Keep volumes
-modest: this is research tooling, not bulk harvesting.
+Unlike the old near-me mapper, this targets a specific store — not "where am I".
+Location is resolved from (a) explicit --lat/--lon, or (b) the store's lat/lon in
+deals.db darkstores. The app then serves exactly that store. No spoofing beyond
+telling each app the truth about where the store is.
+
+The crawler harvest already returns url + the full raw node; we persist both. The
+capture is COMPLETE (including vouchers) — business filtering (voucher/assortment
+exclusion) is a downstream concern, applied later by the union layer / Demand
+Radar, never here.
 """
 from __future__ import annotations
 
 import copy
-import json
 import math
 import os
 import time
-import urllib.request
 
 from .store import Store
 from .locality import LocalityMapper, QC_APPS
 
-DEFAULT_RADIUS_M = 3500          # bbox half-width around the resolved point
-DEFAULT_MAX_POINTS = 12          # per-app probe cap (saturation stops earlier)
+DEFAULT_RADIUS_M = 3500          # (retained for build_locality_cfg / future use)
 DB_NAME_TEMPLATE = "inventory_{app}.db"
 DB_DIR = "inventory"            # subfolder holding the per-app inventory databases
-
-
-def approx_location(timeout=8):
-    """
-    Approximate lat/lon + city from the machine's public IP. Honest lookup —
-    no spoofing, just reading back where the network already places us.
-    Returns {source, ip, city, region, country, lat, lon}.
-    """
-    def _ipinfo():
-        with urllib.request.urlopen("https://ipinfo.io/json", timeout=timeout) as r:
-            d = json.loads(r.read().decode())
-        lat, lon = str(d["loc"]).split(",")
-        return {"source": "ipinfo.io", "ip": d.get("ip"), "city": d.get("city"),
-                "region": d.get("region"), "country": d.get("country"),
-                "lat": float(lat), "lon": float(lon)}
-
-    def _ipapi():
-        url = ("http://ip-api.com/json/?fields=status,message,country,"
-               "regionName,city,lat,lon,query")
-        with urllib.request.urlopen(url, timeout=timeout) as r:
-            d = json.loads(r.read().decode())
-        if d.get("status") != "success":
-            raise RuntimeError(str(d.get("message")))
-        return {"source": "ip-api.com", "ip": d.get("query"), "city": d.get("city"),
-                "region": d.get("regionName"), "country": d.get("country"),
-                "lat": d["lat"], "lon": d["lon"]}
-
-    last_err = None
-    for fn in (_ipinfo, _ipapi):
-        try:
-            return fn()
-        except Exception as ex:
-            last_err = ex
-    raise RuntimeError(f"could not resolve approximate location: {last_err} "
-                       f"(pass --lat/--lon explicitly)")
 
 
 def build_locality_cfg(lat, lon, radius_m=DEFAULT_RADIUS_M,
@@ -91,98 +52,101 @@ def build_locality_cfg(lat, lon, radius_m=DEFAULT_RADIUS_M,
     }
 
 
-def run_inventory(cfg, apps=None, lat=None, lon=None, radius_m=None,
-                  max_points=None):
+def run_inventory(cfg, app, store_id, lat=None, lon=None,
+                  mirror_page_ms=None, tabs=None):
     """
-    Map darkstores per app into separate inventory_<app>.db files.
-    apps: subset of blinkit/instamart/zepto (default: all three, sequential).
-    Returns {app: {"db": path, "stores": n}}.
-    """
-    radius_m = int(radius_m or DEFAULT_RADIUS_M)
-    max_points = int(max_points or DEFAULT_MAX_POINTS)
+    Capture ONE store's full-category inventory.
 
+    Targets `app`/`store_id`, runs a complete every-category sweep, and writes:
+      * a rich record (url + raw_json + collections + price/mrp/in_stock/name)
+        to inventory_<app>.db (inventory_catalog), and
+      * the operational catalog snapshot to deals.db (catalog_snapshots /
+        watchlist / churn) for continuity with Demand Radar / --embed-catalog.
+
+    Location: --lat/--lon override wins; else looked up from deals.db
+    darkstores; else SystemExit (pass --lat/--lon or map the store first).
+    """
+    app = (app or "").strip().lower()
+    if app not in QC_APPS:
+        raise SystemExit(f"[inventory] unknown app: {app!r} — known: {sorted(QC_APPS)}")
+    if not store_id:
+        raise SystemExit("[inventory] --store <store_id> is required")
+
+    # Resolve the store's location.
     if lat is None or lon is None:
-        loc = approx_location()
-        lat, lon = loc["lat"], loc["lon"]
-        where = f"{loc.get('city') or '?'}, {loc.get('region') or ''}".strip(", ")
-        print(f"[inventory] approximate current location: {where} — "
-              f"{lat:.5f},{lon:.5f} (via {loc['source']}, IP {loc.get('ip')}; "
-              f"no spoofing)")
-    else:
-        print(f"[inventory] using explicit location: {lat:.5f},{lon:.5f}")
-
-    want = [a.strip().lower() for a in (apps or list(QC_APPS)) if a.strip()]
-    unknown = [a for a in want if a not in QC_APPS]
-    if unknown:
-        raise SystemExit(f"[inventory] unknown app(s): {unknown} — "
-                         f"known: {sorted(QC_APPS)}")
-
-    print("[inventory] note: run this ALONE — concurrent --demand/--map-locality/"
-          "--build-watchlist crawls of the same apps get rate-limited into "
-          "empty probes (see AGENTS.md).")
+        deals = Store(cfg.get("db", "deals.db"))
+        hit = deals.conn.execute(
+            "SELECT lat, lon FROM darkstores WHERE app=? AND store_id=? LIMIT 1",
+            (app, store_id)).fetchone()
+        deals.close()
+        if hit and hit[0] is not None:
+            lat, lon = hit[0], hit[1]
+            print(f"[inventory] store location from deals.db darkstores: "
+                  f"{lat:.5f},{lon:.5f} ({app}:{store_id})")
+        else:
+            raise SystemExit(
+                f"[inventory] no --lat/--lon given and {app}:{store_id} not in "
+                f"deals.db darkstores — run `--map-locality` first or pass "
+                f"--lat/--lon explicitly")
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
     inv_dir = os.path.join(root, DB_DIR)
     os.makedirs(inv_dir, exist_ok=True)               # keep the subfolder present
-    summary = {}
-    for i, app in enumerate(want):
-        db_path = os.path.join(inv_dir, DB_NAME_TEMPLATE.format(app=app))
-        app_cfg = copy.deepcopy(cfg)
-        app_cfg["demand"] = dict(app_cfg.get("demand") or {})
-        app_cfg["demand"]["locality"] = build_locality_cfg(
-            lat, lon, radius_m, name=f"current {app}")
-        print(f"\n[inventory] === {app} === ({i + 1}/{len(want)}) -> {db_path}")
-        db = Store(db_path)
-        n_obs = n_prices = 0
-        try:
-            mapper = LocalityMapper(app_cfg, db)
-            result = mapper.map_locality(apps=[app], max_points=max_points,
-                                         capture_products=True)
-            stores = result["apps"].get(app, {}).get("stores", [])
-            n_obs = db.conn.execute(
-                "SELECT COUNT(*) FROM stock_obs").fetchone()[0]
-            n_prices = db.conn.execute(
-                "SELECT COUNT(*) FROM price_obs").fetchone()[0]
-        finally:
-            rows = db.darkstores(app)
-            db.close()
-        summary[app] = {"db": db_path, "stores": len(rows),
-                        "products_obs": n_obs, "price_rows": n_prices}
-        if rows:
-            print(f"[inventory] {app}: {len(rows)} store(s), {n_obs} product "
-                  f"stock-readings, {n_prices} price rows in "
-                  f"{os.path.basename(db_path)}:")
-            for sid, label, slat, slon in [(r[1], r[2], r[3], r[4]) for r in rows]:
-                print(f"    {sid:<16} {str(label)[:44]:<46} ({slat:.5f},{slon:.5f})")
-        else:
-            print(f"[inventory] {app}: NO stores resolved — see warnings above "
-                  f"(Instamart is known-gated pre-onboarding; exit-IP may also "
-                  f"sit outside the app's service area; concurrent crawls "
-                  f"rate-limit probes into empty results)")
-    print("\n[inventory] done: " +
-          ", ".join(f"{a}={s['stores']} stores/{s['products_obs']} obs "
-                    f"({os.path.basename(s['db'])})"
-                    for a, s in summary.items()))
-    return summary
+    db_path = os.path.join(inv_dir, DB_NAME_TEMPLATE.format(app=app))
+    inv_db = Store(db_path)
+
+    print(f"[inventory] single-store capture: {app}:{store_id} @ ({lat:.5f},{lon:.5f})")
+    print(f"[inventory]   rich capture -> {os.path.basename(db_path)} (inventory_catalog)")
+    print(f"[inventory]   operational  -> deals.db (catalog_snapshots / watchlist / churn)")
+
+    from .watchlist import WatchlistBuilder
+    # deals.db Store is the operational target; inv_db is the rich capture target.
+    wb = WatchlistBuilder(cfg, Store(cfg.get("db", "deals.db")), inventory_db=inv_db)
+    wb.build_one_store(app, store_id, lat, lon,
+                       catalog=True, skip_override=[], deep_cats=True,
+                       mirror_page_ms=mirror_page_ms, tabs=tabs)
+
+    n = inv_db.conn.execute(
+        "SELECT COUNT(*) FROM inventory_catalog WHERE app=? AND store_id=?",
+        (app, store_id)).fetchone()[0]
+    with_url = inv_db.conn.execute(
+        "SELECT COUNT(*) FROM inventory_catalog WHERE app=? AND store_id=? AND url<>''",
+        (app, store_id)).fetchone()[0]
+    with_raw = inv_db.conn.execute(
+        "SELECT COUNT(*) FROM inventory_catalog WHERE app=? AND store_id=? "
+        "AND raw_json IS NOT NULL",
+        (app, store_id)).fetchone()[0]
+    inv_db.close()
+    print(f"[inventory] done: {app}:{store_id} -> {n} SKUs captured "
+          f"({with_url} with url, {with_raw} with raw_json) in "
+          f"{os.path.basename(db_path)}")
+    return {"app": app, "store_id": store_id, "db": db_path,
+            "skus": n, "with_url": with_url, "with_raw": with_raw}
 
 
 if __name__ == "__main__":
-    # offline sanity check (no network): grid shape + per-app DB isolation
+    # Offline sanity check (no network): single-anchor cfg + per-app DB isolation
+    # + a rich-capture round-trip through Store.upsert_inventory_catalog.
+    import tempfile
     lc = build_locality_cfg(19.0728, 72.8826, radius_m=2000)
     from .locality import build_anchors
     pts = build_anchors(lc)
     kinds = [p["kind"] for p in pts]
+    assert len(pts) >= 1, "expected at least one anchor"
     print(f"anchors: {len(pts)} ({kinds.count('landmark')} landmark + "
           f"{kinds.count('grid')} grid); first={pts[0]['label']}")
-    import tempfile
+
     tmp = tempfile.mkdtemp()
-    dbs = {}
-    for app, sid in (("blinkit", "B1"), ("zepto", "Z9")):
-        s = Store(os.path.join(tmp, f"inventory_{app}.db"))
-        s.upsert_darkstore(app, sid, f"{app} demo", 19.07, 72.88, 12)
-        dbs[app] = s
-    assert dbs["blinkit"].darkstores("blinkit") and not dbs["blinkit"].darkstores("zepto")
-    assert dbs["zepto"].darkstores("zepto") and not dbs["zepto"].darkstores("blinkit")
-    for s in dbs.values():
-        s.close()
-    print("per-app database isolation OK")
+    s = Store(os.path.join(tmp, "inventory_blinkit.db"))
+    s.upsert_inventory_catalog(
+        "blinkit", "B1",
+        {"sku_key": "k1", "name": "Amul Taaza Toned Milk 500ml", "price": 29.0,
+         "mrp": 33.0, "in_stock": 1, "url": "https://x/y",
+         "collections": ["home", "Milk"], "raw": {"id": "k1", "nested": {"a": 1}}})
+    row = s.conn.execute(
+        "SELECT name, url, category, raw_json, raw_json_bytes FROM inventory_catalog "
+        "WHERE sku_key='k1'").fetchone()
+    assert row and row[0] == "Amul Taaza Toned Milk 500ml" and row[1] == "https://x/y", row
+    assert row[3] and "nested" in row[3], "raw_json should round-trip"
+    s.close()
+    print("per-app rich-capture round-trip OK")

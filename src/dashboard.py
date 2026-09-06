@@ -106,21 +106,25 @@ FEATURE_CATALOG = [
           "ph": "default 5"},
      ]},
     {"id": "store_inventory", "label": "Store inventory", "service": False, "group": "demand",
-     "desc": "Maps darkstores near this machine's REAL location (public IP, "
-             "no spoofing) into inventory/<app>.db per app AND captures every "
-             "probe's products — browse them in SQL databases below.",
-     "meta": "LIVE crawl · ~10–15 min for all 3 apps · run ALONE — concurrent "
-             "crawls get rate-limited into empty results",
+     "desc": "Product-Space Intelligence capture (M1): targets ONE store (--app + "
+             "--store required) and runs a full every-category sweep, writing the rich "
+             "inventory_catalog (url + raw_json + collections) to inventory/<app>.db AND "
+             "the operational snapshot to deals.db. Pass --lat/--lon to target any store, "
+             "even one outside this machine's real location.",
+     "meta": "LIVE crawl · ~20–60 min per store · run ALONE — concurrent crawls get "
+             "rate-limited into empty results",
      "cmd": [sys.executable, "-u", "run.py", "--store-inventory"],
      "args": [
-         {"flag": "--apps", "kind": "text", "label": "apps",
-          "ph": "blinkit,zepto,instamart"},
-         {"flag": "--lat", "kind": "float", "label": "lat",
+         {"flag": "--app", "kind": "text", "label": "app (required)",
+          "ph": "blinkit|zepto|instamart"},
+         {"flag": "--store", "kind": "text", "label": "store id (required)",
+          "ph": "e.g. 34292"},
+         {"flag": "--lat", "kind": "float", "label": "lat override",
           "ph": "e.g. 19.1364"},
-         {"flag": "--lon", "kind": "float", "label": "lon",
+         {"flag": "--lon", "kind": "float", "label": "lon override",
           "ph": "e.g. 72.8296"},
-         {"flag": "--radius-m", "kind": "int", "label": "radius (m)"},
-         {"flag": "--max-points", "kind": "int", "label": "max points"},
+         {"flag": "--mirror-page-ms", "kind": "int", "label": "mirror page ms"},
+         {"flag": "--tabs", "kind": "int", "label": "tabs"},
      ]},
     {"id": "map_locality", "label": "Map locality", "service": False, "group": "demand",
      "desc": "Discovers darkstores for the configured locality (Andheri West) "

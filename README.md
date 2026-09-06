@@ -22,9 +22,11 @@ darkstore, honey pot, WAF…) defined in plain English where it first appears.
     python3 run.py --map-locality                    # discover Andheri West darkstores
     python3 run.py --map-locality --apps blinkit     # one app only
     python3 run.py --map-locality --max-points 5     # quick partial sweep
-    python3 run.py --store-inventory                 # per-app store DBs near YOU
-    python3 run.py --store-inventory --apps blinkit,zepto --max-points 8
-    python3 run.py --store-inventory --lat 19.07 --lon 72.88       # override point
+    python3 run.py --store-inventory --app blinkit --store 34292            # one store, full-category capture
+    python3 run.py --store-inventory --app zepto --store Z9 --lat 19.07 --lon 72.88  # any store, anywhere
+    python3 run.py --product-fields                                       # grocery name parser self-test
+    python3 run.py --product-fields --report --sample 200                 # accuracy CSV (exports/product_fields_sample.csv)
+    python3 run.py --product-space --apps blinkit,zepto,instamart --csv   # normalized union -> exports/product_space.csv
     python3 run.py --build-watchlist                 # per-store SKU probe set
     python3 run.py --build-watchlist --apps blinkit --store 47578 \
                     --max-per-store 100 --max-queries 10
@@ -93,23 +95,27 @@ terminal, or start the feature from the dashboard's **Features** panel and
 open its **log** (auto-refreshes ~1.2 s). Mute with
 `anti_block.stream_progress: false` in `config.yaml`.
 
-**Store inventory near you (`--store-inventory`):** resolves the machine's
-approximate location from its public IP (honest — no GPS spoofing; override
-with `--lat/--lon`), builds a small anchor grid around it, and maps each app's
-darkstores into SEPARATE databases in the `inventory/` folder:
+**Store inventory — single-store full-category capture (`--store-inventory`):**
+targets ONE store and runs a complete every-category sweep (the same
+catalog-inventory engine `--build-watchlist --catalog` uses), writing a RICH,
+COMPLETE record per product into a per-app database in the `inventory/` folder:
 `inventory/inventory_blinkit.db`, `inventory/inventory_instamart.db`,
-`inventory/inventory_zepto.db` (each a full Store schema; the
-`darkstores` table holds that app's stores with label/coords/ETA). Every probe
-is product-bearing and CAPTURED: each store-attributed product lands in that
-app's DB as `stock_obs` (stock/price/mrp/eta, `source='inventory'`) +
-`price_obs` (name/price/url, auto-categorized) — so the SQL databases panel in
-the dashboard shows what each nearby store actually stocks. One-shot probes
-use the probe routes: Zepto probes its search route, Blinkit/Instamart fire a
-few staple searches in-session so you get more than the dairy-first home
-carousels, and Instamart's location-consent gate is driven through the app's
-own UI buttons when a session is stuck at zero products. **Run it alone:**
-starting it while `--demand` / `--map-locality` / `--build-watchlist` is also
-crawling the same apps gets the fresh sessions rate-limited into empty probes
+`inventory/inventory_zepto.db`. The table is `inventory_catalog` (columns: `name,
+price, mrp, in_stock, url, collections` [the APP's own shelf taxonomy], `category`
+[our normalized internal taxonomy from `categorize`], `raw_json` [the full
+app-specific payload, opaque — never force-fit into a shared column], plus
+`raw_json_truncated`/`raw_json_bytes` for provenance). The operational snapshot
+(catalog_snapshots / watchlist / churn) is ALSO written to `deals.db` so Demand
+Radar, `--embed-catalog` and the union layer keep working. The capture is
+complete (vouchers included); business filtering like voucher exclusion happens
+downstream in the union layer, never here.
+
+Requires `--app <app>` + `--store <store_id>`. Location resolves from `--lat/--lon`
+(override — lets you target ANY store, even outside this machine's real location),
+else from `deals.db.darkstores` for that store (run `--map-locality` first if
+unknown). **Run it alone:** starting it while `--demand` / `--map-locality` /
+`--build-watchlist` is also crawling the same apps gets the fresh sessions
+rate-limited into empty probes
 (stores resolve, products = 0). Stop other crawls first (Features panel),
 then start the inventory.
 

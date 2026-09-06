@@ -7,6 +7,8 @@ are local, so a global baseline would cry wolf constantly.
 """
 from __future__ import annotations
 
+import json
+import logging
 import sqlite3
 import statistics
 import threading
@@ -14,6 +16,8 @@ import time
 import os
 
 from .categories import categorize
+
+log = logging.getLogger("store")
 
 # Digital vouchers / gift cards are NOT commodities: their "stock-outs" are
 # code-pool replenishment cycles, not shelf demand, so they poison the Demand
@@ -336,6 +340,69 @@ class Store:
                  now, r.get("score", 0), 1 if r.get("active", True) else 0,
                  is_voucher, now),
             )
+        self.conn.commit()
+
+    # ---- Product-Space Intelligence: per-app rich inventory capture ---------
+    # Lives ONLY in the per-app inventory_<app>.db files (created lazily here so
+    # deals.db's schema is never touched). This is the COMPLETE store capture:
+    # the common core the crawler normalizes (name/price/mrp/in_stock/url) plus
+    # `collections` (the APP's own shelf/category taxonomy, verbatim) and
+    # `raw_json` (the full app-specific payload, opaque — never force-fit into a
+    # shared column). `category` is OUR normalized internal taxonomy. See M1 plan.
+    _RAW_JSON_CAP = 16 * 1024  # 16 KB safety valve per product payload
+
+    def upsert_inventory_catalog(self, app, store_id, rec):
+        """Persist one rich inventory record. `rec` carries at least
+        sku_key/name; optional price/mrp/in_stock/url/collections/raw.
+
+        REPLACEs on (app, store_id, sku_key) so each run is the latest snapshot.
+        raw_json is json.dumps(rec.get('raw')); if it exceeds the cap it is
+        truncated and raw_json_truncated=1 so a capped payload is never
+        indistinguishable from a genuinely complete <=16KB one. raw_json_bytes
+        records the stored length for provenance/debugging.
+        """
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS inventory_catalog ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL,"
+            " app TEXT, store_id TEXT, sku_key TEXT,"
+            " name TEXT, price REAL, mrp REAL, in_stock INTEGER,"
+            " url TEXT,"
+            " collections TEXT,"
+            " category TEXT,"
+            " raw_json TEXT, raw_json_truncated INTEGER DEFAULT 0, raw_json_bytes INTEGER,"
+            " UNIQUE(app, store_id, sku_key))"
+        )
+        raw = rec.get("raw")
+        raw_json, truncated, nbytes = None, 0, 0
+        if raw is not None:
+            try:
+                s = json.dumps(raw, ensure_ascii=False)
+            except (TypeError, ValueError):
+                s = json.dumps({"_unserializable": True})
+            nbytes = len(s.encode("utf-8"))
+            if nbytes > self._RAW_JSON_CAP:
+                s = s[: self._RAW_JSON_CAP]
+                truncated = 1
+            raw_json = s
+        cols = rec.get("collections")
+        if isinstance(cols, (list, tuple)):
+            cols = ",".join(str(c) for c in cols)
+        self.conn.execute(
+            "INSERT INTO inventory_catalog"
+            "(ts,app,store_id,sku_key,name,price,mrp,in_stock,url,collections,category,"
+            " raw_json,raw_json_truncated,raw_json_bytes) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(app, store_id, sku_key) DO UPDATE SET "
+            " ts=excluded.ts, name=excluded.name, price=excluded.price, mrp=excluded.mrp,"
+            " in_stock=excluded.in_stock, url=excluded.url, collections=excluded.collections,"
+            " category=excluded.category, raw_json=excluded.raw_json,"
+            " raw_json_truncated=excluded.raw_json_truncated, raw_json_bytes=excluded.raw_json_bytes",
+            (time.time(), app, store_id, rec.get("sku_key"), rec.get("name"),
+             rec.get("price"), rec.get("mrp"),
+             None if rec.get("in_stock") is None else int(rec["in_stock"]),
+             rec.get("url") or "", cols, categorize(rec.get("name")),
+             raw_json, truncated, nbytes),
+        )
         self.conn.commit()
 
     def deactivate_watchlist_except(self, app, store_id, sku_keys):

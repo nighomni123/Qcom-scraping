@@ -123,14 +123,77 @@ def main():
         return
 
     if "--store-inventory" in sys.argv:
-        # Per-app darkstore inventories around the machine's real approximate
-        # location (public-IP derived; --lat/--lon to override) into
-        # inventory_<app>.db files — separate from deals.db.
+        # Single-store, every-category capture (Product-Space Intelligence M1):
+        # --app + --store REQUIRED; --lat/--lon override the store's resolved
+        # location. Writes the rich inventory_catalog (url + raw_json + collections)
+        # to the per-app inventory DB and the operational snapshot to deals.db.
         from src.inventory import run_inventory
-        run_inventory(cfg, apps=_flag_list("--apps"),
+        app = _flag_value("--app")
+        store_id = _flag_value("--store")
+        if not app or not store_id:
+            print("usage: python3 run.py --store-inventory --app <app> --store <store_id> "
+                  "[--lat L --lon L] [--mirror-page-ms N] [--tabs N]")
+            return
+        run_inventory(cfg, app, store_id,
                       lat=_flag_float("--lat"), lon=_flag_float("--lon"),
-                      radius_m=_flag_int("--radius-m"),
-                      max_points=(_flag_int("--max-points") or 10))
+                      mirror_page_ms=_flag_int("--mirror-page-ms"),
+                      tabs=_flag_int("--tabs"))
+        return
+
+    if "--product-fields" in sys.argv:
+        # M1 Phase 1: grocery name parser self-test / accuracy report.
+        from src.product_fields import _run_selftest, sample_report
+        if "--report" in sys.argv:
+            i = sys.argv.index("--report")
+            rest = sys.argv[i + 1:]
+            sample_n, db = 200, cfg.get("db", "deals.db")
+            for j, a in enumerate(rest):
+                if a == "--sample" and j + 1 < len(rest):
+                    try:
+                        sample_n = int(rest[j + 1])
+                    except ValueError:
+                        pass
+                elif a == "--db" and j + 1 < len(rest):
+                    db = rest[j + 1]
+            sample_report(db, sample_n)
+        else:
+            if not _run_selftest():
+                import sys as _s
+                _s.exit(1)
+        return
+
+    if "--product-space" in sys.argv:
+        # M1 Phase 2: normalized product-space union (read-only). Joins the per-app
+        # inventory DBs (rich capture) with deals.db catalog_snapshots; excludes
+        # vouchers; resolves cross-app product groups via entity resolution.
+        from src.product_space import load_product_space
+        rows = load_product_space(apps=_flag_list("--apps"),
+                                  attach_embeddings=("--embeddings" in sys.argv))
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/product_space.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "group_method", "group_confidence",
+                            "app", "store_id", "sku_key", "name", "brand",
+                            "pack_value", "pack_unit", "is_multipack", "variant",
+                            "unit_base", "unit_price", "price", "mrp", "in_stock",
+                            "category", "collections", "url", "source"])
+                for r in rows:
+                    w.writerow([r["product_group_id"], r["group_method"], r["group_confidence"],
+                                r["app"], r["store_id"], r["sku_key"], r["name"], r["brand"],
+                                r["pack_value"], r["pack_unit"], r["is_multipack"], r["variant"],
+                                r["unit_base"], r["unit_price"], r["price"], r["mrp"],
+                                r["in_stock"], r["category"], r["collections"], r["url"], r["source"]])
+            print(f"[product-space] wrote {len(rows)} rows -> {out}")
+        else:
+            from collections import Counter
+            print(f"[product-space] {len(rows)} normalized records · "
+                  f"{len({r['product_group_id'] for r in rows})} product groups "
+                  f"(vouchers excluded)")
+            print("  apps:", dict(Counter(r["app"] for r in rows)))
+            print("  top categories:", Counter(r["category"] for r in rows).most_common(6))
         return
 
     if "--purge-vouchers" in sys.argv:
