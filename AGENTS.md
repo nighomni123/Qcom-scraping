@@ -192,6 +192,14 @@ scripts/test_embeddinggemma.py  local-Ollama embeddinggemma backfill + demo
                         queries (self-managing: starts serve, pulls model)
 scripts/compare_embeddings.py   embeddinggemma-vs-NVIDIA neighbour-agreement
                         comparison (numpy in .venv/ — run with .venv/bin/python)
+scripts/embed_gemini_resume.py  additive GEMINI corpus backfill
+                        (gemini-embedding-001 @768 via the AI_API_KEY pool,
+                        config override in-process — repo default stays
+                        NVIDIA; embedding_send_extras: false because Gemini
+                        400s on the NVIDIA-only body fields; batch 100 +
+                        16s pause ~= 94 RPM/key under the 100 RPM wall,
+                        ~4k names/day across 4 keys, resets midnight PT;
+                        re-run daily until pending hits 0)
 scripts/bench_ollama_batch.py   Ollama batch-size throughput/RAM benchmark
 scripts/embed_3d_map.py  Inventory Atlas: dark-themed semantic explorer over
                         the `embeddings` table -> exports/embedding_map.html

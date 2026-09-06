@@ -181,7 +181,14 @@ class Embedder:
             self.batch_pause = float(ai.get("embedding_batch_pause") or BATCH_PAUSE_SEC)
         except (TypeError, ValueError):
             self.batch_pause = BATCH_PAUSE_SEC
+        # NVIDIA-only request fields (input_type/modality/truncate). Other
+        # OpenAI-compatible endpoints (Gemini's /v1beta/openai/) REJECT unknown
+        # fields with a 400, so providers that want plain semantics set
+        # embedding_send_extras: false — the body then carries only
+        # model/input/encoding_format(/dimensions).
+        self.send_extras = bool(ai.get("embedding_send_extras", True))
         self.db_path = db_path
+        self.key_tag = "none"   # masked key that served the last batch (logging)
         self._conn = None       # lazy sqlite (created on first ensure)
         self._cache = {}        # name -> array('f')
         self._known = None      # names already in the DB for this model/dims
@@ -299,10 +306,11 @@ class Embedder:
             persists). Callers: ensure() degrades to token-only; the
             backfill prints the re-run hint."""
         body = {"model": self.model, "input": list(texts),
-                "encoding_format": "float",
-                "input_type": input_type,
-                "modality": ["text"] * len(texts),
-                "truncate": "NONE"}
+                "encoding_format": "float"}
+        if self.send_extras:
+            body.update({"input_type": input_type,
+                         "modality": ["text"] * len(texts),
+                         "truncate": "NONE"})
         if self.dims:
             body["dimensions"] = self.dims
         rounds, throttled, no_dims = 0, set(), False
@@ -319,6 +327,9 @@ class Embedder:
                     d = json.loads(r.read().decode())
                 if len(self.keys) > 1:
                     self.keys.append(self.keys.pop(0))   # round-robin
+                # Masked id of the key that served THIS batch (rotation is
+                # observable in the backfill journal: each turn = next key).
+                self.key_tag = ("…" + key[-4:]) if key else "local"
                 return self._parse_embeddings(d, texts)
             except urllib.error.HTTPError as ex:
                 if ex.code == 400 and not no_dims and "dimensions" in \
@@ -345,7 +356,8 @@ class Embedder:
                             f"all {len(self.keys)} keys throttled for "
                             f"{rounds} consecutive rounds — daily request "
                             f"budget spent (resets at the provider's daily "
-                            f"reset: OpenRouter midnight UTC)")
+                            f"reset: Gemini midnight PT, OpenRouter "
+                            f"midnight UTC)")
                     throttled = set()
                     print(f"[embed] quota wall: all {len(self.keys)} keys throttled — sleeping {wait:.0f}s (round {rounds}/{MAX_WALL_ROUNDS})", flush=True)
                     time.sleep(wait)
@@ -429,9 +441,9 @@ class Embedder:
                 done += len(chunk)
                 skip = len(chunk) - len(rows)
                 if progress:
-                    print(f"[embed] {done}/{total} names", flush=True)
+                    print(f"[embed] {done}/{total} names (key {self.key_tag})", flush=True)
                     self._log(f"batch ok: {done}/{total} names (cached "
-                              f"{self.cached_count()})"
+                              f"{self.cached_count()}, key {self.key_tag})"
                               + (f" — {skip} names returned unusable vectors, "
                                  f"NOT cached, retry next run" if skip else ""))
                 time.sleep(self.batch_pause)
@@ -736,6 +748,61 @@ if __name__ == "__main__":
     assert emb3._down_until >= time.time() + RPD_COOLDOWN_SEC - 1, \
         "RPD cool-down must be 1h"
 
+    # Request-body gate: the default (NVIDIA) embedder sends the asymmetric
+    # extras; a Gemini-style embedder (embedding_send_extras: false) must send
+    # a plain body — Gemini 400s on unknown fields like input_type.
+    captured = {}
+    real_urlopen2 = urllib.request.urlopen
+
+    def capture(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode())
+        raise urllib.error.HTTPError(req.full_url, 429, "x", {"Retry-After": "1"}, None)
+    urllib.request.urlopen = capture
+    try:
+        nvidia = Embedder(cfg, os.path.join(tmp, "n.db"))
+        try:
+            nvidia._post(["a"], "passage")
+        except Exception:
+            pass
+        assert "input_type" in captured["body"], "NVIDIA body must carry input_type"
+        gem = Embedder({"ai": {"enabled": True, "embedding_model": "m",
+                               "embedding_send_extras": False}},
+                       os.path.join(tmp, "g.db"))
+        try:
+            gem._post(["a"], "passage")
+        except Exception:
+            pass
+        b = captured["body"]
+        assert set(b) == {"model", "input", "encoding_format", "dimensions"}, \
+            f"Gemini body must be plain, got {sorted(b)}"
+        assert "input_type" not in b and "modality" not in b, \
+            "extras must be omitted when embedding_send_extras is false"
+    finally:
+        urllib.request.urlopen = real_urlopen2
+
+    # Per-batch key rotation: every successful batch moves to the next key in
+    # the pool, and the key that served it is exposed (masked) for journaling.
+    rot = Embedder(cfg, os.path.join(tmp, "r.db"))
+    rot.keys = ["key-aaaa", "key-bbbb", "key-cccc"]
+    seen_keys = []
+
+    def rotating_urlopen(req, timeout=None):
+        auth = dict(req.header_items()).get("Authorization", "")
+        seen_keys.append(auth[-4:])                     # masked key tail
+        raise urllib.error.HTTPError(req.full_url, 429, "x", {"Retry-After": "1"}, None)
+    real_uo, real_sl = urllib.request.urlopen, time.sleep
+    urllib.request.urlopen, time.sleep = rotating_urlopen, slept.append
+    try:
+        try:
+            rot._post(["a"])
+        except Exception:
+            pass
+        # First call rotates aabbcc then sleeps — the pool order must advance
+        # one key per attempt (failover AND round-robin share the same motion).
+        assert seen_keys[:3] == ["aaaa", "bbbb", "cccc"], seen_keys[:3]
+    finally:
+        urllib.request.urlopen, time.sleep = real_uo, real_sl
+
     # Migration: an old name-PK `embeddings` table must upgrade to the
     # composite (model, dims, name) PK without losing rows, and the same name
     # must be allowed under two models (additivity).
@@ -800,4 +867,5 @@ if __name__ == "__main__":
 
     shutil.rmtree(tmp, ignore_errors=True)
     print("[embed] self-test OK: geometry, rescale, boost, disabled path, "
-          "persistence, RPD wall-cap (6 checks, 0 network calls after backfill)")
+          "persistence, RPD wall-cap, key rotation (7 checks, 0 network calls "
+          "after backfill)")
