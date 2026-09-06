@@ -222,6 +222,23 @@
   pre.logview { margin: 0; padding: 12px 16px; font: 11.5px/1.55 "SF Mono", Menlo, monospace;
                 white-space: pre-wrap; word-break: break-word; max-height: 60vh; overflow-y: auto; }
   footer { color: var(--dim); font-size: 11px; margin-top: 8px; }
+  /* tab shell */
+  nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; position: sticky; top: 0; z-index: 10;
+             background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .tab { background: transparent; border: 1px solid var(--border); color: var(--dim);
+         border-radius: 8px; padding: 7px 14px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 600; }
+  .tab:hover { border-color: var(--blue); color: var(--blue); }
+  .tab.active { background: var(--blue); color: #04121f; border-color: var(--blue); }
+  .tabpane[hidden] { display: none; }
+  .runningnow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .runningnow .rchip { background: rgba(63,185,80,.15); border: 1px solid var(--green); color: var(--green);
+                       border-radius: 10px; padding: 1px 9px; font-size: 11px; font-weight: 600; }
+  .runningnow .idle { color: var(--dim); font-size: 12px; }
+  .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--blue);
+         margin: 14px 0 2px; font-weight: 700; }
+  .grp:first-child { margin-top: 0; }
+  .feat.unavailable button.go { opacity: .35; cursor: not-allowed; pointer-events: none; }
+  .feat .blocked { color: var(--amber); font-size: 10.5px; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -229,181 +246,231 @@
     <div class="dot" id="dot"></div>
     <h1>qcom-scraping — live</h1>
     <span class="uptime" id="uptime"></span>
+    <span id="runningNow" class="runningnow"></span>
     <div class="spacer"></div>
     <button class="stop" onclick="shutdown()">■ STOP ALL</button>
   </header>
 
-  <div class="cards">
-    <div class="card"><div class="k">Products seen</div><div class="v" id="cProducts">—</div><div class="s">all stations, all apps</div></div>
-    <div class="card"><div class="k">Cycles done</div><div class="v" id="cCycles">—</div><div class="s" id="cLast">monitor loop</div></div>
-    <div class="card"><div class="k">Bot queries</div><div class="v" id="cQueries">—</div><div class="s" id="botName">@dshprice_bot</div></div>
-    <div class="card"><div class="k">Glitch alerts</div><div class="v" id="cAlerts">—</div><div class="s">fired to desktop/log</div></div>
-    <div class="card"><div class="k">Searches saved</div><div class="v" id="cSaved">—</div><div class="s">in deals.db</div></div>
-    <div class="card"><div class="k">Open OOS</div><div class="v" id="cOos">—</div><div class="s">demand radar · live stock-outs</div></div>
-  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+    <button class="tab" data-tab="monitor" onclick="switchTab('monitor')">Deal monitor</button>
+    <button class="tab" data-tab="demand" onclick="switchTab('demand')">Demand radar</button>
+    <button class="tab" data-tab="explorer" onclick="switchTab('explorer')">Data explorer</button>
+    <button class="tab" data-tab="setup" onclick="switchTab('setup')">Setup</button>
+  </nav>
 
-  <div class="panel">
-    <h2>Features <span class="chip">start · stop · every capability of this repo</span></h2>
-    <div class="fgrid" id="featGrid"><div class="muted">loading…</div></div>
-  </div>
-
-  <div class="panel">
-    <h2>Working area <span class="chip">where the tool crawls · saved to config.yaml</span></h2>
-    <div class="locnote" style="padding: 8px 14px 0;">Changes persist to
-      <b>config.yaml</b> (validated before writing, backup in /tmp) and take effect when you
-      (re)start a feature from the Features panel — already-running processes keep the old area.</div>
-    <div class="locwrap">
-      <div class="loccard">
-        <h3>Demand Radar locality <small>bbox + landmarks for --demand / --map-locality / inventory</small></h3>
-        <div id="locMap"></div>
-        <div id="pinLegend" style="font-size:10.5px;color:var(--dim);min-height:14px;"></div>
-        <div class="mapfall" id="mapFallback" style="display:none;">
-          Map unavailable (offline?) — set coordinates with the inputs below or pick a preset.
-        </div>
-        <div class="locrow">
-          <input id="locName" placeholder="area name" style="flex:1; min-width:140px;" title="name written to demand.locality.name">
-          <select id="locPreset" style="flex:1; min-width:150px;" onchange="pickPreset(this)">
-            <option value="">presets…</option>
-          </select>
-        </div>
-        <div class="locrow">
-          <label style="font-size:11px;color:var(--dim)">lat</label>
-          <input id="locLat" type="number" step="0.0001" onchange="formToMarker()">
-          <label style="font-size:11px;color:var(--dim)">lon</label>
-          <input id="locLon" type="number" step="0.0001" onchange="formToMarker()">
-          <button class="locbtn" onclick="useMyLocation()" title="browser geolocation">📍 my location</button>
-          <button class="locbtn" onclick="useIpLocation()" title="server's public-IP location">🌐 IP location</button>
-        </div>
-        <div class="radiusline">
-          <span>radius</span>
-          <input type="range" id="locRadius" min="0.5" max="10" step="0.5" value="2.5" oninput="document.getElementById('locRadiusVal').textContent=this.value+' km'">
-          <span id="locRadiusVal">2.5 km</span>
-        </div>
-        <div class="locrow" style="justify-content: space-between;">
-          <span class="locnote" id="locCurrent"></span>
-          <button class="locbtn primary" onclick="saveLocality()">💾 save locality</button>
-        </div>
-      </div>
-      <div class="loccard">
-        <h3>Monitor corridor <small>stations the glitch monitor crawls + search anchor</small></h3>
-        <table class="corr" id="corrTable"></table>
-        <div class="locrow">
-          <button class="locbtn" onclick="addStationRow()">＋ add station</button>
-          <span style="flex:1"></span>
-          <label style="font-size:11px;color:var(--dim)">search anchor</label>
-          <select id="corrAnchor" title="search.station — dark-store anchor for bot/CLI searches"></select>
-          <button class="locbtn primary" onclick="saveCorridor()">💾 save corridor</button>
-        </div>
-      </div>
+  <!-- ============ OVERVIEW ============ -->
+  <section class="tabpane" data-tab="overview">
+    <div class="cards">
+      <div class="card"><div class="k">Products seen</div><div class="v" id="cProducts">—</div><div class="s">all stations, all apps</div></div>
+      <div class="card"><div class="k">Cycles done</div><div class="v" id="cCycles">—</div><div class="s" id="cLast">monitor loop</div></div>
+      <div class="card"><div class="k">Bot queries</div><div class="v" id="cQueries">—</div><div class="s" id="botName">@dshprice_bot</div></div>
+      <div class="card"><div class="k">Glitch alerts</div><div class="v" id="cAlerts">—</div><div class="s">fired to desktop/log</div></div>
+      <div class="card"><div class="k">Searches saved</div><div class="v" id="cSaved">—</div><div class="s">in deals.db</div></div>
+      <div class="card"><div class="k">Open OOS</div><div class="v" id="cOos">—</div><div class="s">demand radar · live stock-outs</div></div>
     </div>
-  </div>
 
-  <div class="panel">
-    <h2>AI assistant <span class="chip">optional</span> <span id="aiChip" class="chip">checking…</span></h2>
-    <div class="locnote" style="padding: 8px 14px 0;" id="aiHint"></div>
-    <div class="locwrap">
-      <div class="loccard">
-        <h3>📊 Understand the results</h3>
-        <div class="locnote">Reads everything the Demand Radar panels show (DPI,
-          stock-out events, onset heatmap, ETAs) and explains what it means —
-          pressure SKUs, temporal patterns, data-quality caveats.</div>
-        <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runExplain()">✨ explain latest results</button></div>
-        <pre class="aiout" id="aiOut1" style="display:none"></pre>
-        <div id="aiDl1" style="margin-top:6px"></div>
-        <div class="locrow" id="askRow" style="display:none">
-          <input id="askQ" placeholder="ask a follow-up about this analysis…" onkeydown="if(event.key==='Enter')askFollowup()"
-                 style="flex:1; min-width:160px; background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
-          <button class="locbtn primary" id="btnAsk" onclick="askFollowup()">ask</button>
-        </div>
-        <pre class="aiout" id="aiAskErr" style="display:none"></pre>
-        <div id="aiChat1"></div>
-      </div>
-      <div class="loccard">
-        <h3>🔧 Tune probing methodology</h3>
-        <div class="locnote">Reviews probing health (null rates, event counts,
-          observation volume) and suggests safe adjustments to the demand-prober
-          knobs. You pick which to apply — writes config.yaml only.</div>
-        <div class="locrow"><button class="locbtn primary" id="btnMeth" onclick="runMeth()">✨ review methodology</button></div>
-        <div id="methList"></div>
-        <div class="locrow" id="methApplyRow" style="display:none">
-          <span style="flex:1"></span>
-          <button class="locbtn primary" onclick="applyMethod()">apply selected</button>
-        </div>
-        <pre class="aiout" id="aiOut2" style="display:none"></pre>
-      </div>
-      <div class="loccard">
-        <h3>🎯 Choose product focus</h3>
-        <div class="locnote">Tell it what to prioritize and it turns that into
-          concrete search queries for the watchlist builder / demand prober
-          (<code>demand.staple_queries</code>).</div>
-        <div class="locrow">
-          <input id="focusIntent" placeholder="e.g. beverages and baby care" style="flex:1; min-width:160px;
-                 background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
-          <button class="locbtn primary" id="btnFocus" onclick="runFocus()">suggest queries</button>
-        </div>
-        <div id="focusList"></div>
-        <div class="locrow" id="focusApplyRow" style="display:none">
-          <span style="flex:1"></span>
-          <button class="locbtn primary" onclick="applyFocusSel()">apply as staple_queries</button>
-        </div>
-        <pre class="aiout" id="aiOut3" style="display:none"></pre>
-      </div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Quick price search</h2>
-    <div class="searchbox">
-      <input id="q" placeholder="e.g. amul milk — searches all 5 platforms simultaneously" onkeydown="if(event.key==='Enter')doSearch()">
-      <button id="qBtn" onclick="doSearch()">Search</button>
-    </div>
-    <div id="searchOut">Search from here or from Telegram — results are archived in deals.db and listed under Search history.</div>
-  </div>
-
-  <div class="cols">
     <div class="panel">
-      <h2>Live feed <span class="chip">click any row for details</span></h2>
-      <div id="feed"></div>
+      <h2>Running now <span class="chip">mirrors the header · from the Features panel</span></h2>
+      <div id="overRunning" class="muted">nothing running</div>
     </div>
-    <div>
-      <div class="panel">
-        <h2>Product categories covered</h2>
-        <div id="cats"><div class="muted">loading…</div></div>
+
+    <div class="panel">
+      <h2>Latest alerts <span class="chip">click any row for detail</span></h2>
+      <div id="overAlerts" class="muted">no alerts yet</div>
+    </div>
+
+    <div class="panel">
+      <h2>Top demand pressure <span class="chip">top 3 SKUs by DPI</span></h2>
+      <div id="overDpi" class="muted">loading…</div>
+    </div>
+  </section>
+
+  <!-- ============ DEAL MONITOR ============ -->
+  <section class="tabpane" data-tab="monitor" hidden>
+    <div class="panel">
+      <h2>Deal monitor — features <span class="chip">glitch monitor · bot · demo</span></h2>
+      <div class="fgrid" id="featGridMonitor"><div class="muted">loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Quick price search</h2>
+      <div class="searchbox">
+        <input id="q" placeholder="e.g. amul milk — searches all 5 platforms simultaneously" onkeydown="if(event.key==='Enter')doSearch()">
+        <button id="qBtn" onclick="doSearch()">Search</button>
       </div>
+      <div id="searchOut">Search from here or from Telegram — results are archived in deals.db and listed under Search history.</div>
+    </div>
+
+    <div class="cols">
       <div class="panel">
-        <h2>Search history <span class="chip">click to reopen results</span></h2>
-        <div id="hist"><div class="muted">no searches yet</div></div>
+        <h2>Live feed <span class="chip">monitor &amp; bot events only</span></h2>
+        <div id="feed"></div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>Search history <span class="chip">click to reopen results</span></h2>
+          <div id="hist"><div class="muted">no searches yet</div></div>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="panel">
-    <h2>SQL databases <span class="chip">deals.db + per-app inventories · newest rows first</span></h2>
-    <div class="dbtabs" id="dbTabs"><span class="muted">loading…</span></div>
-    <div class="tblchips" id="tblChips"></div>
-    <div class="dbview" id="dbView"><div class="muted">pick a database and a table</div></div>
-  </div>
+  <!-- ============ DEMAND RADAR ============ -->
+  <section class="tabpane" data-tab="demand" hidden>
+    <div class="panel">
+      <h2>Demand radar — features <span class="chip">the crawl workflow, in order</span></h2>
+      <div class="fgrid" id="featGridDemand"><div class="muted">loading…</div></div>
+    </div>
 
-  <div class="panel">
-    <h2>Demand Radar — platform health <span class="chip">DB-backed · run `--qc-status` for live probes</span></h2>
-    <div class="qcline" id="qcLine">loading…</div>
-    <div id="dStores" style="padding:10px 14px"></div>
-  </div>
+    <div class="panel">
+      <h2>AI assistant <span class="chip">optional</span> <span id="aiChip" class="chip">checking…</span></h2>
+      <div class="locnote" style="padding: 8px 14px 0;" id="aiHint"></div>
+      <div class="locwrap">
+        <div class="loccard">
+          <h3>📊 Understand the results</h3>
+          <div class="locnote">Reads everything the Demand Radar panels show (DPI,
+            stock-out events, onset heatmap, ETAs) and explains what it means —
+            pressure SKUs, temporal patterns, data-quality caveats.</div>
+          <div class="locrow"><button class="locbtn primary" id="btnExplain" onclick="runExplain()">✨ explain latest results</button></div>
+          <pre class="aiout" id="aiOut1" style="display:none"></pre>
+          <div id="aiDl1" style="margin-top:6px"></div>
+          <div class="locrow" id="askRow" style="display:none">
+            <input id="askQ" placeholder="ask a follow-up about this analysis…" onkeydown="if(event.key==='Enter')askFollowup()"
+                   style="flex:1; min-width:160px; background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
+            <button class="locbtn primary" id="btnAsk" onclick="askFollowup()">ask</button>
+          </div>
+          <pre class="aiout" id="aiAskErr" style="display:none"></pre>
+          <div id="aiChat1"></div>
+        </div>
+        <div class="loccard">
+          <h3>🔧 Tune probing methodology</h3>
+          <div class="locnote">Reviews probing health (null rates, event counts,
+            observation volume) and suggests safe adjustments to the demand-prober
+            knobs. You pick which to apply — writes config.yaml only.</div>
+          <div class="locrow"><button class="locbtn primary" id="btnMeth" onclick="runMeth()">✨ review methodology</button></div>
+          <div id="methList"></div>
+          <div class="locrow" id="methApplyRow" style="display:none">
+            <span style="flex:1"></span>
+            <button class="locbtn primary" onclick="applyMethod()">apply selected</button>
+          </div>
+          <pre class="aiout" id="aiOut2" style="display:none"></pre>
+        </div>
+        <div class="loccard">
+          <h3>🎯 Choose product focus</h3>
+          <div class="locnote">Tell it what to prioritize and it turns that into
+            concrete search queries for the watchlist builder / demand prober
+            (<code>demand.staple_queries</code>).</div>
+          <div class="locrow">
+            <input id="focusIntent" placeholder="e.g. beverages and baby care" style="flex:1; min-width:160px;
+                   background:#21262d; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:5px 8px; font:inherit; font-size:12px;">
+            <button class="locbtn primary" id="btnFocus" onclick="runFocus()">suggest queries</button>
+          </div>
+          <div id="focusList"></div>
+          <div class="locrow" id="focusApplyRow" style="display:none">
+            <span style="flex:1"></span>
+            <button class="locbtn primary" onclick="applyFocusSel()">apply as staple_queries</button>
+          </div>
+          <pre class="aiout" id="aiOut3" style="display:none"></pre>
+        </div>
+      </div>
+    </div>
 
-  <div class="panel">
-    <h2>Demand Pressure Index — top SKUs <span class="chip">DPI = Σ OOS-min × recency(half-life 3d) ÷ obs-days</span></h2>
-    <div id="dpiTop"><div class="muted">loading…</div></div>
-  </div>
+    <div class="panel">
+      <h2>Demand Radar — platform health <span class="chip">DB-backed · run `--qc-status` for live probes</span></h2>
+      <div class="qcline" id="qcLine">loading…</div>
+      <div id="dStores" style="padding:10px 14px"></div>
+    </div>
 
-  <div class="panel">
-    <h2>Stock-out onset heatmap — hour × SKU <span class="chip">local time · when demand spikes</span></h2>
-    <div class="heatwrap" id="heatWrap"><div class="muted">loading…</div></div>
-  </div>
+    <div class="panel">
+      <h2>Demand Pressure Index — top SKUs <span class="chip">DPI = Σ OOS-min × recency(half-life 3d) ÷ obs-days</span></h2>
+      <div id="dpiTop"><div class="muted">loading…</div></div>
+    </div>
 
-  <div class="panel">
-    <h2>Delivery ETA by hour <span class="chip">per-store snapshot average</span></h2>
-    <div class="etarow" id="etaRow"><div class="muted">loading…</div></div>
-  </div>
+    <div class="panel">
+      <h2>Stock-out onset heatmap — hour × SKU <span class="chip">local time · when demand spikes</span></h2>
+      <div class="heatwrap" id="heatWrap"><div class="muted">loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Delivery ETA by hour <span class="chip">per-store snapshot average</span></h2>
+      <div class="etarow" id="etaRow"><div class="muted">loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ============ DATA EXPLORER ============ -->
+  <section class="tabpane" data-tab="explorer" hidden>
+    <div class="panel">
+      <h2>SQL databases <span class="chip">deals.db + per-app inventories · newest rows first</span></h2>
+      <div class="dbtabs" id="dbTabs"><span class="muted">loading…</span></div>
+      <div class="tblchips" id="tblChips"></div>
+      <div class="dbview" id="dbView"><div class="muted">pick a database and a table</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Product categories covered</h2>
+      <div id="cats"><div class="muted">loading…</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Exported files <span class="chip">DPI CSVs · locality JSON · from exports/</span></h2>
+      <div id="exportsList"><div class="muted">loading…</div></div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="tabpane" data-tab="setup" hidden>
+    <div class="panel">
+      <h2>Working area <span class="chip">where the tool crawls · saved to config.yaml</span></h2>
+      <div class="locnote" style="padding: 8px 14px 0;">Changes persist to
+        <b>config.yaml</b> (validated before writing, backup in /tmp) and take effect when you
+        (re)start a feature from the Features panel — already-running processes keep the old area.</div>
+      <div class="locwrap">
+        <div class="loccard">
+          <h3>Demand Radar locality <small>bbox + landmarks for --demand / --map-locality / inventory</small></h3>
+          <div id="locMap"></div>
+          <div id="pinLegend" style="font-size:10.5px;color:var(--dim);min-height:14px;"></div>
+          <div class="mapfall" id="mapFallback" style="display:none;">
+            Map unavailable (offline?) — set coordinates with the inputs below or pick a preset.
+          </div>
+          <div class="locrow">
+            <input id="locName" placeholder="area name" style="flex:1; min-width:140px;" title="name written to demand.locality.name">
+            <select id="locPreset" style="flex:1; min-width:150px;" onchange="pickPreset(this)">
+              <option value="">presets…</option>
+            </select>
+          </div>
+          <div class="locrow">
+            <label style="font-size:11px;color:var(--dim)">lat</label>
+            <input id="locLat" type="number" step="0.0001" onchange="formToMarker()">
+            <label style="font-size:11px;color:var(--dim)">lon</label>
+            <input id="locLon" type="number" step="0.0001" onchange="formToMarker()">
+            <button class="locbtn" onclick="useMyLocation()" title="browser geolocation">📍 my location</button>
+            <button class="locbtn" onclick="useIpLocation()" title="server's public-IP location">🌐 IP location</button>
+          </div>
+          <div class="radiusline">
+            <span>radius</span>
+            <input type="range" id="locRadius" min="0.5" max="10" step="0.5" value="2.5" oninput="document.getElementById('locRadiusVal').textContent=this.value+' km'">
+            <span id="locRadiusVal">2.5 km</span>
+          </div>
+          <div class="locrow" style="justify-content: space-between;">
+            <span class="locnote" id="locCurrent"></span>
+            <button class="locbtn primary" onclick="saveLocality()">💾 save locality</button>
+          </div>
+        </div>
+        <div class="loccard">
+          <h3>Monitor corridor <small>stations the glitch monitor crawls + search anchor</small></h3>
+          <table class="corr" id="corrTable"></table>
+          <div class="locrow">
+            <button class="locbtn" onclick="addStationRow()">＋ add station</button>
+            <span style="flex:1"></span>
+            <label style="font-size:11px;color:var(--dim)">search anchor</label>
+            <select id="corrAnchor" title="search.station — dark-store anchor for bot/CLI searches"></select>
+            <button class="locbtn primary" onclick="saveCorridor()">💾 save corridor</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div class="modal hidden" id="modal" onclick="if(event.target===this)closeModal()">
     <div class="sheet">
@@ -415,17 +482,40 @@
   <footer>http://127.0.0.1:8787 · STOP ALL ends the bot, the monitor and this dashboard · every search is archived to deals.db</footer>
 
 <script>
-let lastCount = -1;
 let EVENTS = [];
 const KIND_LABEL = {crawl:'crawl', cycle:'cycle', cycle_done:'cycle', alert:'ALERT',
-                    query:'query', reply:'reply', bot_online:'bot', system:'system', error:'error'};
+                    query:'query', reply:'reply', bot_online:'bot', system:'system', error:'error',
+                    failover:'failover', watch_alert:'watch', watch_add:'watch+', watch_del:'watch−'};
 // kinds that carry extra payload worth opening
 const RICH = new Set(['reply','crawl','alert','query']);
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 const rupee = v => (v===null||v===undefined) ? '—' : '₹' + Number(v).toFixed(0);
 
-async function refresh(){
+// ---- tab state + gating -------------------------------------------------
+// `currentTab` drives which pollers actually hit the network. Only the active
+// tab's loaders run, so the page stops feeling like "everything at once".
+let currentTab = (() => { try { return localStorage.getItem('dsh_tab') || 'overview'; }
+                          catch(e){ return 'overview'; } })();
+let lastFeedCount = -1, lastAlertCount = -1;
+// Event kinds that belong to the consumer/deal-hunting workflow. Demand-radar
+// progress (`sweep`) and global `system`/`error` are excluded from the
+// Deal-monitor feed (they stream into each feature card's own log instead).
+const MONITOR_KINDS = new Set(['crawl','cycle','cycle_done','alert','query','reply',
+                               'bot_online','watch_alert','watch_add','watch_del','failover']);
+// These four crawlers collide on rate limits if run together (README rule).
+// When one is running, the others' Start buttons are disabled with a reason.
+const EXCL = ['demand','map_locality','store_inventory','build_watchlist'];
+// Demand-radar features laid out as a guided sequence (① Discover → ② Build &
+// probe → ③ Maintain), mirroring the README's taught crawl order.
+const DEMAND_GROUPS = [
+  {label:'① Discover',      ids:['map_locality','store_inventory']},
+  {label:'② Build & probe', ids:['build_watchlist','demand','demand_once','qc_status']},
+  {label:'③ Maintain',      ids:['demand_report','catalog_report','purge_vouchers']},
+];
+function gated(tab){ return document.visibilityState === 'visible' && currentTab === tab; }
+
+async function refreshStatus(){
   try {
     const r = await fetch('/status');
     const s = await r.json();
@@ -439,29 +529,56 @@ async function refresh(){
     document.getElementById('cAlerts').textContent = s.counters.alerts;
     const done = s.events.find(e => e.kind==='cycle_done');
     if (done) document.getElementById('cLast').textContent = done.text;
-    if (s.events.length !== lastCount) {
-      lastCount = s.events.length;
-      document.getElementById('feed').innerHTML = s.events.map(e => {
-        const rich = RICH.has(e.kind) && (e.results?.length || e.samples?.length || e.reason || e.text);
-        // price alerts: inline "was ₹X" (MRP, else recent-store usual) right on the feed row
-        const wasRef = e.kind === 'alert'
-          ? (typeof e.mrp === 'number' && e.mrp > 0 ? e.mrp
-            : (typeof e.usual === 'number' && e.usual > 0 ? e.usual : null))
-          : null;
-        const wasTxt = wasRef && typeof e.price === 'number' && wasRef > e.price
-          ? `<span class="more">was ₹${Math.round(wasRef)}</span>` : '';
-        return `<div class="ev" data-ts="${e.ts}" onclick="openDetail(${e.ts})">
-          <time>${e.time}</time>
-          <span class="tag ${e.kind}">${KIND_LABEL[e.kind]||e.kind}</span>
-          <span class="msg">${esc(e.text)}</span>
-          ${wasTxt}
-          ${rich ? '<span class="more">details ›</span>' : ''}
-        </div>`;
-      }).join('');
-    }
+    renderOverviewAlerts();
+    renderFeed();   // gated to the Deal-monitor tab internally
   } catch(err) {
     document.getElementById('dot').classList.add('off');
   }
+}
+
+function feedRowHtml(e){
+  const rich = RICH.has(e.kind) && (e.results?.length || e.samples?.length || e.reason || e.text);
+  const wasRef = e.kind === 'alert'
+    ? (typeof e.mrp === 'number' && e.mrp > 0 ? e.mrp
+      : (typeof e.usual === 'number' && e.usual > 0 ? e.usual : null))
+    : null;
+  const wasTxt = wasRef && typeof e.price === 'number' && wasRef > e.price
+    ? `<span class="more">was ₹${Math.round(wasRef)}</span>` : '';
+  return `<div class="ev" data-ts="${e.ts}" onclick="openDetail(${e.ts})">
+    <time>${e.time}</time>
+    <span class="tag ${e.kind}">${KIND_LABEL[e.kind]||e.kind}</span>
+    <span class="msg">${esc(e.text)}</span>
+    ${wasTxt}
+    ${rich ? '<span class="more">details ›</span>' : ''}
+  </div>`;
+}
+
+// Deal-monitor feed — only monitor/bot event kinds, and only when that tab is
+// open. Pure client-side filter; no backend change.
+function renderFeed(){
+  if (!gated('monitor')) return;
+  const el = document.getElementById('feed');
+  if (!el) return;
+  const evs = EVENTS.filter(e => MONITOR_KINDS.has(e.kind));
+  if (evs.length !== lastFeedCount){
+    lastFeedCount = evs.length;
+    el.innerHTML = evs.map(feedRowHtml).join('') ||
+                   '<div class="muted" style="padding:8px 14px">no monitor/bot events yet</div>';
+  }
+}
+
+// Overview "latest alerts" — the most recent price glitches, clickable.
+function renderOverviewAlerts(){
+  const el = document.getElementById('overAlerts');
+  if (!el) return;
+  const alerts = EVENTS.filter(e => e.kind === 'alert').slice(0, 6);
+  if (alerts.length === lastAlertCount) return;
+  lastAlertCount = alerts.length;
+  el.innerHTML = alerts.length
+    ? alerts.map(e => `<div class="ev" data-ts="${e.ts}" onclick="openDetail(${e.ts})">
+        <time>${e.time}</time><span class="tag alert">ALERT</span>
+        <span class="msg">${esc(e.text)}</span></div>`).join('')
+    : '<div class="muted">no alerts yet</div>';
 }
 
 async function loadCats(){
@@ -601,19 +718,28 @@ function storeCard(s){
 async function loadDemand(){
   try {
     const r = await fetch('/demand'); const d = await r.json();
-    if (!d.summary) return;
+    const over = document.getElementById('overDpi');
+    if (!d.summary){
+      if (over) over.innerHTML = '<div class="muted">no demand data yet</div>';
+      return;
+    }
     const t = d.summary.totals;
     document.getElementById('cOos').textContent = t.open_oos;
     document.getElementById('dStores').innerHTML =
       '<div class="cards" style="margin-bottom:0">' + d.summary.stores.map(storeCard).join('') + '</div>';
     const rows = d.top || [], el = document.getElementById('dpiTop');
-    if (!rows.length){ el.innerHTML = '<div class="muted">no stock-outs recorded yet — DPI ranks SKUs once events accumulate</div>'; return; }
-    el.innerHTML = '<table class="grid"><tr><th>#</th><th>SKU</th><th>DPI</th><th>events</th>' +
+    const dpiTable = (list) => '<table class="grid"><tr><th>#</th><th>SKU</th><th>DPI</th><th>events</th>' +
       '<th>OOS min</th><th>restock</th><th>last ₹</th></tr>' +
-      rows.map((r,i)=>`<tr><td>${i+1}</td><td title="${esc(r.sku_key)}">${esc(r.name)}${r.active?'':' <span class="chip">inactive</span>'}</td>` +
+      list.map((r,i)=>`<tr><td>${i+1}</td><td title="${esc(r.sku_key)}">${esc(r.name)}${r.active?'':' <span class="chip">inactive</span>'}</td>` +
         `<td class="dpi num">${r.dpi.toFixed(1)}</td><td class="num">${r.n_events}</td>` +
         `<td class="num">${r.total_min.toFixed(0)}</td><td class="num">${r.mean_restock_min??'—'}</td>` +
         `<td class="num">${rupee(r.last_price)}</td></tr>`).join('') + '</table>';
+    if (!rows.length){
+      const m = '<div class="muted">no stock-outs recorded yet — DPI ranks SKUs once events accumulate</div>';
+      el.innerHTML = m; if (over) over.innerHTML = m; return;
+    }
+    el.innerHTML = dpiTable(rows);
+    if (over) over.innerHTML = dpiTable(rows.slice(0, 3));
   } catch(e){}
 }
 async function loadHeat(){
@@ -691,6 +817,70 @@ function collectArgs(id){
   });
   return out;
 }
+// Mutual-exclusion reason: if any of the 4 rate-limit-colliding crawlers is
+// running, every other one's Start button is disabled with this message.
+function exclReason(){
+  const r = FEATURES.find(f => EXCL.includes(f.id) && f.running);
+  return r ? `${r.label} is crawling — starting another sweep will rate-limit both` : null;
+}
+function featCard(f, blockReason){
+  let pill = '<span class="pill">stopped</span>';
+  if (f.running) pill = `<span class="pill run">● running ${fmtUp(f.uptime_sec)}</span>`;
+  else if (f.returncode === 0) pill = '<span class="pill done">done ✓</span>';
+  else if (f.returncode !== null && f.returncode !== undefined) pill = `<span class="pill err">exit ${f.returncode}</span>`;
+  const startDisabled = (f.running || !!blockReason) ? 'disabled' : '';
+  const blocked = (blockReason && !f.running) ? `<div class="blocked">⚠ ${esc(blockReason)}</div>` : '';
+  return `<div class="feat${(blockReason && !f.running)?' unavailable':''}" data-id="${f.id}">
+    <div class="top"><span class="name">${esc(f.label)}</span>${f.service?'<span class="chip">service</span>':''}${pill}</div>
+    <div class="d">${esc(f.desc)}${f.pid?` · pid ${f.pid}`:''}</div>
+    <div class="meta">${esc(f.meta||'')}</div>
+    ${argHtml(f)}
+    <div class="btns">
+      <button class="go" onclick="featAction('${f.id}','start')" ${startDisabled}>▶ start</button>
+      <button class="halt" onclick="featAction('${f.id}','stop')" ${f.running?'':'disabled'}>■ stop</button>
+      <button onclick="openLog('${f.id}')">log</button>
+    </div>${blocked}</div>`;
+}
+// Persistent header "running now" strip + the Overview mirror. Driven by the
+// global /features poll so the header stays accurate on every tab.
+function renderRunningNow(){
+  const header = document.getElementById('runningNow');
+  const over = document.getElementById('overRunning');
+  const running = FEATURES.filter(f => f.running);
+  if (header){
+    header.innerHTML = running.length
+      ? running.map(f => `<span class="rchip" title="running ${fmtUp(f.uptime_sec)}">● ${esc(f.label)}</span>`).join('')
+      : '<span class="idle">nothing running</span>';
+  }
+  if (over){
+    over.innerHTML = running.length
+      ? running.map(f => `<div class="ev" style="cursor:default"><span class="tag run" style="flex:none;color:var(--green)">● running</span><span class="msg">${esc(f.label)} — ${fmtUp(f.uptime_sec)}</span></div>`).join('')
+      : '<div class="muted">nothing running — start a feature from its tab</div>';
+  }
+}
+function renderMonitorGrid(){
+  const el = document.getElementById('featGridMonitor');
+  if (!el) return;
+  const reason = exclReason();
+  const list = FEATURES.filter(f => f.group === 'monitor');
+  el.innerHTML = list.length
+    ? list.map(f => featCard(f, EXCL.includes(f.id) ? reason : null)).join('')
+    : '<div class="muted">no features</div>';
+}
+function renderDemandGrid(){
+  const el = document.getElementById('featGridDemand');
+  if (!el) return;
+  const reason = exclReason();
+  let html = '';
+  for (const grp of DEMAND_GROUPS){
+    html += `<div class="grp">${grp.label}</div>`;
+    html += grp.ids.map(id => {
+      const f = FEATURES.find(x => x.id === id);
+      return f ? featCard(f, EXCL.includes(f.id) ? reason : null) : '';
+    }).join('');
+  }
+  el.innerHTML = html;
+}
 async function loadFeatures(){
   try {
     // The grid re-renders every 4s; snapshot what the user is typing (and
@@ -699,22 +889,12 @@ async function loadFeatures(){
     snapshotArgs();
     const r = await fetch('/features'); const d = await r.json();
     FEATURES = d.features || [];
-    document.getElementById('featGrid').innerHTML = FEATURES.map(f => {
-      let pill = '<span class="pill">stopped</span>';
-      if (f.running) pill = `<span class="pill run">● running ${fmtUp(f.uptime_sec)}</span>`;
-      else if (f.returncode === 0) pill = '<span class="pill done">done ✓</span>';
-      else if (f.returncode !== null && f.returncode !== undefined) pill = `<span class="pill err">exit ${f.returncode}</span>`;
-      return `<div class="feat" data-id="${f.id}">
-        <div class="top"><span class="name">${esc(f.label)}</span>${f.service?'<span class="chip">service</span>':''}${pill}</div>
-        <div class="d">${esc(f.desc)}${f.pid?` · pid ${f.pid}`:''}</div>
-        <div class="meta">${esc(f.meta||'')}</div>
-        ${argHtml(f)}
-        <div class="btns">
-          <button class="go" onclick="featAction('${f.id}','start')" ${f.running?'disabled':''}>▶ start</button>
-          <button class="halt" onclick="featAction('${f.id}','stop')" ${f.running?'':'disabled'}>■ stop</button>
-          <button onclick="openLog('${f.id}')">log</button>
-        </div></div>`;
-    }).join('');
+    renderRunningNow();
+    // Only re-render the grid for the active tab — hidden tabs stay put, so we
+    // don't churn inputs the user isn't looking at. switchTab re-fires this
+    // when you arrive, so nothing is ever stale for long.
+    if (currentTab === 'monitor') renderMonitorGrid();
+    else if (currentTab === 'demand') renderDemandGrid();
     restoreArgs();
   } catch(e){}
 }
@@ -1224,20 +1404,63 @@ async function showTable(){
   } catch(e){}
 }
 
-refresh(); loadCats(); loadHist();
-loadFeatures(); loadDbs();
-loadLocation(); loadPresets();
+// ---------- exports (Data Explorer) ----------
+async function loadExports(){
+  try {
+    const r = await fetch('/exports'); const d = await r.json();
+    const files = d.files || [];
+    const el = document.getElementById('exportsList');
+    if (!files.length){
+      el.innerHTML = '<div class="muted">no exported files yet — run --demand-report --csv or a locality map</div>';
+      return;
+    }
+    el.innerHTML = files.map(f =>
+      `<div class="hist" style="border-bottom:1px solid #21262d">
+         <span class="q"><a href="/exports/${encodeURIComponent(f.name)}" download
+              style="color:var(--blue);text-decoration:none">${esc(f.name)}</a></span>
+         <span class="top">${f.size_kb} kB · ${esc(f.mtime)}</span>
+       </div>`).join('');
+  } catch(e){}
+}
+
+// ---------- tab switching + gated polling ----------
+function switchTab(tab){
+  currentTab = tab;
+  try { localStorage.setItem('dsh_tab', tab); } catch(e){}
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tabpane').forEach(s => { s.hidden = (s.dataset.tab !== tab); });
+  fireTabLoaders();
+}
+// Run every loader appropriate for the now-active tab immediately, so a freshly
+// opened tab never shows stale data. Globals (status + features) always run so
+// the header stays accurate everywhere.
+function fireTabLoaders(){
+  refreshStatus();
+  loadFeatures();
+  if (gated('overview')) { loadDemand(); loadHist(); }
+  if (gated('monitor'))  { loadHist(); renderFeed(); }
+  if (gated('demand'))   { loadDemand(); loadHeat(); loadEta(); loadQc(); }
+  if (gated('explorer')) { loadDbs(); loadCats(); loadExports(); }
+  if (gated('setup'))    { loadLocation(); loadPresets(); }
+}
+
+// Initial paint for the restored/default tab.
+switchTab(currentTab);
 aiStatus();
-loadDemand(); loadHeat(); loadEta(); loadQc();
-setInterval(refresh, 2000);
-setInterval(loadCats, 8000);
-setInterval(loadHist, 8000);
+
+// --- global, light intervals: keep header + Stop-all accurate everywhere ---
+setInterval(refreshStatus, 2000);
 setInterval(loadFeatures, 4000);
-setInterval(loadDbs, 20000);
-setInterval(loadDemand, 15000);
-setInterval(loadHeat, 30000);
-setInterval(loadEta, 60000);
-setInterval(loadQc, 30000);
+// --- per-tab intervals: each loader early-returns unless its tab is active ---
+setInterval(() => { if (gated('overview')) { loadDemand(); loadHist(); } }, 15000);
+setInterval(() => { if (gated('monitor'))  { loadHist(); } }, 8000);
+setInterval(() => { if (gated('demand'))   { loadDemand(); loadHeat(); loadEta(); loadQc(); } }, 30000);
+setInterval(() => { if (gated('explorer')) { loadDbs(); loadCats(); loadExports(); } }, 20000);
+setInterval(() => { if (gated('setup'))    { loadLocation(); loadPresets(); } }, 30000);
+// Re-fire the active tab's loaders when the browser tab becomes visible again.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') fireTabLoaders();
+});
 </script>
 </body>
 </html>

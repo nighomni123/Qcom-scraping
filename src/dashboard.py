@@ -50,19 +50,19 @@ _ROOT = os.path.dirname(os.path.dirname(_HTML_PATH))   # repo root: deals.db liv
 # rejected, never forwarded) and appends `flag value` to the command vector —
 # base cmds keep any built-in flags (e.g. --demand --once) as the last word.
 FEATURE_CATALOG = [
-    {"id": "monitor", "label": "Glitch monitor", "service": True,
+    {"id": "monitor", "label": "Glitch monitor", "service": True, "group": "monitor",
      "desc": "Crawls Blinkit · Zepto · Instamart across the Mumbai corridor "
              "(Virar→Andheri), scores price glitches and pushes Telegram "
              "alerts for real mispricings.",
      "meta": "LIVE crawl of all 3 apps · writes deals.db + alerts · watch the Live feed below",
      "cmd": [sys.executable, "-u", "run.py"]},
-    {"id": "bot", "label": "Telegram bot", "service": True,
+    {"id": "bot", "label": "Telegram bot", "service": True, "group": "monitor",
      "desc": "Answers /search with the cheapest offer across apps, pushes "
              "/watch keyword alerts when crawls match, /digest for today's "
              "best finds per category.",
      "meta": "needs TG_BOT_TOKEN in .env · replies land in your Telegram chat",
      "cmd": [sys.executable, "-u", "run.py", "--bot", "--no-monitor"]},
-    {"id": "demand", "label": "Demand prober", "service": True,
+    {"id": "demand", "label": "Demand prober", "service": True, "group": "demand",
      "desc": "Continuously probes every watchlist SKU on its darkstore, "
              "records stock/price/ETA observations and opens debounced "
              "stock-out events. Feeds the Demand Radar panels below.",
@@ -75,14 +75,14 @@ FEATURE_CATALOG = [
           "ph": "e.g. 34292"},
          {"flag": "--max-terms", "kind": "int", "label": "max terms/store"},
      ]},
-    {"id": "demo", "label": "Demo pipeline", "service": False,
+    {"id": "demo", "label": "Demo pipeline", "service": False, "group": "monitor",
      "desc": "Offline end-to-end test: injects a fake glitch into a synthetic "
               "store and verifies crawl → detect → alert → store. Touches no "
               "live app.",
       "meta": "Writes only the scratch deals.demo.db · ~10 s · use as a "
                "health check",
      "cmd": [sys.executable, "-u", "run.py", "--demo"]},
-    {"id": "qc_status", "label": "QC health probe", "service": False,
+    {"id": "qc_status", "label": "QC health probe", "service": False, "group": "demand",
      "desc": "One live probe per quick-commerce app to verify extraction "
              "still works: products found, stock states, store id and ETA.",
      "meta": "light live check · ~45 s per app",
@@ -91,7 +91,7 @@ FEATURE_CATALOG = [
          {"flag": "--apps", "kind": "text", "label": "apps",
           "ph": "blinkit,zepto,instamart"},
      ]},
-    {"id": "demand_once", "label": "Demand round", "service": False,
+    {"id": "demand_once", "label": "Demand round", "service": False, "group": "demand",
      "desc": "A single full demand-probe sweep across watchlist stores, then "
              "stops — collects the same data as the Demand prober without "
              "looping forever.",
@@ -105,7 +105,7 @@ FEATURE_CATALOG = [
          {"flag": "--max-terms", "kind": "int", "label": "max terms/store",
           "ph": "default 5"},
      ]},
-    {"id": "store_inventory", "label": "Store inventory", "service": False,
+    {"id": "store_inventory", "label": "Store inventory", "service": False, "group": "demand",
      "desc": "Maps darkstores near this machine's REAL location (public IP, "
              "no spoofing) into inventory/<app>.db per app AND captures every "
              "probe's products — browse them in SQL databases below.",
@@ -122,7 +122,7 @@ FEATURE_CATALOG = [
          {"flag": "--radius-m", "kind": "int", "label": "radius (m)"},
          {"flag": "--max-points", "kind": "int", "label": "max points"},
      ]},
-    {"id": "map_locality", "label": "Map locality", "service": False,
+    {"id": "map_locality", "label": "Map locality", "service": False, "group": "demand",
      "desc": "Discovers darkstores for the configured locality (Andheri West) "
              "anchor-by-anchor into deals.db and exports rotation-pool JSONs.",
      "meta": "LIVE crawl · ~2 min+ per app",
@@ -132,7 +132,7 @@ FEATURE_CATALOG = [
           "ph": "blinkit,zepto,instamart"},
          {"flag": "--max-points", "kind": "int", "label": "max points"},
      ]},
-    {"id": "build_watchlist", "label": "Build watchlist", "service": False,
+    {"id": "build_watchlist", "label": "Build watchlist", "service": False, "group": "demand",
      "desc": "Builds per-store SKU probe sets from live category/search "
              "sweeps — the list of items the Demand prober then tracks for "
              "stock-outs.",
@@ -151,7 +151,7 @@ FEATURE_CATALOG = [
           "ph": "full snapshot + new/delisted churn · ~20–60 min/store — "
                 "run ONE store at a time"},
      ]},
-    {"id": "demand_report", "label": "Demand report", "service": False,
+    {"id": "demand_report", "label": "Demand report", "service": False, "group": "demand",
      "desc": "Prints the Demand Pressure Index ranking and hour×SKU onset "
              "heatmap summary computed from already-recorded data.",
      "meta": "NO crawling · safe anytime · --csv exports exports/dpi_*.csv",
@@ -161,7 +161,7 @@ FEATURE_CATALOG = [
           "ph": "e.g. 34292"},
          {"flag": "--csv", "kind": "bool", "label": "export CSV"},
      ]},
-    {"id": "catalog_report", "label": "Catalog report", "service": False,
+    {"id": "catalog_report", "label": "Catalog report", "service": False, "group": "demand",
      "desc": "Prints the catalog-inventory snapshot history and the "
              "new/delisted churn log (limited-time arrivals + discontinued "
              "products) computed from already-recorded data.",
@@ -172,7 +172,7 @@ FEATURE_CATALOG = [
          {"flag": "--store", "kind": "text", "label": "store id",
           "ph": "e.g. 34292"},
      ]},
-    {"id": "purge_vouchers", "label": "Purge vouchers", "service": False,
+    {"id": "purge_vouchers", "label": "Purge vouchers", "service": False, "group": "demand",
      "desc": "Wipes voucher/gift-card rows from Demand Radar tables "
              "(watchlist/stock_obs/oos_events); keeps a deals.db backup. "
              "--demand also auto-purges at startup.",
@@ -299,6 +299,7 @@ class FeatureManager:
                 out.append({
                     "id": fid, "label": f["label"], "desc": f["desc"],
                     "meta": f.get("meta", ""),
+                    "group": f.get("group", "demand"),
                     "service": f["service"],
                     "args": f.get("args", []),
                     "running": running,
@@ -493,6 +494,9 @@ _CFG_PATH = os.path.join(_ROOT, "config.yaml")
 # AI report filenames are strict: ai_<kind>_<YYYY-MM-DD_HHMMSS>.md — the
 # download route matches this shape so nothing else in exports/ is reachable.
 _AI_REPORT_RE = re.compile(r"ai_[a-z]+_[0-9\-_]+\.md")
+# Data Explorer export files: DPI CSVs + locality JSONs. Strictly no
+# separators / dotfiles so only flat files directly inside exports/ are served.
+_EXPORT_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\.(csv|json)$")
 
 
 def _save_ai_report(kind, model, text):
@@ -998,6 +1002,51 @@ class Dashboard:
                         self._json({"error": "not found"}, 404)
                     else:
                         self._json(data)
+                elif self.path == "/exports":
+                    # Read-only listing of export files (DPI CSVs + locality
+                    # JSONs) for the Data Explorer tab.
+                    try:
+                        exp = os.path.join(_ROOT, "exports")
+                        files = []
+                        for name in sorted(os.listdir(exp)):
+                            if not _EXPORT_RE.fullmatch(name):
+                                continue
+                            try:
+                                st = os.stat(os.path.join(exp, name))
+                                files.append({
+                                    "name": name,
+                                    "size_kb": round(st.st_size / 1024, 1),
+                                    "mtime": time.strftime("%Y-%m-%d %H:%M",
+                                                           time.localtime(st.st_mtime)),
+                                })
+                            except OSError:
+                                pass
+                        self._json({"files": files})
+                    except OSError as ex:
+                        self._json({"error": str(ex)[:200], "files": []})
+                elif self.path.startswith("/exports/"):
+                    # Download one export file. Same strict-filename guard as
+                    # /ai/report — only flat, allowlisted files in exports/.
+                    name = self.path[len("/exports/"):]
+                    fp = os.path.join(_ROOT, "exports", name)
+                    if (not _EXPORT_RE.fullmatch(name) or ".." in name
+                            or not os.path.isfile(fp)):
+                        self._json({"error": "export not found"}, 404)
+                        return
+                    try:
+                        with open(fp, "rb") as f:
+                            data = f.read()
+                    except OSError as ex:
+                        self._json({"error": str(ex)[:200]}, 500)
+                        return
+                    ctype = "application/json" if name.endswith(".json") else "text/csv"
+                    self.send_response(200)
+                    self.send_header("Content-Type", ctype + "; charset=utf-8")
+                    self.send_header("Content-Disposition",
+                                     f'attachment; filename="{name}"')
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
                 elif self.path.startswith("/ai/report/"):
                     # Download an AI analysis saved by /ai/explain. Name is
                     # strictly patterned (no separators) so only reports
