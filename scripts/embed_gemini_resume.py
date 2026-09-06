@@ -48,7 +48,7 @@ ai.update({
     "embedding_dims": 768,
     "embedding_batch": 100,
     "embedding_send_extras": False,          # Gemini 400s on NVIDIA-only fields
-    "embedding_batch_pause": 16,             # ~94 RPM/key — under the 100 RPM wall
+    "embedding_batch_pause": 2,              # batch 2: ~45 names/min, far under RPM
     "semantic_matching": True,
     "enabled": True,
 })
@@ -56,6 +56,11 @@ ai.update({
 limit = None
 if "--limit" in sys.argv:
     limit = int(sys.argv[sys.argv.index("--limit") + 1])
+if "--batch" in sys.argv:
+    # Each batch burns its items on ONE key (every input item = 1 request for
+    # Gemini), so batch size = per-key burn granularity: batch 50 + limit 200
+    # ~= 50 requests against each of the 4 rotating keys.
+    ai["embedding_batch"] = int(sys.argv[sys.argv.index("--batch") + 1])
 
 from src.embed import backfill_catalog
 backfill_catalog(cfg, os.path.join(ROOT, "deals.db"), limit=limit)
