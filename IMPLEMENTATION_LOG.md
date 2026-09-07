@@ -45,9 +45,11 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 |---|---|---|---|---|
 | 1 | Prep (deferred from M1) | Reference-DB alignment: validate + improve `parse_name` via `reference/`; build `match_reference(name)` | ⏸ Pending — do tomorrow | accuracy gate ≥80% on labeled sample |
 | 2 | Phase 3A | Semantic vector reuse + feed parsed fields as context (`brand\|category\|variant\|pack_size`) | ☐ | `attach_embeddings` path in `product_space.py` |
-| 3 | Phase 3B | Attribute vector (`unit_price`, `pack_size_value` norm, `is_multipack`, `category_depth`), z-scored per category | ☐ | recompute only changed groups |
-| 4 | Phase 3C | Commercial vector (`dpi`, `store_count`, `app_count`, `days_since_first_seen`, `is_active`, `churn_flag`) | ☐ | from Demand Radar rollup + catalog history |
-| 5 | Phase 4 | Atlas: Gap mode + Unit Price mode + cross-app overlay toggle | ☐ | standalone HTML, load time not regressed |
+| 3 | Phase 3B | Attribute vector (`unit_price`, `pack_size_value` norm, `is_multipack`, `category_depth`), z-scored per category | ✅ | `src/product_vectors.py`; `python3 -m src.product_vectors` OK; `--product-vectors` CLI |
+| 4 | Phase 3C | Commercial vector (`dpi`, `store_count`, `app_count`, `days_since_first_seen`, `is_active`, `churn_flag`) | ✅ | from Demand Radar rollup + catalog_events; degrades offline (no `db`) |
+| M3 | Phase 6 | Assortment gaps (cross-app coverage signal; confidence = establishment only) | ✅ | `src/assortment_gaps.py` + tests OK; `--detect-assortment-gaps` CLI (12,747 on live union) |
+| 5 | Phase 4 | Atlas: Gap mode + Unit Price mode + cross-app overlay toggle | ☐ | standalone HTML; load time not regressed (next) |
+| M4 | Phase 5 | Per-category density + kNN distance + `insufficient_coverage`/`stale_coverage` guards | ✅ | `src/density.py` + tests OK; `--product-density` CLI (2,606 trustworthy sparse on live union) |
 
 ### Reference data already in `reference/` (fetched 2026-09-07)
 | File | Rows | Pack ground truth? | Role |
@@ -69,3 +71,4 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 - alignment uses stdlib `csv` only, no pandas — AGENTS.md no-pandas rule; OFF full `food.parquet` (7.8GB) deliberately NOT downloaded.
 - OFF India pulled via API-filter (India only) + resumable fetcher — OFF edge-blocks this IP (503/401), only 999 rows landed; rest fetched later.
 - Mendeley-publishing of our own catalog noted as future idea — product-level data only (no PII), low redistribution risk; choose CC0/CC-BY at upload.
+- M2 (3B/3C) + M3 + M4 implemented directly in-thread, not via subagents — background subagents were terminated by the environment mid-run and the requested `qwen-gate` provider is disallowed in this session, so the work was done inline to keep the milestone moving.

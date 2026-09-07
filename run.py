@@ -196,6 +196,106 @@ def main():
             print("  top categories:", Counter(r["category"] for r in rows).most_common(6))
         return
 
+    if "--product-vectors" in sys.argv:
+        # M2 Phase 3B/3C: grocery-shaped attribute + commercial vectors per
+        # product_group_id. Read-only over the union layer + Demand Radar rollup.
+        from src.product_vectors import build_product_vectors
+        from src.product_space import load_product_space
+        import json
+        rows = load_product_space(apps=_flag_list("--apps"))
+        vecs = build_product_vectors(rows, db=store)
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/product_vectors.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "rep_name", "category", "member_count",
+                            "present_apps", "unit_price", "pack_value",
+                            "attr_unitprice_z", "attr_pack_z", "attr_multipack",
+                            "attr_catdepth", "dpi", "store_count", "app_count",
+                            "days_since_first_seen", "is_currently_active",
+                            "recent_churn_flag", "flags"])
+                for gid, v in vecs.items():
+                    a = v["attribute_vector"]; c = v["commercial_features"]
+                    w.writerow([gid, v["rep_name"], v["category"], v["member_count"],
+                                ",".join(v["present_apps"]), v.get("unit_price"),
+                                v.get("pack_value"), a[0], a[1], a[2], a[3],
+                                c["dpi"], c["store_count"], c["app_count"],
+                                c["days_since_first_seen"], c["is_currently_active"],
+                                c["recent_churn_flag"], json.dumps(v["flags"])])
+            print(f"[product-vectors] wrote {len(vecs)} groups -> {out}")
+        else:
+            multi = sum(1 for v in vecs.values()
+                        if v["commercial_features"]["app_count"] > 1)
+            print(f"[product-vectors] {len(vecs)} product groups vectorized "
+                  f"({multi} cross-app)")
+        return
+
+    if "--detect-assortment-gaps" in sys.argv:
+        # M3 Phase 6: cross-app assortment gaps from the union layer (coverage
+        # signal only -- never a demand claim).
+        from src.assortment_gaps import detect_assortment_gaps
+        from src.product_space import load_product_space
+        rows = load_product_space(apps=_flag_list("--apps"))
+        gaps = detect_assortment_gaps(rows)
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/assortment_gaps.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "rep_name", "present_apps",
+                            "missing_apps", "member_count", "store_count",
+                            "category", "confidence"])
+                for g in gaps:
+                    w.writerow([g["product_group_id"], g["rep_name"],
+                                ",".join(g["present_apps"]),
+                                ",".join(g["missing_apps"]), g["member_count"],
+                                g["store_count"], g["category"], g["confidence"]])
+            print(f"[assortment-gaps] wrote {len(gaps)} candidates -> {out}")
+        else:
+            print(f"[assortment-gaps] {len(gaps)} cross-app assortment gaps")
+            for g in gaps[:20]:
+                print(f"  {g['rep_name'][:44]:<46} present="
+                      f"{','.join(g['present_apps'])} missing="
+                      f"{','.join(g['missing_apps'])} conf={g['confidence']}")
+        return
+
+    if "--product-density" in sys.argv:
+        # M4 Phase 5: per-category local density + kNN distance with coverage
+        # guards (insufficient_coverage / stale_coverage). No gap is ever emitted
+        # from a guarded category -- this is the plan's core anti-false-positive.
+        from src.density import compute_density, sparse_candidates
+        from src.product_space import load_product_space
+        min_n = _flag_int("--min-n") or 25
+        rows = load_product_space(apps=_flag_list("--apps"))
+        dens = compute_density(rows, min_n=min_n, db=store)
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/product_density.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "category", "local_density",
+                            "knn_distance", "neighbor_count", "neighbor_brands",
+                            "coverage_n", "coverage_age_days",
+                            "insufficient_coverage", "stale_coverage"])
+                for d in dens:
+                    w.writerow([d["product_group_id"], d["category"], d["local_density"],
+                                d["knn_distance"], d["neighbor_count"], d["neighbor_brands"],
+                                d["coverage_n"], d["coverage_age_days"],
+                                d["insufficient_coverage"], d["stale_coverage"]])
+            print(f"[product-density] wrote {len(dens)} rows -> {out}")
+        else:
+            guarded = sum(1 for d in dens if d["insufficient_coverage"])
+            stale = sum(1 for d in dens if d["stale_coverage"])
+            cands = sparse_candidates(dens)
+            print(f"[product-density] {len(dens)} groups · "
+                  f"{guarded} in insufficient-coverage categories (excluded) · "
+                  f"{stale} stale · {len(cands)} trustworthy sparse candidates")
+        return
+
     if "--purge-vouchers" in sys.argv:
         # One-shot maintenance: vouchers/gift cards are not commodities; wipe
         # their watchlist rows, stock_obs observations and oos_events.
