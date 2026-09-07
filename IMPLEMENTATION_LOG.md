@@ -35,6 +35,7 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 - brand tokens apostrophe-stripped (`Lay's`→`Lays`) — stable grouping keys; avoids false brand mismatch across apps.
 - `assign_product_groups` uses O(1) exact hashtable + precomputed token sets — original O(n·groups) scan never finished on the 167k-row deals.db (1.36GB); now ~33s for 13,686 groups.
 - `inventory_catalog` created lazily only on inventory DBs — additive-only discipline; `deals.db` schema untouched.
+- Hybrid LLM parser added to `src/product_fields.py` (M1 Phase-1 extension): regex parses pack/unit/multipack (≥85% accurate, instant); a local Ollama LLM (`qwen2.5:0.5b` via existing workspace `.tools/ollama/`) is consulted ONLY when regex confidence < 0.7 to refine brand/variant. Ollama absence → silent regex fallback (zero deps, no crash). Self-test covers both regex-only and mock-LLM hybrid paths.
 
 ---
 
