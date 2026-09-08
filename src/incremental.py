@@ -62,7 +62,7 @@ def plan_refresh(rows, db=None, since_ts=None, full_window_days=7, force=False):
 def run_opportunity_refresh(rows, db=None, force=False, min_n=25):
     """Weekly-refresh wrapper: compute when full refresh due, else stale readback."""
     from src.opportunities import score_opportunities, persist_opportunities, load_latest_opportunities
-    plan = plan_refresh(rows, db=db, force=force, min_n=min_n)
+    plan = plan_refresh(rows, db=db, force=force)
     if plan["full_refresh_needed"]:
         opps = score_opportunities(rows, db=db, min_n=min_n)
         if db is not None:
