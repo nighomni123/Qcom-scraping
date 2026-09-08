@@ -27,7 +27,7 @@ coverage (0-1, fraction of tracked apps), dpi, gap_strength, provenance,
 validation_reason_codes, note.  Without the file, only honest *inferred*
 candidates are drawn (assortment subset + locally-sparse embedding cluster),
 tagged "candidate (inferred)" in the tooltip and reported in the UI.  See
-load_opportunities() for the full merge.
+normalize_opportunities() for the full merge.
 
 Unit Price mode colors points by the parsed unit price (rupess per litre /
 kg / each, via src.product_fields.parse_name); where the pack is unknown it
@@ -59,6 +59,8 @@ from src.categories import ALL_CATEGORIES, categorize  # noqa: E402
 
 DB = os.path.join(os.path.dirname(__file__), "..", "deals.db")
 DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2"
+# opportunity score (0-1 scale) at or above this is a "strong opportunity"
+OPP_STRONG_MIN = 0.35
 # friendly aliases -> exact `embeddings.model` strings
 MODEL_ALIASES = {
     "nemotron": DEFAULT_MODEL,
@@ -834,6 +836,61 @@ def b64(arr):
     return base64.b64encode(np.ascontiguousarray(arr).tobytes()).decode()
 
 
+def normalize_opportunities(opp_json, names):
+    """Index-aligned OPP array for the rendered names.
+
+    Accepts either a pre-aligned list (one entry per rendered name, None
+    for no data — used as-is) or scored-opportunity records: a list of
+    dicts, or an object with an "opportunities"/"results"/"items" list,
+    each record carrying rep_name|name, score (0-1, or 0-100 which is
+    rescaled), gap_types, kind, rejected. Records are matched to rendered
+    names case-insensitively; unmatched names stay None."""
+    if isinstance(opp_json, list) and len(opp_json) == len(names) and all(
+            o is None or (isinstance(o, dict) and ("gap" in o or "opportunity" in o))
+            for o in opp_json):
+        return opp_json
+    recs = opp_json
+    if isinstance(opp_json, dict):
+        for key in ("opportunities", "results", "items"):
+            if isinstance(opp_json.get(key), list):
+                recs = opp_json[key]
+                break
+        else:
+            return [None] * len(names)
+    if not isinstance(recs, list):
+        return [None] * len(names)
+    by_name = {}
+    for r in recs:
+        if not isinstance(r, dict):
+            continue
+        nm = r.get("rep_name", r.get("name", ""))
+        if nm:
+            by_name.setdefault(str(nm).strip().lower(), r)
+    out = []
+    for nm in names:
+        r = by_name.get(str(nm).strip().lower())
+        if r is None:
+            out.append(None)
+            continue
+        score = r.get("score")
+        if isinstance(score, (int, float)) and score > 1:
+            score = score / 100.0  # 0-100 scale -> 0-1
+        gap_types = r.get("gap_types") or []
+        if isinstance(gap_types, str):
+            gap_types = [g.strip() for g in gap_types.split(",") if g.strip()]
+        kind = r.get("kind")
+        if r.get("rejected"):
+            kind = "rejected"
+        kind = kind or (gap_types[0] if gap_types else "candidate")
+        out.append({
+            "gap": kind,
+            "opportunity": ("strong" if isinstance(score, (int, float))
+                            and score >= OPP_STRONG_MIN else "weak"),
+            "score": score if isinstance(score, (int, float)) else None,
+        })
+    return out
+
+
 def build_plotly_scene(names_arr, xyz, xy2, labels, clusters, colors,
                        hulls, radius):
     import plotly.graph_objects as go
@@ -1087,7 +1144,7 @@ def main():
     opp_json = None
     if args.opp_json:
         with open(args.opp_json, "r", encoding="utf-8") as f:
-            opp_json = json.load(f)
+            opp_json = normalize_opportunities(json.load(f), names)
     page = build_html_page(graph3d, graph2d, names, clusters, colors, apps,
                            ALL_CATEGORIES, coord5, clu, pnum, app, cat, stock,
                            radius, args.neighbors, subtitle, abouttech,
