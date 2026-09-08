@@ -4,8 +4,11 @@ These are the smallest runnable checks that fail if the parser logic breaks —
 no frameworks, no fixtures, stdlib unittest only. Run:
     python3 -m unittest tests.test_product_fields -v
 """
+import os
+import sys
 import unittest
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src import product_fields as pf
 
 

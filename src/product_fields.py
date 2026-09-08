@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import sys
 import time
@@ -242,6 +243,12 @@ def _norm_unit(raw):
     return raw.lower(), 1.0
 
 
+# a weight range like "15-25 kg" on a diaper name is the baby's weight,
+# not the pack — matching its tail ("25 kg") fabricates a pack value.
+# (32 BigBasket diaper rows, 2026-09-08 eval; all were wrong-value parses.)
+_RANGE_KG_RE = re.compile(r"\d+\s*-\s*\d+\s*(?:kg|kgs|kilogram|g|gm|grm|gram)\b", re.I)
+
+
 def parse_pack(name):
     """Return (pack_value, pack_unit, is_multipack).
 
@@ -271,8 +278,17 @@ def parse_pack(name):
 
     m = _WT_RE.search(name)
     if m:
-        u, mult = _norm_unit(m.group(2))
-        return float(m.group(1)) * mult, u, False
+        # skip a baby-weight range tail ("15-25 kg" -> the "25 kg" hit)
+        r = _RANGE_KG_RE.search(name)
+        if not (r and r.start() <= m.start() and m.end() <= r.end()):
+            u, mult = _norm_unit(m.group(2))
+            return float(m.group(1)) * mult, u, False
+        m2 = _WT_RE.search(name, r.end())
+        if m2:
+            u, mult = _norm_unit(m2.group(2))
+            return float(m2.group(1)) * mult, u, False
+        # range was the only weight hit: fall through to count patterns
+        # (diapers carry piece counts elsewhere) or no_pack — never the range
 
     m = _PACKOF_RE.search(name)
     if m:
@@ -357,7 +373,91 @@ def unit_price(price, pack_value, pack_unit):
     return None
 
 
-def parse_name(name, price=None, category=None, use_llm=True):
+# --------------------------------------------------------------------------
+# reference fallback (M2 Step 1): exact/fuzzy match vs reference/ CSV pack GT
+# --------------------------------------------------------------------------
+_REF_INDEX = None  # lazy: list of (norm_name, pack_value, pack_unit, dataset, orig_name)
+_REF_FILES = (
+    ("reference/BigBasket.csv", "ProductName", "Quantity", "bigbasket"),
+    ("reference/amazon_india_products.csv", "Product Title",
+     "Pack Size Or Quantity", "amazon"),
+)
+_REF_GT_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:[x\u00d7]\s*(\d+(?:\.\d+)?))?\s*"
+    r"(kg|kgs|kilogram|gram|gm|grm|g|litre|liter|ltr|l|millilitre|milliliter|ml|"
+    r"pcs|pieces?|counts?|packs?|sachets?|units?|tablets?|rolls?|nos?)\b", re.I)
+
+
+def _ref_gt(qty):
+    """First numeric+unit token of a Quantity string -> (value, unit) or None."""
+    if not qty:
+        return None
+    m = _REF_GT_RE.search(qty.replace(",", " "))
+    if not m:
+        return None
+    num = m.group(2) or m.group(1)
+    u, mult = _norm_unit(m.group(3))
+    if u not in ("ml", "g"):
+        return float(num), "count"
+    return float(num) * mult, u
+
+
+def _build_ref_index():
+    import csv as _csv
+    idx = []
+    for path, name_col, qty_col, ds in _REF_FILES:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, newline="", encoding="utf-8",
+                      errors="replace") as f:
+                for row in _csv.DictReader(f):
+                    nm = (row.get(name_col) or "").strip()
+                    g = _ref_gt(row.get(qty_col) or "")
+                    if nm and g:
+                        idx.append((nm.lower(), g[0], g[1], ds, nm))
+        except OSError:
+            continue
+    return idx
+
+
+def match_reference(name):
+    """Match `name` against reference/ pack ground truth.
+
+    Exact normalized lookup first, then difflib fuzzy (ratio >= 0.9).
+    Returns {"pack_value", "pack_unit", "source", "matched_name"} or None
+    (None also when reference/ is absent). Pure stdlib; index cached.
+    """
+    global _REF_INDEX
+    if not name or not str(name).strip():
+        return None
+    if _REF_INDEX is None:
+        _REF_INDEX = _build_ref_index()
+    if not _REF_INDEX:
+        return None
+    import difflib as _dl
+    low = str(name).strip().lower()
+    for key, val, unit, ds, orig in _REF_INDEX:
+        if key == low:
+            return {"pack_value": val, "pack_unit": unit,
+                    "source": f"reference:{ds}",
+                    "matched_name": orig}
+    best, best_r = None, 0.0
+    for key, val, unit, ds, orig in _REF_INDEX:
+        if abs(len(key) - len(low)) > max(len(key), len(low)) // 3:
+            continue  # ponytail: cheap length prefilter; difflib is O(n^2)-ish
+        r = _dl.SequenceMatcher(None, low, key).ratio()
+        if r > best_r:
+            best, best_r = (val, unit, ds, orig), r
+    if best and best_r >= 0.9:
+        val, unit, ds, orig = best
+        return {"pack_value": val, "pack_unit": unit,
+                "source": f"reference:{ds}", "matched_name": orig}
+    return None
+
+
+def parse_name(name, price=None, category=None, use_llm=True,
+               use_reference=True):
     """Single entry point. Returns a dict with parsed grocery fields.
 
     Hybrid mode (use_llm=True, default): regex parses pack/unit/multipack
@@ -398,8 +498,29 @@ def parse_name(name, price=None, category=None, use_llm=True):
         "unit_base": unit_base,
         "unit_price": up,
         "parse_status": status,
+        "parse_source": "regex",
         "llm_used": False,
     }
+    if pack_value is None and use_reference:
+        # low regex pack confidence: adopt a reference hit when one exists
+        hit = match_reference(name)
+        if hit:
+            pack_value, pack_unit = hit["pack_value"], hit["pack_unit"]
+            is_mp = False
+            if pack_unit == "ml":
+                unit_base = "L"
+            elif pack_unit == "g":
+                unit_base = "kg"
+            elif pack_unit == "count":
+                unit_base = "each"
+            result.update(
+                pack_value=pack_value, pack_unit=pack_unit,
+                is_multipack=is_mp, unit_base=unit_base,
+                unit_price=unit_price(price, pack_value, pack_unit),
+                parse_status="ok",
+                parse_source=f"{hit['source']}:{hit['matched_name'][:60]}",
+            )
+            return result
     if use_llm:
         conf = _regex_confidence(name, brand, variant, pack_value)
         if conf < 0.7:

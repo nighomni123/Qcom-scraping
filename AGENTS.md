@@ -79,6 +79,16 @@ One tool, three features (all sharing the same browser-intercept crawler):
 This repo is edited by MORE THAN ONE agent at a time (as of 08-22: one on the
 Demand Radar phases, one on search-history/category analytics). Rules:
 
+- **Use the subagent tool generously** to complete tasks: fan out independent,
+  file-disjoint work (test runs, eval/report commands, read-only research,
+  new-module drafts) to background subagents instead of doing everything
+  in-thread — parallel verification is the norm here, not a special case.
+  Each delegation must name the exact files it may touch (or "no files —
+  read-only") and the verification commands it ran. File-disjoint means
+  disjoint WRITES: two agents may read anything, but never edit the same
+  file. If a subagent stalls or dies mid-task, kill it, keep whatever it
+  already wrote to disk, and finish that slice in-thread — don't re-delegate
+  a stuck task.
 - **Verify before AND after you edit**: run the full check suite (below) on
   entry — if it fails, someone else is mid-edit; wait and re-read the file.
 - **Targeted edits only.** Never rewrite whole files from memory; re-read the
