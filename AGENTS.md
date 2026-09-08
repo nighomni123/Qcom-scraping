@@ -252,7 +252,9 @@ scripts/embed_3d_map.py  Inventory Atlas: dark-themed semantic explorer over
 deals.db                everything: price_obs, alerts, darkstores, watchlist,
                         stock_obs, oos_events, searches, search_results,
                         keyword_watches, catalog_snapshots, catalog_events,
-                        embeddings (semantic cache, src/embed.py)
+                        embeddings (semantic cache, src/embed.py),
+                        opportunities (M6/M7 scored-opportunity snapshots,
+                        src/opportunities.py)
 ```
 
 ## Commands
@@ -362,6 +364,28 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # deals.db.catalog_snapshots, voucher-excluded,
                                     # entity-resolved product groups; --csv ->
                                     # exports/product_space.csv.
+    python3 run.py --product-vectors [--csv]
+                                    # M2 attribute+commercial vectors per
+                                    # product group (price/density normalized,
+                                    # demand.dpi_table mean, store/app coverage,
+                                    # churn flags); --csv -> exports/
+    python3 run.py --detect-assortment-gaps [--csv]
+                                    # M3 cross-app assortment gaps (present on
+                                    # some but not all tracked apps)
+    python3 run.py --product-density [--csv]
+                                    # M4 per-category density + insufficient/
+                                    # stale coverage guards
+    python3 run.py --detect-gaps [--csv] [--min-n 25]
+                                    # M5 internal/attribute gap scoring on top
+                                    # of density guards
+    python3 run.py --score-opportunities [--csv] [--persist] [--min-n 25]
+                                    # M6 opportunity scoring
+                                    # (gap_strength x DPI x coverage x churn)
+                                    # with provenance + validation codes;
+                                    # --persist writes the snapshot to the
+                                    # deals.db `opportunities` table (M7)
+    python3 run.py --opportunity-report [--limit N]
+                                    # latest persisted opportunity snapshot
 
 Dashboard (`--ui`, http://127.0.0.1:8787; dashboard-ONLY by default — starts
 no loops; add --bot and/or --monitor to also run them alongside, or start

@@ -27,6 +27,12 @@ darkstore, honey pot, WAF…) defined in plain English where it first appears.
     python3 run.py --product-fields                                       # grocery name parser self-test
     python3 run.py --product-fields --report --sample 200                 # accuracy CSV (exports/product_fields_sample.csv)
     python3 run.py --product-space --apps blinkit,zepto,instamart --csv   # normalized union -> exports/product_space.csv
+    python3 run.py --product-vectors --csv              # M2 per-group attribute+commercial vectors
+    python3 run.py --detect-assortment-gaps --csv       # M3 cross-app assortment gaps
+    python3 run.py --product-density --csv              # M4 per-category density + coverage guards
+    python3 run.py --detect-gaps --csv                  # M5 internal/attribute gaps
+    python3 run.py --score-opportunities --persist      # M6 scoring + M7 persist to deals.db
+    python3 run.py --opportunity-report --limit 10      # latest persisted opportunity snapshot
     python3 run.py --build-watchlist                 # per-store SKU probe set
     python3 run.py --build-watchlist --apps blinkit --store 47578 \
                     --max-per-store 100 --max-queries 10

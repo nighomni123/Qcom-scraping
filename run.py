@@ -355,12 +355,32 @@ def main():
                                 b["dpi"], b["coverage"], b["churn"],
                                 ";".join(o["validation_reason_codes"])])
             print(f"[score-opportunities] wrote {len(opps)} opportunities -> {out}")
+        if "--persist" in sys.argv:
+            from src.opportunities import persist_opportunities
+            n = persist_opportunities(store, opps)
+            print(f"[score-opportunities] persisted {n} opportunities snapshot "
+                  f"-> deals.db `opportunities`")
         else:
             print(f"[score-opportunities] {len(opps)} opportunities "
                   f"(all candidates outside guarded categories)")
             for o in opps[:15]:
                 print(f"  {o['score']:.4f}  {o['rep_name'][:40]:<42} "
                       f"[{','.join(o['gap_types'])}]  {o['category'][:22]}")
+        return
+
+    if "--opportunity-report" in sys.argv:
+        # M7 Phase 10 read-back: latest persisted opportunity snapshot.
+        from src.opportunities import load_latest_opportunities
+        rows = load_latest_opportunities(store, limit=_flag_int("--limit") or 50)
+        if not rows:
+            print("[opportunity-report] no persisted opportunities yet — run "
+                  "`python3 run.py --score-opportunities --persist` first")
+            return
+        print(f"[opportunity-report] latest snapshot @ {rows[0]['ts']:.0f}: "
+              f"{len(rows)} shown (highest score first)")
+        for o in rows:
+            print(f"  {o['score']:.4f}  {o['rep_name'][:40]:<42} "
+                  f"[{','.join(o['gap_types'])}]  {o['category'][:22]}")
         return
 
     if "--purge-vouchers" in sys.argv:

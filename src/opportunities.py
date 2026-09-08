@@ -23,6 +23,7 @@ search archive check skipped.
 """
 from __future__ import annotations
 
+import json
 import time
 from collections import defaultdict
 
@@ -186,6 +187,84 @@ def score_opportunities(rows, db=None, min_n=25):
     return out
 
 
+# --------------------------------------------------------------------------
+# M7 Phase 10 — persistence (additive table, like embed.py's `embeddings`)
+# --------------------------------------------------------------------------
+_OPP_SCHEMA = """
+CREATE TABLE IF NOT EXISTS opportunities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL,
+    product_group_id TEXT,
+    rep_name TEXT,
+    category TEXT,
+    gap_types TEXT,              -- csv: assortment|internal
+    score REAL,
+    gap_strength REAL,
+    dpi REAL,
+    coverage REAL,
+    churn REAL,
+    validation_reason_codes TEXT,  -- csv
+    provenance TEXT                -- json
+);
+CREATE INDEX IF NOT EXISTS idx_opp_ts ON opportunities(ts);
+CREATE INDEX IF NOT EXISTS idx_opp_pgid ON opportunities(product_group_id);
+"""
+
+
+def persist_opportunities(db, opps):
+    """Write a scored-opportunity snapshot into deals.db (additive table).
+
+    `db` = a src.store.Store instance. Append-only: each run inserts a new
+    snapshot (ts = now) so temporal/stability analysis (M9) can diff runs.
+    Returns the number of rows written.
+    """
+    db.conn.executescript(_OPP_SCHEMA)
+    now = time.time()
+    rows = [
+        (
+            now, o["product_group_id"], o["rep_name"], o["category"],
+            ",".join(o["gap_types"]), o["score"],
+            o["breakdown"]["gap_strength"], o["breakdown"]["dpi"],
+            o["breakdown"]["coverage"], o["breakdown"]["churn"],
+            ",".join(o["validation_reason_codes"]),
+            json.dumps(o["provenance"]),
+        )
+        for o in opps
+    ]
+    db.conn.executemany(
+        "INSERT INTO opportunities (ts, product_group_id, rep_name, category,"
+        " gap_types, score, gap_strength, dpi, coverage, churn,"
+        " validation_reason_codes, provenance) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        rows,
+    )
+    db.conn.commit()
+    return len(rows)
+
+
+def load_latest_opportunities(db, limit=50):
+    """Latest persisted opportunity snapshot (highest score first)."""
+    db.conn.executescript(_OPP_SCHEMA)
+    rows = db.conn.execute(
+        "SELECT ts, product_group_id, rep_name, category, gap_types, score,"
+        " gap_strength, dpi, coverage, churn, validation_reason_codes, provenance"
+        " FROM opportunities WHERE ts = (SELECT MAX(ts) FROM opportunities)"
+        " ORDER BY score DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [
+        {
+            "ts": r[0], "product_group_id": r[1], "rep_name": r[2],
+            "category": r[3], "gap_types": r[4].split(",") if r[4] else [],
+            "score": r[5], "breakdown": {
+                "gap_strength": r[6], "dpi": r[7], "coverage": r[8], "churn": r[9],
+            },
+            "validation_reason_codes": r[10].split(",") if r[10] else [],
+            "provenance": json.loads(r[11]) if r[11] else {},
+        }
+        for r in rows
+    ]
+
+
 if __name__ == "__main__":
     # Offline self-test (no DB): an assortment+internal gap in a well-covered
     # category scores > 0; under-covered categories never leak.
@@ -221,5 +300,29 @@ if __name__ == "__main__":
         ga["breakdown"]["gap_strength"] * ga["breakdown"]["dpi"] *
         ga["breakdown"]["coverage"] * ga["breakdown"]["churn"], 4), ga
     assert isinstance(ga["validation_reason_codes"], list)
+
+    # --- persistence round-trip on a scratch DB (M7) ---
+    import sqlite3, tempfile, os as _os
+    class _Conn:
+        def __init__(self, conn):
+            self.conn = conn
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    try:
+        scratch = _Conn(sqlite3.connect(tmp.name))
+        n = persist_opportunities(scratch, opps)
+        assert n == len(opps), f"persisted {n} != {len(opps)}"
+        back = load_latest_opportunities(scratch, limit=50)
+        assert len(back) == len(opps), "round-trip count mismatch"
+        back_by = {o["product_group_id"]: o for o in back}
+        assert back_by["GA"]["score"] == ga["score"], "score not preserved"
+        assert back_by["GA"]["gap_types"] == ga["gap_types"], "gap_types lost"
+        assert isinstance(back_by["GA"]["provenance"], dict), "provenance lost"
+        # second snapshot appends, latest wins
+        persist_opportunities(scratch, opps[:3])
+        assert len(load_latest_opportunities(scratch, limit=50)) == 3
+        scratch.conn.close()
+    finally:
+        _os.unlink(tmp.name)
 
     print("[opportunities] self-test OK")
