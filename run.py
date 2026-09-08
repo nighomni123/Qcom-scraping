@@ -329,6 +329,40 @@ def main():
                       f"{','.join(g['reason_codes'])}")
         return
 
+    if "--score-opportunities" in sys.argv:
+        # M6 Phase 7+8: opportunity scoring (assortment x DPI x coverage x churn)
+        # with transparent provenance + validation reason codes from existing
+        # repo signals. Every candidate cites table/column provenance so real
+        # signal is distinguishable from thin data.
+        from src.opportunities import score_opportunities
+        from src.product_space import load_product_space
+        min_n = _flag_int("--min-n") or 25
+        rows = load_product_space(apps=_flag_list("--apps"))
+        opps = score_opportunities(rows, min_n=min_n, db=store)
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/opportunities.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "rep_name", "category", "gap_types",
+                            "score", "gap_strength", "dpi", "coverage", "churn",
+                            "validation_reason_codes"])
+                for o in opps:
+                    b = o["breakdown"]
+                    w.writerow([o["product_group_id"], o["rep_name"], o["category"],
+                                ";".join(o["gap_types"]), o["score"], b["gap_strength"],
+                                b["dpi"], b["coverage"], b["churn"],
+                                ";".join(o["validation_reason_codes"])])
+            print(f"[score-opportunities] wrote {len(opps)} opportunities -> {out}")
+        else:
+            print(f"[score-opportunities] {len(opps)} opportunities "
+                  f"(all candidates outside guarded categories)")
+            for o in opps[:15]:
+                print(f"  {o['score']:.4f}  {o['rep_name'][:40]:<42} "
+                      f"[{','.join(o['gap_types'])}]  {o['category'][:22]}")
+        return
+
     if "--purge-vouchers" in sys.argv:
         # One-shot maintenance: vouchers/gift cards are not commodities; wipe
         # their watchlist rows, stock_obs observations and oos_events.
