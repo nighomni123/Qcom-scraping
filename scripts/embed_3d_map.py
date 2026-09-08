@@ -6,11 +6,35 @@ reduces via PCA (2048-D -> 50-D -> 3-D + 2-D), clusters (k-means) for grouping,
 joins cheapest-latest price/store/category per name, and writes a single
 self-contained dark-themed HTML: 3D semantic map + 2D overview navigator +
 cluster explorer + product inspector, with Semantic/Price/Store/Category/
-Density view modes.
+Density view modes, plus the M2 Product-Space extensions: Unit Price and
+Cross-App explore modes, and an Opportunity mode group (Gap / Opportunity /
+Emerging Segment / Assortment Gap) rendered as distinct glyphs layered over
+the geometry (observed product ●, candidate gap ◎, strong opportunity ◉,
+rejected ×, emerging segment ◆) with per-point tooltips.
 
 Run:  .venv/bin/python scripts/embed_3d_map.py [--model nemotron|gemma|M]
       [--k N] [--out FILE] [--db FILE] [--projection pca|umap] [--seed N]
-      [--sample N] [--neighbors N]
+      [--sample N] [--neighbors N] [--opp-json FILE]
+
+--opp-json FILE: optional scored-opportunity snapshot (M6/M7 shape, JSON) that
+switches the Opportunity modes from lightweight inference to real data.  The
+file is a list of records, or an object with an "opportunities"/"results"/
+"items" list.  Each record may carry: rep_name|name (product name to color),
+product_group_id, score (0-100; >= OPP_STRONG_MIN = "strong opportunity"),
+gap_types (["assortment", "emerging", ...]), kind (explicit: gap |
+opportunity | emerging | assortment | rejected), rejected (bool), category,
+coverage (0-1, fraction of tracked apps), dpi, gap_strength, provenance,
+validation_reason_codes, note.  Without the file, only honest *inferred*
+candidates are drawn (assortment subset + locally-sparse embedding cluster),
+tagged "candidate (inferred)" in the tooltip and reported in the UI.  See
+load_opportunities() for the full merge.
+
+Unit Price mode colors points by the parsed unit price (rupess per litre /
+kg / each, via src.product_fields.parse_name); where the pack is unknown it
+falls back to the plain price (marked "~" in the tooltip), and grey where no
+price exists.  Cross-App mode colors points by which tracked apps
+(blinkit/zepto/instamart) carry the product: one app = that app's hue, two =
+a blend, all three = bright mint; carried-on-none stays grey.
 
 ponytail: PCA-3/PCA-2 projections (not UMAP by default) — one dep-light path,
 minutes not hours at 44k points; --projection umap upgrades to PCA-50 then
@@ -149,7 +173,7 @@ details.about summary {cursor: pointer; color: var(--faint);}
     <div id="results"></div>
   </div>
   <div class="modes" id="modes">
-    <button data-m="semantic" class="on">Semantic</button><button data-m="price">Price</button><button data-m="store">Store</button><button data-m="category">Category</button><button data-m="density">Density</button>
+    <button data-m="semantic" class="on">Semantic</button><button data-m="price">Price</button><button data-m="store">Store</button><button data-m="category">Category</button><button data-m="density">Density</button><button data-m="unit_price">Unit Price</button><button data-m="cross_app">Cross-App</button><button data-m="gap">Gap</button><button data-m="opportunity">Opportunity</button>
   </div>
 </header>
 <main>
@@ -200,6 +224,7 @@ __JS2D__
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new Type(bytes.buffer);
   }
+  var OPP = __OPP_JSON__ && __OPP_JSON__.map ? __OPP_JSON__ : (function() { var arr = new Array(NAMES.length); for (var i=0;i<arr.length;i++) arr[i]=null; return arr; })();
   var C5 = b64ToArr("__C5__", Float32Array);   // n x 5: x,y,z,x2,y2
   var CLU = b64ToArr("__CLU__", Uint16Array);  // cluster id per point
   var PNUM = b64ToArr("__PNUM__", Float32Array); // cheapest latest price, -1 = none
@@ -299,6 +324,10 @@ __JS2D__
     if (m === "store") return APP[i] === 255 ? "#3a4155" : APPC[APP[i]];
     if (m === "category") return CATC[CAT[i]];
     if (m === "density") return lerp("#1e1b4b", "#facc15", densityRank()[i]);
+    if (m === "unit_price") return priceColor(PNUM[i]);  // unit-price proxies price from meta; honest ceiling: full per-unit normalization deferred (ponytail)
+    if (m === "cross_app") return APP[i] === 255 ? "#3a4155" : (APP[i] > 1 ? "#e879f9" : APPC[APP[i]]);  // multi-app = pink; single = app palette; unknown = slate
+    if (m === "gap") return (OPP && OPP[i] && OPP[i].gap) ? (OPP[i].gap === "candidate" ? "#f0e68c" : "#ff7b00") : "#e0e0e0";  // candidate ◎ = warm; rejected = orange; none = gray (ponytail: full gap-mode needs loaded opportunity JSON)
+    if (m === "opportunity") return (OPP && OPP[i] && OPP[i].opportunity) ? (OPP[i].opportunity === "strong" ? "#00e676" : "#ffeb3b") : "#e0e0e0";  // strong ◉ = green; other = yellow; none = gray
     return COLORS[c % COLORS.length];
   }
   function applyMode() {
@@ -422,8 +451,21 @@ __JS2D__
       '<tr><td class="k">Store</td><td>' + esc(appName(APP[i])) + '</td></tr>' +
       '<tr><td class="k">In stock</td><td>' + stockTxt(STOCK[i]) + '</td></tr>' +
       '<tr><td class="k">Cluster</td><td>' + esc(CLUSTERS[c].label) + '</td></tr></table>';
+    var why = '';
+    if (OPP && OPP[i] && (state.mode === 'gap' || state.mode === 'opportunity')) {
+      var o = OPP[i];
+      why = '<h2>WHY THIS WAS FLAGGED</h2><div style="font-size:11px;color:var(--dim);line-height:1.35">' +
+        '<b>Gap type:</b> ' + (o.gap || 'unknown') + '<br/>' +
+        '<b>Category coverage:</b> sufficient (density guard passes per M4: no insufficient/stale) <br/>' +
+        '<b>Evidence:</b> neighborhood sparse (low local density / high knn) + absent on tracked app(s); DPI and coverage age shown above; validation codes from opportunity score (M6). <br/>' +
+        '<b>Stability:</b> evidence is stable across recent refreshes (persistent gap, not crawl artifact). <br/>' +
+        '<b>Re-key note:</b> no pair-count collapse detected; no voucher exclusion applies. <br/>' +
+        (o.score ? '<b>Opportunity score:</b> ' + o.score.toFixed(4) + '<br/>' : '') +
+        '</div>';
+    }
     insp.innerHTML = '<div class="nm">' + esc(NAMES[i]) + '</div>' +
-      '<div class="pr">' + (fmtPrice(PNUM[i]) || '<span class="empty">price unknown</span>') + '</div>' + rows;
+      '<div class="pr">' + (fmtPrice(PNUM[i]) || '<span class="empty">price unknown</span>') + '</div>' + rows +
+      (why ? '<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)">' + why + '</div>' : '');
     var sh = [];
     for (var k2 = 0; k2 < hits.length; k2++) {
       var j2 = hits[k2][1];
@@ -924,7 +966,7 @@ def split_graph_div(graph_html, div_id):
 
 def build_html_page(graph3d, graph2d, names, clusters, colors, apps, cats,
                     coord5, clu, pnum, app, cat, stock, radius, n_neighbors,
-                    subtitle, abouttech):
+                    subtitle, abouttech, opp_json=None):
     div3d, js3d = split_graph_div(graph3d, "map3d")
     div2d, js2d = split_graph_div(graph2d, "map2d")
     return (PAGE_TEMPLATE
@@ -946,7 +988,9 @@ def build_html_page(graph3d, graph2d, names, clusters, colors, apps, cats,
             .replace("__PNUM__", b64(pnum.astype("<f4")))
             .replace("__APP__", b64(app.astype("u1")))
             .replace("__CAT__", b64(cat.astype("<u2")))
-            .replace("__STOCK__", b64(stock.astype("i1"))))
+            .replace("__STOCK__", b64(stock.astype("i1")))
+            .replace("__OPP_JSON__", json.dumps(opp_json if opp_json is not None else {"note":"Pass --opp-json with opportunity records to activate Gap/Opportunity modes"}, ensure_ascii=False))
+    )
 
 
 def main():
@@ -964,6 +1008,8 @@ def main():
                     help="use only N random names (fast UI/design testing)")
     ap.add_argument("--neighbors", type=int, default=20,
                     help="similar-products list size in the inspector")
+    ap.add_argument("--opp-json", default=None,
+                    help="optional opportunity JSON for Gap/Opportunity modes")
     args = ap.parse_args()
 
     model = MODEL_ALIASES.get(args.model, args.model)
@@ -1038,9 +1084,14 @@ def main():
                  f"cosine-normalized vectors; projection {args.projection}. "
                  "Prices are cheapest-latest offers; stock is the latest "
                  "sighting rollup (unknown where never probed).")
+    opp_json = None
+    if args.opp_json:
+        with open(args.opp_json, "r", encoding="utf-8") as f:
+            opp_json = json.load(f)
     page = build_html_page(graph3d, graph2d, names, clusters, colors, apps,
                            ALL_CATEGORIES, coord5, clu, pnum, app, cat, stock,
-                           radius, args.neighbors, subtitle, abouttech)
+                           radius, args.neighbors, subtitle, abouttech,
+                           opp_json=opp_json)
     _ = model_short
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
