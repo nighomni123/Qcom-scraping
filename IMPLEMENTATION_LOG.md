@@ -143,3 +143,11 @@ union load 167,333 rows 37.8s → 33.7s; grouping 24.5s → 14.4s (total ~48s).
   temporal count-proxy when db=None; LLM brief stub labeled; parse_name
   `category` param documented as unused forward hook (kept: dropping churns
   callers for zero behavior change).
+- Post-commit verification (same day): full 10-stage CLI chain re-run
+  end-to-end (vectors → assortment → density → gaps → score --persist →
+  temporal → validate → report) in 1m55s total — the M12 60s
+  --score-opportunities timeout is confirmed dead; new snapshot 17,128
+  opportunities (was 12,981; stricter veto creates more honest groups);
+  temporal now emits real emerging/declining per category from sweep history.
+  Atlas fresh render verified (4.5MB, all placeholders filled, evidence +
+  glyph restyle in bundle).
