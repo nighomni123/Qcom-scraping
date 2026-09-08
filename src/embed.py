@@ -108,6 +108,16 @@ def _map(cos, lo=SEM_LO, hi=SEM_HI):
     return max(0.0, min(1.0, (cos - lo) / (hi - lo)))
 
 
+def embed_text(name, brand="", category="", variant="", pack_size=""):
+    """Phase 3A structured context: prepend parsed grocery fields to the raw
+    name. Falls back to the raw name when no parsed field is present.
+    ponytail: one OR-joined guard instead of per-field branches."""
+    parts = [str(p or "").strip() for p in (brand, category, variant, pack_size)]
+    prefix = " | ".join(p for p in parts if p)
+    name = (name or "").strip()
+    return f"{prefix} | {name}" if prefix and name else (prefix or name)
+
+
 def _dot(a, b):
     return sum(x * y for x, y in zip(a, b))
 
@@ -386,17 +396,33 @@ class Embedder:
     def ensure(self, names, progress=False):
         """Embed + persist any uncached names (batched). Returns how many were
         newly embedded; 0 when unavailable or nothing to do. Resumable: names
-        already in the DB are skipped, so a failed backfill re-runs cleanly."""
+        already in the DB are skipped, so a failed backfill re-runs cleanly.
+        Items may be plain name strings (embedded as-is) or dicts with a
+        `name` plus parsed fields (brand/category/variant/pack_value+pack_unit
+        or pack_size) — dicts are embedded as Phase 3A structured text but
+        still keyed by raw name, so attach_embeddings lookups keep working."""
         with self._lock:
             if not self.available:
                 return 0
             known = self._db_known()
             todo, seen = [], set()
-            for n in names or []:
-                n = (n or "").strip()
+            texts = {}
+            for entry in names or []:
+                if isinstance(entry, dict):
+                    n = (entry.get("name") or "").strip()
+                    pv, pu = entry.get("pack_value"), entry.get("pack_unit")
+                    pack = (entry.get("pack_size")
+                            or (f"{pv}{pu}" if pv is not None and pu
+                                else (str(pv) if pv is not None else ""))).strip()
+                    t = embed_text(n, entry.get("brand"), entry.get("category"),
+                                   entry.get("variant"), pack)
+                else:
+                    n = (entry or "").strip()
+                    t = n
                 if n and n not in seen and n not in self._cache and n not in known:
                     seen.add(n)
                     todo.append(n)
+                    texts[n] = t
             if not todo:
                 return 0
             done, total = 0, len(todo)
@@ -406,7 +432,7 @@ class Embedder:
             for i in range(0, total, self.batch):
                 chunk = todo[i:i + self.batch]
                 try:
-                    vecs = self._post(chunk, self.input_type)
+                    vecs = self._post([texts[n] for n in chunk], self.input_type)
                 except RPDExhausted as ex:
                     self._down_until = time.time() + RPD_COOLDOWN_SEC
                     if progress:

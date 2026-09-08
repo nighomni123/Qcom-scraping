@@ -85,6 +85,26 @@ def _norm_product_name(name):
     return re.sub(r"\s+", " ", n).strip()
 
 
+def _extract_rating(raw_json):
+    """Parse numeric 'rating' from raw JSON payload (Blinkit/Zepto have it)."""
+    if not raw_json:
+        return None
+    try:
+        import json
+        data = json.loads(raw_json)
+        if isinstance(data, dict):
+            v = data.get("rating")
+            if v is not None:
+                try:
+                    r = float(str(v))
+                    return r if r >= 0 else None
+                except (ValueError, TypeError):
+                    pass
+    except Exception:
+        pass
+    return None
+
+
 def _mk_row(app, store_id, sku_key, name, price, mrp, in_stock, url,
             collections, category, raw_json, source, inv_db):
     # use_llm=False on this hot path: the union layer parses up to 167k names
@@ -120,6 +140,7 @@ def _mk_row(app, store_id, sku_key, name, price, mrp, in_stock, url,
         "parse_status": p["parse_status"],
         "parse_source": p.get("parse_source"),   # regex | reference:<ds> | none
         "llm_used": p.get("llm_used", False),
+        "rating": _extract_rating(raw_json),
     }
 
 

@@ -176,6 +176,8 @@ def build_product_vectors(rows, db=None):
                   or (set(skus) & wl_active_skus)) else 0
         )
         recent_churn = 1 if (set(skus) & churn_skus) else 0
+        ratings = [m.get("rating") for m in members if m.get("rating") is not None]
+        avg_rating = round(statistics.fmean(ratings), 3) if ratings else None
 
         commercial = {
             "dpi": dpi,
@@ -184,6 +186,7 @@ def build_product_vectors(rows, db=None):
             "days_since_first_seen": days_since_first_seen,
             "is_currently_active": active_now,
             "recent_churn_flag": recent_churn,
+            "rating_avg": avg_rating,
         }
         rep_name = Counter(m.get("name", "") for m in members).most_common(1)[0][0]
         present_apps = sorted({m.get("app") for m in members})

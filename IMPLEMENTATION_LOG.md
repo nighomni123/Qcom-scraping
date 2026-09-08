@@ -151,3 +151,9 @@ union load 167,333 rows 37.8s → 33.7s; grouping 24.5s → 14.4s (total ~48s).
   temporal now emits real emerging/declining per category from sweep history.
   Atlas fresh render verified (4.5MB, all placeholders filled, evidence +
   glyph restyle in bundle).
+- Rating extraction (post-subagent-6): verified raw JSON — `rating` numeric
+  present in Blinkit (~98% of 200 samples, 3.7-4.8) and Zepto (~78%, 4.1-5.0),
+  absent in Instamart; no review counts or review text in any app. Added
+  `_extract_rating()` to `src/product_space.py`, `rating` field to rows,
+  `rating_avg` to `product_vectors.py` commercial features; corrected
+  `PRODUCT_SPACE_PLAN.md` out-of-scope line 400-401.

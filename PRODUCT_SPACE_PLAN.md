@@ -397,8 +397,8 @@ cadence makes density-based gap detection the slower, more data-hungry path.
   (Akamai edge-block on BigBasket, server-side IP geolocation lock on
   JioMart per the 08-31 investigation) — cross-app comparison stays scoped
   to Blinkit/Zepto/Instamart until that changes.
-- **Rating/review-based demand signals**: not available on any tracked app;
-  don't budget time trying to source them.
+- **Numeric rating data (partial)**: `inventory_blinkit.db` (~98% of 200 samples have `rating`: 3.7-4.8) and `inventory_zepto.db` (~78%: 4.1-5.0) contain numeric `rating` in `raw_json`; Instamart has none. No review counts or review text exist. Rating available as numeric commercial signal for Blinkit/Zepto only.
+- **Review-based demand signals**: review counts and review text are NOT available on any tracked app; the numeric `rating` is the only signal from user feedback.
 - **Real-time or near-real-time gap refresh**: full catalog snapshots are
   ~1 store/day by design (rate-limit safety); gap detection should be judged
   on a weekly-refresh cadence, not continuous.

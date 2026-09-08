@@ -488,18 +488,26 @@ __JS2D__
     var why = '';
     if (OPP && OPP[i] && (state.mode === 'gap' || state.mode === 'opportunity')) {
       var o = OPP[i];
-      var none = '(none stated)';
-      var vr2 = (o.validation_reason_codes && o.validation_reason_codes.join) ? o.validation_reason_codes.join(', ') : (o.validation_reason_codes || none);
-      var gt2 = (o.gap_types && o.gap_types.join) ? o.gap_types.join(', ') : (o.gap || none);
+      var none = 'Not available';
+      var gt = (o.gap_types && o.gap_types.join) ? o.gap_types.join(', ') : (o.gap || none);
+      var vr = (o.validation_reason_codes && o.validation_reason_codes.join) ? o.validation_reason_codes.join(', ') : (o.validation_reason_codes || none);
+      var prov = o.provenance;
+      if (prov && typeof prov === 'object') {
+        try { prov = JSON.stringify(prov); } catch (e) { prov = none; }
+      }
+      prov = prov || none;
+      var val = function (v) { return (v != null && v !== '') ? String(v) : none; };
       why = '<h2>WHY THIS WAS FLAGGED</h2><div style="font-size:11px;color:var(--dim);line-height:1.35">' +
-        '<b>Gap types/kind:</b> ' + esc(gt2) + ' / ' + esc(o.kind || o.gap || 'unknown') + '<br/>' +
-        '<b>Opportunity score:</b> ' + (o.score != null ? o.score.toFixed(4) : none) + '<br/>' +
-        '<b>Gap strength:</b> ' + (o.gap_strength != null ? esc(o.gap_strength) : none) + '<br/>' +
-        '<b>DPI:</b> ' + (o.dpi != null ? esc(o.dpi) : none) + '<br/>' +
-        '<b>Coverage:</b> ' + (o.coverage != null ? esc(o.coverage) : none) + '<br/>' +
-        '<b>Validation codes:</b> ' + esc(vr2) + '<br/>' +
+        '<b>Gap types:</b> ' + esc(gt) + '<br/>' +
+        '<b>Kind:</b> ' + esc(val(o.kind || o.gap)) + '<br/>' +
+        '<b>Score:</b> ' + (o.score != null ? Number(o.score).toFixed(4) : none) + '<br/>' +
+        '<b>Confidence:</b> ' + val(o.confidence) + '<br/>' +
+        '<b>Gap strength:</b> ' + val(o.gap_strength) + '<br/>' +
+        '<b>DPI:</b> ' + val(o.dpi) + '<br/>' +
+        '<b>Coverage:</b> ' + val(o.coverage) + '<br/>' +
+        '<b>Validation codes:</b> ' + esc(vr) + '<br/>' +
         '<b>Category:</b> ' + esc(o.category || CATS[CAT[i]]) + '<br/>' +
-        '<b>Provenance:</b> ' + esc(o.provenance || none) +
+        '<b>Provenance:</b> ' + esc(prov) +
         (o.note ? '<br/><b>Note:</b> ' + esc(o.note) : '') +
         '</div>';
     }
@@ -919,6 +927,7 @@ def normalize_opportunities(opp_json, names):
         gap_types = r.get("gap_types") or []
         if isinstance(gap_types, str):
             gap_types = [g.strip() for g in gap_types.split(",") if g.strip()]
+        bd = r.get("breakdown") if isinstance(r.get("breakdown"), dict) else {}
         kind = r.get("kind")
         if r.get("rejected"):
             kind = "rejected"
@@ -934,9 +943,10 @@ def normalize_opportunities(opp_json, names):
             "gap_types": list(gap_types) if gap_types else None,
             "kind": kind,
             "rejected": bool(r.get("rejected", False)),
-            "coverage": r.get("coverage"),
-            "dpi": r.get("dpi"),
-            "gap_strength": r.get("gap_strength"),
+            "coverage": r.get("coverage", bd.get("coverage")),
+            "dpi": r.get("dpi", bd.get("dpi")),
+            "gap_strength": r.get("gap_strength", bd.get("gap_strength")),
+            "confidence": r.get("confidence"),
             "provenance": r.get("provenance"),
             "validation_reason_codes": list(vr) if vr else None,
             "note": r.get("note"),
