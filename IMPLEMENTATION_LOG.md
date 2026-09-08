@@ -51,6 +51,7 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 | M3 | Phase 6 | Assortment gaps (cross-app coverage signal; confidence = establishment only) | ✅ | `src/assortment_gaps.py` + tests OK; `--detect-assortment-gaps` CLI (12,747 on live union) |
 | 5 | Phase 4 | Atlas: Gap mode + Unit Price mode + cross-app overlay toggle | ☐ | standalone HTML; load time not regressed (next) |
 | M4 | Phase 5 | Per-category density + kNN distance + `insufficient_coverage`/`stale_coverage` guards | ✅ | `src/density.py` + tests OK; `--product-density` CLI (2,606 trustworthy sparse on live union) |
+| M5 | Phase 5/6 | Internal/attribute gaps: trustworthy sparse points scored by attribute-vector proximity (sparse + attribute-outlier guard; never from thin/stale categories) | ✅ | `src/gaps.py` + tests OK; `--detect-gaps` CLI (1,286 candidates on live union after honesty guard tightened 2,606→1,286) |
 
 ### Reference data already in `reference/` (fetched 2026-09-07)
 | File | Rows | Pack ground truth? | Role |

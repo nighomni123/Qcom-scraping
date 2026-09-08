@@ -296,6 +296,39 @@ def main():
                   f"{stale} stale · {len(cands)} trustworthy sparse candidates")
         return
 
+    if "--detect-gaps" in sys.argv:
+        # M5 Phase 5 (internal/attribute gaps): trustworthy sparse candidates
+        # scored by attribute-vector proximity to category neighbors. Builds on
+        # the M4 density guards, so no gap ever comes from a thin/stale category.
+        from src.gaps import score_internal_gaps
+        from src.product_space import load_product_space
+        min_n = _flag_int("--min-n") or 25
+        rows = load_product_space(apps=_flag_list("--apps"))
+        gaps = score_internal_gaps(rows, min_n=min_n, db=store)
+        if "--csv" in sys.argv:
+            import csv, os
+            out = "exports/internal_gaps.csv"
+            os.makedirs("exports", exist_ok=True)
+            with open(out, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["product_group_id", "category", "knn_distance",
+                            "attr_distance", "neighbor_count", "neighbor_brands",
+                            "internal_gap_score", "reason_codes"])
+                for g in gaps:
+                    w.writerow([g["product_group_id"], g["category"], g["knn_distance"],
+                                g["attr_distance"], g["neighbor_count"],
+                                g["neighbor_brands"], g["internal_gap_score"],
+                                ";".join(g["reason_codes"])])
+            print(f"[detect-gaps] wrote {len(gaps)} internal-gap candidates -> {out}")
+        else:
+            print(f"[detect-gaps] {len(gaps)} internal/attribute gap candidates "
+                  f"(excludes insufficient/stale categories)")
+            for g in gaps[:20]:
+                print(f"  {g['product_group_id']:<14} {g['category'][:18]:<18} "
+                      f"score={g['internal_gap_score']:.3f} "
+                      f"{','.join(g['reason_codes'])}")
+        return
+
     if "--purge-vouchers" in sys.argv:
         # One-shot maintenance: vouchers/gift cards are not commodities; wipe
         # their watchlist rows, stock_obs observations and oos_events.
