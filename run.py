@@ -383,6 +383,36 @@ def main():
                   f"[{','.join(o['gap_types'])}]  {o['category'][:22]}")
         return
 
+    if "--temporal-analysis" in sys.argv:
+        from src.product_space import load_product_space
+        from src.temporal import analyze_temporal, stability_report
+        rows = load_product_space(apps=_flag_list("--apps"))
+        t = analyze_temporal(rows, db=store)
+        s = stability_report(rows, db=store, min_n=_flag_int("--min-n") or 25)
+        print(f"[temporal-analysis] {len(t)} temporal signals · stability on {len(s)} categories")
+        for o in t[:8]: print(f"  {o['kind']}: {o['category']} conf={o['confidence']}")
+        return
+
+    if "--validate-opportunities" in sys.argv:
+        from src.product_space import load_product_space
+        from src.human_review import build_brief, submit_review, reviews_for, apply_review_feedback
+        # Read latest opportunity snapshot (M7)
+        from src.opportunities import load_latest_opportunities
+        opps = load_latest_opportunities(store, limit=_flag_int("--limit") or 20)
+        for o in opps[:5]:
+            print(f"[validate-opportunities] {o['score']:.3f} {o['rep_name'][:36]:<36} gap={','.join(o['gap_types'])} {o['category'][:20]}")
+        print("(human review loop available: build_brief / submit_review / reviews_for / apply_review_feedback in src/human_review)")
+        return
+
+    if "--opportunity-pipeline" in sys.argv:
+        from src.product_space import load_product_space
+        from src.incremental import plan_refresh, run_opportunity_refresh
+        rows = load_product_space(apps=_flag_list("--apps"))
+        res = run_opportunity_refresh(rows, db=store, force="--force" in sys.argv, min_n=_flag_int("--min-n") or 25)
+        label = "refreshed" if not res.get("stale") else "stale-readback"
+        print(f"[opportunity-pipeline] {label} — {len(res['opportunities'])} candidates (plan={res['plan']['stages']})")
+        return
+
     if "--purge-vouchers" in sys.argv:
         # One-shot maintenance: vouchers/gift cards are not commodities; wipe
         # their watchlist rows, stock_obs observations and oos_events.

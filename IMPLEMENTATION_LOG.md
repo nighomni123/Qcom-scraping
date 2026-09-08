@@ -54,6 +54,10 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 | M5 | Phase 5/6 | Internal/attribute gaps: trustworthy sparse points scored by attribute-vector proximity (sparse + attribute-outlier guard; never from thin/stale categories) | ✅ | `src/gaps.py` + tests OK; `--detect-gaps` CLI (1,286 candidates on live union after honesty guard tightened 2,606→1,286) |
 | M6 | Phase 7+8 | Opportunity scoring: gap_strength × DPI × coverage × churn with provenance + validation codes; crawl-artifact guard (missing app w/o category coverage dropped) | ✅ | `src/opportunities.py` + tests OK; `--score-opportunities` CLI; live smoke showed flat-0.5 bug → fixed via gap_strength + artifact guard, scores now vary (0.5→0.29) |
 | M7 | Phase 10 | Opportunity persistence: additive `opportunities` table in deals.db (append-only snapshots, ts-keyed) + read-back report | ✅ | `persist_opportunities`/`load_latest_opportunities` in `src/opportunities.py`; round-trip test + self-test OK; live smoke persisted 12,981 opportunities → `--opportunity-report` read-back matches |
+| M8 | Phase 3+4 + Atlas Gap/Opportunity | Unit Price / Cross-App / Gap / Opportunity atlas modes + evidence-trail inspector; plotly symbols (●/◎/◉/×) confirmed | ✅ (partial) | `scripts/embed_3d_map.py`: new mode buttons + dispatcher + `--opp-json`; evidence-trail inspector section added; subagent ee8dd81f failed → completed in-thread; ponytail: full interactive trail deferred to design cycle |
+| M9 | Phase 14 + 15 | Temporal / emerging-segment + stability/robustness | ✅ | `src/temporal.py` + tests OK; `--temporal-analysis` CLI; subagent 5e4362df finished; offline-degradable |
+| M10 | Phase 20 | LLM briefs + human review loop (taxonomy + persist) | ✅ | `src/human_review.py` + tests OK; `--validate-opportunities` CLI; subagent cf42d5e1 failed → completed in-thread |
+| M11 | Phase 19 | Incremental refresh architecture (watermark + plan + stale readback) | ✅ | `src/incremental.py` + tests OK; `--opportunity-pipeline` CLI; subagent 84fc844e failed → completed in-thread |
 
 ### Reference data already in `reference/` (fetched 2026-09-07)
 | File | Rows | Pack ground truth? | Role |
@@ -75,4 +79,4 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 - alignment uses stdlib `csv` only, no pandas — AGENTS.md no-pandas rule; OFF full `food.parquet` (7.8GB) deliberately NOT downloaded.
 - OFF India pulled via API-filter (India only) + resumable fetcher — OFF edge-blocks this IP (503/401), only 999 rows landed; rest fetched later.
 - Mendeley-publishing of our own catalog noted as future idea — product-level data only (no PII), low redistribution risk; choose CC0/CC-BY at upload.
-- M2 (3B/3C) + M3 + M4 implemented directly in-thread, not via subagents — background subagents were terminated by the environment mid-run and the requested `qwen-gate` provider is disallowed in this session, so the work was done inline to keep the milestone moving.
+- M2 (3B/3C) + M3 + M4 + M5 + M6 + M7 implemented directly in-thread, not via subagents — background subagents were terminated by the environment (see M8/M10/M11 notes). M9 subagent (5e4362df) finished and delivered; M8 (ee8dd81f), M10 (cf42d5e1), M11 (84fc844e) failed → completed in-thread per AGENTS.md concurrent-agent rules (verify before/after, targeted edits, single log).
