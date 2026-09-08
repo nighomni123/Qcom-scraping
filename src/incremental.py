@@ -17,32 +17,58 @@ def catalog_watermark(db):
 
 
 def products_changed_since(db, since_ts):
-    """Return identifiers of product groups with new/changed catalog rows
-    since since_ts. Honest approximation: groups with entries in
-    catalog_snapshots with ts >= since_ts that also have changed price or
-    stock relative to previous snapshot (no full diff engine here — ponytail).
+    """SKUs changed since since_ts (epoch seconds).
+
+    Real diff: SKUs seen in catalog_snapshots at/after since_ts but not
+    before (new arrivals), plus catalog_events 'new'/'delisted' at/after
+    since_ts. Returns None when db is unavailable, [] when nothing changed.
     """
-    # Honest approximation: use catalog_events 'new' / 'delisted' at since_ts,
-    # plus any snapshot rows with ts >= since_ts; not a full pair-reconcile.
     if db is None or since_ts is None:
         return None
     try:
-        rows = db.conn.execute(
-            "SELECT DISTINCT sku_key FROM catalog_snapshots WHERE ts >= ?",
-            (since_ts,),
+        new_rows = db.conn.execute(
+            "SELECT sku_key FROM catalog_snapshots WHERE ts >= ?"
+            " EXCEPT SELECT sku_key FROM catalog_snapshots WHERE ts < ?",
+            (since_ts, since_ts),
         ).fetchall()
-        return [r[0] for r in rows if r[0]]
+        out = {r[0] for r in new_rows if r[0]}
+        try:
+            ev_rows = db.conn.execute(
+                "SELECT sku_key FROM catalog_events WHERE ts >= ?"
+                " AND kind IN ('new','delisted')",
+                (since_ts,),
+            ).fetchall()
+            out.update(r[0] for r in ev_rows if r[0])
+        except Exception:
+            pass  # catalog_events absent: snapshot diff still stands
+        return sorted(out)
     except Exception:
         return None
 
 
 def plan_refresh(rows, db=None, since_ts=None, full_window_days=7, force=False):
-    """Decide which stages need work this cycle."""
+    """Decide which stages need work this cycle.
+
+    Watermark/since_ts are epoch seconds (same unit as catalog_snapshots ts
+    and time.time()); non-numeric values are ignored. A failed-db None is
+    propagated distinctly, never collapsed into "no changes".
+    """
     watermark = catalog_watermark(db)
-    new_ids = products_changed_since(db, since_ts or watermark or 0)
+    anchor = since_ts if since_ts is not None else watermark
+    try:
+        anchor_f = float(anchor) if anchor is not None else None
+    except (TypeError, ValueError):
+        anchor_f = None
+    new_ids = products_changed_since(db, anchor_f) if anchor_f is not None else None
+    if db is not None and anchor_f is None:
+        new_ids = products_changed_since(db, 0)
     changed_ids = new_ids  # approximation
     unchanged_skipped = True  # most stay unchanged
-    full_needed = force or (watermark is None) or (since_ts is not None and (time.time() - (since_ts or 0)) > full_window_days * 86400)
+    try:
+        stale_s = (time.time() - anchor_f) > full_window_days * 86400 if anchor_f else None
+    except (TypeError, ValueError):
+        stale_s = None
+    full_needed = force or (watermark is None) or bool(stale_s)
     return {
         "watermark": watermark,
         "new_ids": new_ids,

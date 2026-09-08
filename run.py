@@ -355,6 +355,7 @@ def main():
                                 b["dpi"], b["coverage"], b["churn"],
                                 ";".join(o["validation_reason_codes"])])
             print(f"[score-opportunities] wrote {len(opps)} opportunities -> {out}")
+            return
         if "--persist" in sys.argv:
             from src.opportunities import persist_opportunities
             n = persist_opportunities(store, opps)
@@ -399,6 +400,9 @@ def main():
         # Read latest opportunity snapshot (M7)
         from src.opportunities import load_latest_opportunities
         opps = load_latest_opportunities(store, limit=_flag_int("--limit") or 20)
+        if not opps:
+            print("[validate-opportunities] 0 persisted opportunities — run --score-opportunities --persist first")
+            return
         for o in opps[:5]:
             print(f"[validate-opportunities] {o['score']:.3f} {o['rep_name'][:36]:<36} gap={','.join(o['gap_types'])} {o['category'][:20]}")
         print("(human review loop available: build_brief / submit_review / reviews_for / apply_review_feedback in src/human_review)")

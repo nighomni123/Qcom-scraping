@@ -7,10 +7,11 @@ joins cheapest-latest price/store/category per name, and writes a single
 self-contained dark-themed HTML: 3D semantic map + 2D overview navigator +
 cluster explorer + product inspector, with Semantic/Price/Store/Category/
 Density view modes, plus the M2 Product-Space extensions: Unit Price and
-Cross-App explore modes, and an Opportunity mode group (Gap / Opportunity /
-Emerging Segment / Assortment Gap) rendered as distinct glyphs layered over
-the geometry (observed product ●, candidate gap ◎, strong opportunity ◉,
-rejected ×, emerging segment ◆) with per-point tooltips.
+Cross-App explore modes, and an Opportunity mode group (Gap / Opportunity)
+rendered as distinct colors layered over the geometry with per-point marker
+symbols in gap/opportunity modes (observed product 'circle', candidate gap
+'circle-open', strong opportunity 'diamond', rejected 'x') and per-point
+tooltips.
 
 Run:  .venv/bin/python scripts/embed_3d_map.py [--model nemotron|gemma|M]
       [--k N] [--out FILE] [--db FILE] [--projection pca|umap] [--seed N]
@@ -29,12 +30,12 @@ candidates are drawn (assortment subset + locally-sparse embedding cluster),
 tagged "candidate (inferred)" in the tooltip and reported in the UI.  See
 normalize_opportunities() for the full merge.
 
-Unit Price mode colors points by the parsed unit price (rupess per litre /
-kg / each, via src.product_fields.parse_name); where the pack is unknown it
-falls back to the plain price (marked "~" in the tooltip), and grey where no
-price exists.  Cross-App mode colors points by which tracked apps
-(blinkit/zepto/instamart) carry the product: one app = that app's hue, two =
-a blend, all three = bright mint; carried-on-none stays grey.
+Unit Price mode colors points by the parsed unit price (rupees per kg/L/each,
+via src.product_fields.parse_name + unit_price); where the pack is unknown
+the point stays neutral grey with a "~unit price unknown" tooltip note, and
+grey where no price exists.  Cross-App mode colors points by which tracked
+apps (blinkit/zepto/instamart) carry the product: one app = that app's hue,
+two = a pink blend, three = bright mint; carried-on-none stays grey.
 
 ponytail: PCA-3/PCA-2 projections (not UMAP by default) — one dep-light path,
 minutes not hours at 44k points; --projection umap upgrades to PCA-50 then
@@ -56,6 +57,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from src.categories import ALL_CATEGORIES, categorize  # noqa: E402
+from src.product_fields import parse_name, unit_price  # noqa: E402
 
 DB = os.path.join(os.path.dirname(__file__), "..", "deals.db")
 DEFAULT_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2"
@@ -231,6 +233,8 @@ __JS2D__
   var CLU = b64ToArr("__CLU__", Uint16Array);  // cluster id per point
   var PNUM = b64ToArr("__PNUM__", Float32Array); // cheapest latest price, -1 = none
   var APP = b64ToArr("__APP__", Uint8Array);   // index into APPS, 255 = unknown
+  var APPMASK = b64ToArr("__APPMASK__", Uint8Array); // bitmask over APPS order, 0 = unknown
+  var UPRICE = b64ToArr("__UPRICE__", Float32Array); // unit price (Rs/kg-L-each), NaN = unknown
   var CAT = b64ToArr("__CAT__", Uint16Array);  // index into CATS
   var STOCK = b64ToArr("__STOCK__", Int8Array); // 1 in stock, 0 out, -1 unknown
   var N = NAMES.length;
@@ -326,13 +330,30 @@ __JS2D__
     if (m === "store") return APP[i] === 255 ? "#3a4155" : APPC[APP[i]];
     if (m === "category") return CATC[CAT[i]];
     if (m === "density") return lerp("#1e1b4b", "#facc15", densityRank()[i]);
-    if (m === "unit_price") return priceColor(PNUM[i]);  // unit-price proxies price from meta; honest ceiling: full per-unit normalization deferred (ponytail)
-    if (m === "cross_app") return APP[i] === 255 ? "#3a4155" : (APP[i] > 1 ? "#e879f9" : APPC[APP[i]]);  // multi-app = pink; single = app palette; unknown = slate
+    if (m === "unit_price") return priceColor(UPRICE[i]);
+    if (m === "cross_app") {
+      var mask = APPMASK[i], n2 = 0, only = -1;
+      for (var b = 0; b < APPS.length; b++) if (mask & (1 << b)) { n2++; only = b; }
+      if (!n2) return "#3a4155";
+      if (n2 === 1) return APPC[only];
+      if (n2 === 2) return "#e879f9";
+      return "#5eead4";  // 3+ apps = mint
+    }
     if (m === "gap") return (OPP && OPP[i] && OPP[i].gap) ? (OPP[i].gap === "candidate" ? "#f0e68c" : "#ff7b00") : "#e0e0e0";  // candidate ◎ = warm; rejected = orange; none = gray (ponytail: full gap-mode needs loaded opportunity JSON)
     if (m === "opportunity") return (OPP && OPP[i] && OPP[i].opportunity) ? (OPP[i].opportunity === "strong" ? "#00e676" : "#ffeb3b") : "#e0e0e0";  // strong ◉ = green; other = yellow; none = gray
     return COLORS[c % COLORS.length];
   }
+  function pointSymbol(i) {
+    var o = OPP && OPP[i];
+    if (!o) return "circle";
+    var k = o.kind || o.gap;
+    if (k === "rejected" || o.rejected) return "x";
+    if (o.opportunity === "strong") return "diamond";
+    if (k && k !== "observed") return "circle-open";
+    return "circle";
+  }
   function applyMode() {
+    var glyph = (state.mode === "gap" || state.mode === "opportunity");
     for (var c = 0; c < K; c++) {
       var mem = members[c], cols = new Array(mem.length);
       for (var j = 0; j < mem.length; j++) cols[j] = pointColor(c, mem[j]);
@@ -340,6 +361,15 @@ __JS2D__
       Plotly.restyle(gd3, {"marker.color": [cols], visible: [vis]}, [trace3[c]]);
       Plotly.restyle(gd2, {"marker.color": [cols], visible: [vis]}, [trace2[c]]);
       Plotly.restyle(gd2, {visible: [vis]}, [hullTrace(c)]);  // hull territory
+      if (glyph) {
+        var syms = new Array(mem.length);
+        for (var s2 = 0; s2 < mem.length; s2++) syms[s2] = pointSymbol(mem[s2]);
+        Plotly.restyle(gd3, {"marker.symbol": [syms]}, [trace3[c]]);
+        Plotly.restyle(gd2, {"marker.symbol": [syms]}, [trace2[c]]);
+      } else {
+        Plotly.restyle(gd3, {"marker.symbol": ["circle"]}, [trace3[c]]);
+        Plotly.restyle(gd2, {"marker.symbol": ["circle"]}, [trace2[c]]);
+      }
     }
     if (!state.showLabels) Plotly.restyle(gd3, {visible: [false]}, [T3LBL]);
     else if (!state.hiddenAny) Plotly.restyle(gd3, {visible: [true]}, [T3LBL]);
@@ -448,7 +478,9 @@ __JS2D__
     }
     if (focus !== false) focusXYZ(X(i), Y(i), Z(i));
     // inspector
+    var upTxt = (UPRICE[i] >= 0) ? "\u20B9" + Math.round(UPRICE[i]).toLocaleString('en-IN') + "/unit" : "~unit price unknown";
     var rows = '<table>' +
+      '<tr><td class="k">Unit price</td><td>' + esc(upTxt) + '</td></tr>' +
       '<tr><td class="k">Category</td><td>' + esc(CATS[CAT[i]]) + '</td></tr>' +
       '<tr><td class="k">Store</td><td>' + esc(appName(APP[i])) + '</td></tr>' +
       '<tr><td class="k">In stock</td><td>' + stockTxt(STOCK[i]) + '</td></tr>' +
@@ -456,13 +488,19 @@ __JS2D__
     var why = '';
     if (OPP && OPP[i] && (state.mode === 'gap' || state.mode === 'opportunity')) {
       var o = OPP[i];
+      var none = '(none stated)';
+      var vr2 = (o.validation_reason_codes && o.validation_reason_codes.join) ? o.validation_reason_codes.join(', ') : (o.validation_reason_codes || none);
+      var gt2 = (o.gap_types && o.gap_types.join) ? o.gap_types.join(', ') : (o.gap || none);
       why = '<h2>WHY THIS WAS FLAGGED</h2><div style="font-size:11px;color:var(--dim);line-height:1.35">' +
-        '<b>Gap type:</b> ' + (o.gap || 'unknown') + '<br/>' +
-        '<b>Category coverage:</b> sufficient (density guard passes per M4: no insufficient/stale) <br/>' +
-        '<b>Evidence:</b> neighborhood sparse (low local density / high knn) + absent on tracked app(s); DPI and coverage age shown above; validation codes from opportunity score (M6). <br/>' +
-        '<b>Stability:</b> evidence is stable across recent refreshes (persistent gap, not crawl artifact). <br/>' +
-        '<b>Re-key note:</b> no pair-count collapse detected; no voucher exclusion applies. <br/>' +
-        (o.score ? '<b>Opportunity score:</b> ' + o.score.toFixed(4) + '<br/>' : '') +
+        '<b>Gap types/kind:</b> ' + esc(gt2) + ' / ' + esc(o.kind || o.gap || 'unknown') + '<br/>' +
+        '<b>Opportunity score:</b> ' + (o.score != null ? o.score.toFixed(4) : none) + '<br/>' +
+        '<b>Gap strength:</b> ' + (o.gap_strength != null ? esc(o.gap_strength) : none) + '<br/>' +
+        '<b>DPI:</b> ' + (o.dpi != null ? esc(o.dpi) : none) + '<br/>' +
+        '<b>Coverage:</b> ' + (o.coverage != null ? esc(o.coverage) : none) + '<br/>' +
+        '<b>Validation codes:</b> ' + esc(vr2) + '<br/>' +
+        '<b>Category:</b> ' + esc(o.category || CATS[CAT[i]]) + '<br/>' +
+        '<b>Provenance:</b> ' + esc(o.provenance || none) +
+        (o.note ? '<br/><b>Note:</b> ' + esc(o.note) : '') +
         '</div>';
     }
     insp.innerHTML = '<div class="nm">' + esc(NAMES[i]) + '</div>' +
@@ -764,7 +802,10 @@ def load_product_meta(db_path, names):
         ) WHERE rn = 1
     """).fetchall()
     best = {}
+    apps_by_name = {}
     for nm, price, app, cat in prows:
+        if app:
+            apps_by_name.setdefault(nm, set()).add(app)
         if price is None:
             continue
         prev = best.get(nm)
@@ -795,7 +836,7 @@ def load_product_meta(db_path, names):
         meta[nm] = (price, app, cat, stock.get(nm, -1))
     print(f"prices joined for {sum(1 for nm in names if nm in best)}/{len(names)} names; "
           f"stock known for {sum(1 for nm in names if meta[nm][3] >= 0)} names")
-    return meta
+    return meta, apps_by_name
 
 
 def golden_palette(k, s=0.65, v=0.95):
@@ -882,11 +923,24 @@ def normalize_opportunities(opp_json, names):
         if r.get("rejected"):
             kind = "rejected"
         kind = kind or (gap_types[0] if gap_types else "candidate")
+        vr = r.get("validation_reason_codes")
+        if isinstance(vr, str):
+            vr = [v.strip() for v in vr.split(",") if v.strip()]
         out.append({
             "gap": kind,
             "opportunity": ("strong" if isinstance(score, (int, float))
                             and score >= OPP_STRONG_MIN else "weak"),
             "score": score if isinstance(score, (int, float)) else None,
+            "gap_types": list(gap_types) if gap_types else None,
+            "kind": kind,
+            "rejected": bool(r.get("rejected", False)),
+            "coverage": r.get("coverage"),
+            "dpi": r.get("dpi"),
+            "gap_strength": r.get("gap_strength"),
+            "provenance": r.get("provenance"),
+            "validation_reason_codes": list(vr) if vr else None,
+            "note": r.get("note"),
+            "category": r.get("category"),
         })
     return out
 
@@ -1022,7 +1076,7 @@ def split_graph_div(graph_html, div_id):
 
 
 def build_html_page(graph3d, graph2d, names, clusters, colors, apps, cats,
-                    coord5, clu, pnum, app, cat, stock, radius, n_neighbors,
+                    coord5, clu, pnum, app, appmask, uprice, cat, stock, radius, n_neighbors,
                     subtitle, abouttech, opp_json=None):
     div3d, js3d = split_graph_div(graph3d, "map3d")
     div2d, js2d = split_graph_div(graph2d, "map2d")
@@ -1044,6 +1098,8 @@ def build_html_page(graph3d, graph2d, names, clusters, colors, apps, cats,
             .replace("__CLU__", b64(clu.astype("<u2")))
             .replace("__PNUM__", b64(pnum.astype("<f4")))
             .replace("__APP__", b64(app.astype("u1")))
+            .replace("__APPMASK__", b64(appmask.astype("u1")))
+            .replace("__UPRICE__", b64(uprice.astype("<f4")))
             .replace("__CAT__", b64(cat.astype("<u2")))
             .replace("__STOCK__", b64(stock.astype("i1")))
             .replace("__OPP_JSON__", json.dumps(opp_json if opp_json is not None else {"note":"Pass --opp-json with opportunity records to activate Gap/Opportunity modes"}, ensure_ascii=False))
@@ -1108,8 +1164,8 @@ def main():
         cl["cx2"], cl["cy2"] = [float(v) for v in xy2[labels == c].mean(axis=0)] \
             if cl["count"] else [0.0, 0.0]
 
-    meta = load_product_meta(args.db, names)
-    apps = sorted({m[1] for m in meta.values() if m[1]})
+    meta, apps_by_name = load_product_meta(args.db, names)
+    apps = sorted({m[1] for m in meta.values() if m[1]} | {a for s in apps_by_name.values() for a in s})
     app_idx = {a: i for i, a in enumerate(apps)}
     cat_idx = {c: i for i, c in enumerate(ALL_CATEGORIES)}
 
@@ -1121,6 +1177,25 @@ def main():
     cat = np.array([cat_idx.get(meta[nm][2], len(ALL_CATEGORIES) - 1)
                     for nm in names], dtype=np.uint16)
     stock = np.array([meta[nm][3] for nm in names], dtype=np.int8)
+    appmask = np.zeros(len(names), dtype=np.uint8)
+    for idx, nm in enumerate(names):
+        m = 0
+        for a in apps_by_name.get(nm, ()):
+            if a in app_idx:
+                m |= (1 << app_idx[a])
+        appmask[idx] = m
+    uprice = np.full(len(names), np.nan, dtype=np.float32)
+    for idx, nm in enumerate(names):
+        price = meta[nm][0]
+        if not (price is not None and price >= 0):
+            continue
+        try:
+            pf = parse_name(nm, use_llm=False)
+            up = unit_price(float(price), pf.get("pack_value"), pf.get("pack_unit"))
+        except Exception:
+            up = None  # unparseable pack -> stays NaN/unknown
+        if up is not None:
+            uprice[idx] = float(up)
 
     colors = golden_palette(args.k)
     hulls = cluster_hulls(xy2, labels, args.k, seed=args.seed)
@@ -1146,7 +1221,7 @@ def main():
         with open(args.opp_json, "r", encoding="utf-8") as f:
             opp_json = normalize_opportunities(json.load(f), names)
     page = build_html_page(graph3d, graph2d, names, clusters, colors, apps,
-                           ALL_CATEGORIES, coord5, clu, pnum, app, cat, stock,
+                           ALL_CATEGORIES, coord5, clu, pnum, app, appmask, uprice, cat, stock,
                            radius, args.neighbors, subtitle, abouttech,
                            opp_json=opp_json)
     _ = model_short

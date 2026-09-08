@@ -59,8 +59,8 @@ def gt_pack(qty):
     m = NUM_UNIT_RE.search(qty.replace(",", " "))
     if not m:
         return None
-    if m.group(2):  # "2 x 500 ml" -> per-unit 500
-        return _canon(m.group(2), m.group(3))
+    if m.group(2):  # "2 x 500 ml" -> TOTAL 1000 (matches parse_pack convention)
+        return _canon(float(m.group(1)) * float(m.group(2)), m.group(3))
     return _canon(m.group(1), m.group(3))
 
 

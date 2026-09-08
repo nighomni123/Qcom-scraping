@@ -77,6 +77,8 @@ def _norm_product_name(name):
     n = (name or "").lower()
     for rx in (_MULTI_RE, _VOL_RE, _WT_RE, _PACKOF_RE, _COUNT_RE):
         n = rx.sub(" ", n)
+    # measured: 63 str.replace passes BEAT a 63-branch alternation regex here
+    # (unlike parse_brand, every needle is replaced — no early exit to win)
     for v in _VARIANTS:
         n = n.replace(v, " ")
     n = re.sub(r"[^a-z0-9 ]", " ", n)
@@ -85,7 +87,11 @@ def _norm_product_name(name):
 
 def _mk_row(app, store_id, sku_key, name, price, mrp, in_stock, url,
             collections, category, raw_json, source, inv_db):
-    p = parse_name(name, price, category)
+    # use_llm=False on this hot path: the union layer parses up to 167k names
+    # per load — a per-row Ollama HTTP call (15s timeout) would hang any box
+    # with Ollama up and violates offline-degradable. LLM refinement is
+    # opt-in for eval/sample paths, not bulk parsing.
+    p = parse_name(name, price, category, use_llm=False)
     # 'collections' = SOURCE/APP taxonomy (verbatim); 'category' = INTERNAL
     # taxonomy (from the arg if present, else our categorize()).
     internal_cat = category if category else categorize(name)
@@ -112,6 +118,8 @@ def _mk_row(app, store_id, sku_key, name, price, mrp, in_stock, url,
         "unit_base": p["unit_base"],
         "unit_price": p["unit_price"],
         "parse_status": p["parse_status"],
+        "parse_source": p.get("parse_source"),   # regex | reference:<ds> | none
+        "llm_used": p.get("llm_used", False),
     }
 
 
@@ -157,9 +165,11 @@ def load_product_space(apps=None, since=None, attach_embeddings=False, root=None
                 "cs.sku_key,cs.ts) IN (SELECT app,store_id,sku_key,MAX(ts) FROM "
                 "catalog_snapshots GROUP BY app,store_id,sku_key)"
             )
+            params = []
             if since:
-                q += f" AND cs.ts >= {float(since)}"
-            for r in con.execute(q):
+                q += " AND cs.ts >= ?"
+                params.append(float(since))
+            for r in con.execute(q, params):
                 key = (r[0], r[1], r[2])
                 if key in seen:
                     continue
@@ -273,14 +283,19 @@ def assign_product_groups(rows):
                 s = _sim(rtoks, g["_toks"])
                 if s >= CANDIDATE_THRESHOLD:
                     cands.append((s, g))
-            # 3) pack-size / variant VETO
+            # 3) pack-size / variant VETO — unknown pack/variant must also
+            # veto on the fuzzy path: a no-pack row landing in a packed group
+            # (or "Amul Milk" into "Amul Chocolate Milk") over-merges. Only
+            # the exact canonical key (checked above) may join unknowns.
             survivors = []
             for s, g in cands:
-                if (g["pack_value"] is not None and pv is not None
-                        and (g["pack_value"] != pv or g["pack_unit"] != pu)):
+                if (g["pack_value"] is None) != (pv is None):
+                    continue  # one side unknown, other known -> no fuzzy join
+                if pv is not None and (g["pack_value"] != pv or g["pack_unit"] != pu):
                     continue
-                if g["variant"] and variant and g["variant"] != variant:
-                    continue
+                if g["variant"] or variant:  # either side set -> must agree
+                    if not (g["variant"] and variant and g["variant"] == variant):
+                        continue
                 survivors.append((s, g))
             if survivors:
                 survivors.sort(key=lambda x: -x[0])

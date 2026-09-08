@@ -10,8 +10,14 @@ and scores each candidate with the plan's transparent product formula:
     Opportunity Score
     = Assortment-gap strength (missing share x establishment confidence)
     × Neighborhood DPI (mean dpi of same-category groups)
-    × Coverage confidence (1.0; 0.3 if insufficient/stale coverage)
     × Churn stability (0.5 if catalog_events burst = crawl noise, else 1.0)
+
+Coverage is NOT a multiplier: categories flagged insufficient/stale coverage
+are dropped by the hard guard above, so every emitted row has coverage = 1.0.
+
+Offline note: with db=None every neutral fires at once (dpi=0.5,
+coverage=1.0, churn=1.0) so offline scores are ordering-only, not calibrated:
+score = 0.5 × gap_strength for all rows.
 
 Every number cites provenance. Phase 8 validation attaches reason codes built
 ONLY from existing repo signals (vouchers, search archive, density guards,
@@ -21,6 +27,8 @@ Pure stdlib; reuses the other product-space modules. Offline-degradable:
 `db=None` -> DPI evidence absent (neutral 0.5), churn burst unknown (neutral),
 search archive check skipped.
 """
+# ponytail: offline-ordering upgrade path is a has_dpi_evidence flag /
+# NEUTRAL_DPI=1.0 so unevidenced rows stop being discounted; live math unchanged.
 from __future__ import annotations
 
 import json
@@ -33,7 +41,6 @@ DPI_NORM = 5.0        # dpi (demand.py rollup) that maps to full strength
 EVENT_BURST = 500     # catalog_events in 14d above this = crawl-noise suspect
 NEUTRAL = 1.0
 NEUTRAL_DPI = 0.5     # no DPI evidence: neutral, never a boost
-WEAK_COVERAGE = 0.3
 
 
 def _dpi_strength(dpi):
@@ -134,10 +141,9 @@ def score_opportunities(rows, db=None, min_n=25):
         ndpi = cat_dpi_mean.get(cat)
         dpi = _dpi_strength(ndpi)
 
-        # --- coverage confidence ---
+        # --- coverage confidence (always 1.0: guarded categories were dropped
+        # above, so coverage enters as the guard, not a multiplier) ---
         coverage = NEUTRAL
-        if dens_row.get("insufficient_coverage") or dens_row.get("stale_coverage"):
-            coverage = WEAK_COVERAGE
 
         # --- churn stability (mild extra penalty if the group itself churned) ---
         churn = 0.5 if burst else NEUTRAL
@@ -220,6 +226,12 @@ def persist_opportunities(db, opps):
     """
     db.conn.executescript(_OPP_SCHEMA)
     now = time.time()
+    try:  # keep batch ts strictly increasing so same-float persists never merge
+        prev = db.conn.execute("SELECT MAX(ts) FROM opportunities").fetchone()[0]
+        if prev is not None and now <= prev:
+            now = prev + 0.001
+    except Exception:
+        pass
     rows = [
         (
             now, o["product_group_id"], o["rep_name"], o["category"],
@@ -244,12 +256,19 @@ def persist_opportunities(db, opps):
 def load_latest_opportunities(db, limit=50):
     """Latest persisted opportunity snapshot (highest score first)."""
     db.conn.executescript(_OPP_SCHEMA)
+    # Snapshot selection is id-anchored, never float equality: the latest
+    # batch's max id gives THE snapshot ts; rows are that ts AND id <= max id.
+    mx = db.conn.execute("SELECT MAX(id) FROM opportunities").fetchone()[0]
+    if mx is None:
+        return []
+    snap_ts = db.conn.execute(
+        "SELECT ts FROM opportunities WHERE id=?", (mx,)).fetchone()[0]
     rows = db.conn.execute(
         "SELECT ts, product_group_id, rep_name, category, gap_types, score,"
         " gap_strength, dpi, coverage, churn, validation_reason_codes, provenance"
-        " FROM opportunities WHERE ts = (SELECT MAX(ts) FROM opportunities)"
+        " FROM opportunities WHERE ts = ? AND id <= ?"
         " ORDER BY score DESC LIMIT ?",
-        (limit,),
+        (snap_ts, mx, limit,),
     ).fetchall()
     return [
         {

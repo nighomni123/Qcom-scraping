@@ -85,3 +85,61 @@ M1. Rollout beyond: M3 assortment gaps, M4 density, M5 scoring, M6 LLM briefs
 - M12 round (2026-09-08): 4 subagents launched; 3 delivered (5=validation suite, 4=atlas normalize fix, 6=live parser report + real Ollama LLM proof), 1 stalled (3: delivered eval harness + range-kg guard but left eval gate mis-designed w/ `use_reference=False`) → killed, finished in-thread (gate redesigned to name-embedded GT → 94.7% PASS).
 - eval_parser primary-gate design deviation — original harness scored Quantity-COLUMN GT against name parse (measured column recovery, 11.8% "FAIL"); redesigned to name-embedded GT because our catalog names embed the pack; fallback recovery reported separately (57%).
 - AGENTS.md: added standing rule "use the subagent tool generously" (user directive 2026-09-08) + stall-handling (kill, keep on-disk work, finish in-thread).
+
+## Polish pass (2026-09-08, post-M12): 4 read-only audits → 5 fix batches
+
+Status: all batches applied + verified; primary eval gate PASS 94.7% (unchanged);
+union load 167,333 rows 37.8s → 33.7s; grouping 24.5s → 14.4s (total ~48s).
+
+- A (in-thread, parser/union hot path): match_reference O(1) exact-index (was
+  197ms/name linear scan — the --score-opportunities 60s-timeout root cause;
+  fuzzy difflib pass now OPT-IN). multipack pack_value now TOTAL ("2 x 500ml"
+  → 1000ml: per-unit 500 halved every derived ₹/L; SELFTEST + eval GT + _ref_gt
+  updated to same convention). _mk_row: use_llm=False (per-row Ollama HTTP on
+  the 167k hot path silently hung any Ollama-up box) + parse_source/llm_used
+  provenance passthrough + parse_source:'none' on unparseable early-return.
+  Entity-resolution veto tightened: unknown-pack/variant no longer fuzzy-joins
+  (one-side-unknown = veto; only exact canonical key joins unknowns; either-
+  side-set variant must agree). SQL: f-string ts interpolation → bound param.
+  _REF_FILES CWD-relative → repo-root absolute. parse_brand/_VARIANT scans →
+  compiled longest-first alternation regexes (7us vs 64us/name; &#39; entity
+  treated as boundary; Lay's now brands to "Lays" not "Lay'").
+  _norm_product_name alternation tried + MEASURED SLOWER (str.replace wins when
+  every needle is replaced) → reverted, comment left so it's not retried.
+- B (subagent): density _coord half-missing→None (was 0.0-coord false-sparse),
+  _norm_coords zero-guard, per-category (not global) cat_age, age-0.0 None
+  fix, O(k²)→sort-by-x prune (exact, 0/300-group mismatches), product_vectors
+  days_since_first_seen None, assortment _confidence dead param dropped,
+  opportunities dead WEAK_COVERAGE branch deleted + docstring honest,
+  load_latest_opportunities id-anchored snapshot select (float-equality merge),
+  offline ordering-only scoring documented + ponytail ceiling.
+- C (subagent): temporal analyze_temporal now queries real catalog_snapshots
+  history (2 recent sweeps: growing→emerging / shrinking→declining; proxy kept
+  only for db=None w/ ponytail), stability_report unmeasured fields → None w/
+  ponytail, human_review real additive opportunity_reviews persistence
+  (submit/reviews_for/apply_review_feedback round-trip; db=None raises),
+  build_brief score guard + honest LLM-stub labels, incremental
+  products_changed_since real snapshot-EXCEPT + catalog_events diff, epoch-sec
+  watermark semantics + None/[] distinction. Tests: time-series fixtures,
+  round-trips, exact-branch asserts (was tautologies).
+- D (subagent): run.py --score-opportunities --csv no longer ALSO prints the
+  top-N summary; --validate-opportunities empty-snapshot message; README +
+  AGENTS Commands now document --temporal-analysis / --validate-opportunities
+  / --opportunity-pipeline + --min-n honor note; test_product_space sys.path
+  bootstrap (bare-run fails no more).
+- E (subagent): atlas cross-app REAL per-name app bitmask array (__APPMASK__,
+  popcount coloring 1/2/3+ apps — was app-INDEX misread), unit-price REAL array
+  (__UPRICE__, NaN→neutral+tooltip — was identical to price mode),
+  normalize_opportunities passes evidence through (gap types/score/gap_
+  strength/dpi/coverage/provenance/validation codes/category — inspector
+  "WHY FLAGGED" shows real values, canned claims removed), glyph symbols
+  (circle/circle-open/diamond/x) via marker.symbol restyle.
+- Deviation note: eval secondary gate 57% → 50.3% after the multipack-total GT
+  change (honest re-scoring: reference Quantity strings with "2 x 500ml"
+  shapes now expect totals; per-unit had inflated agreement). Primary gate
+  (name-embedded, the one that matters for our catalog) unchanged at 94.7%.
+- ponytail ceilings left (marked in code): offline opportunities scores are
+  ordering-only (NEUTRAL_DPI=0.5); stability projection/neighbor fields None;
+  temporal count-proxy when db=None; LLM brief stub labeled; parse_name
+  `category` param documented as unused forward hook (kept: dropping churns
+  callers for zero behavior change).

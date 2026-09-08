@@ -22,12 +22,11 @@ import sys
 from collections import defaultdict
 
 
-def _confidence(present_apps, missing_apps, tracked_apps, store_count):
+def _confidence(present_apps, tracked_apps, store_count):
     """Honest, coverage-only confidence in [0, 1].
 
     It grows with how firmly the group is established on the apps that DO carry
-    it, and with how few apps it is missing from (a gap missing one app is a
-    sharper, lower-uncertainty signal than one missing two):
+    it:
 
         present_share = len(present_apps) / len(tracked_apps)   # 1/3, 2/3, ...
         establishment = min(store_count / STORE_CAP, 1.0)        # more stores -> more real
@@ -104,7 +103,7 @@ def detect_assortment_gaps(rows, tracked_apps=("blinkit", "zepto", "instamart"))
             "member_count": member_count,
             "store_count": store_count,
             "category": category,
-            "confidence": _confidence(present, missing, order, store_count),
+            "confidence": _confidence(present, order, store_count),
         })
 
     # stable, readable order: fewest present apps first (biggest gaps), then name

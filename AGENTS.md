@@ -396,6 +396,14 @@ deals.db                everything: price_obs, alerts, darkstores, watchlist,
                                     # deals.db `opportunities` table (M7)
     python3 run.py --opportunity-report [--limit N]
                                     # latest persisted opportunity snapshot
+    python3 run.py --temporal-analysis [--min-n 25]
+                                    # temporal signals + category stability report
+    python3 run.py --validate-opportunities [--limit N]
+                                    # top persisted opportunities for human review
+    python3 run.py --opportunity-pipeline [--force]
+                                    # incremental refresh (full refresh with --force)
+                                    # --min-n honored by: product-density, detect-gaps,
+                                    # score-opportunities, temporal-analysis (stability)
 
 Dashboard (`--ui`, http://127.0.0.1:8787; dashboard-ONLY by default — starts
 no loops; add --bot and/or --monitor to also run them alongside, or start

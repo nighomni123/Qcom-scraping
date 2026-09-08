@@ -15,8 +15,13 @@ import json
 import os
 import shutil
 import sqlite3
+import sys
 import tempfile
 import unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from src import product_space as ps
 

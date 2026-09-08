@@ -170,7 +170,7 @@ def build_product_vectors(rows, db=None):
         store_count = len({m.get("store_id") for m in members})
         app_count = len({m.get("app") for m in members})
         fss = [first_seen_map[s] for s in skus if s in first_seen_map]
-        days_since_first_seen = round((now - min(fss)) / 86400.0, 2) if fss else 0.0
+        days_since_first_seen = round((now - min(fss)) / 86400.0, 2) if fss else None
         active_now = (
             1 if (any(m.get("in_stock") == 1 for m in members)
                   or (set(skus) & wl_active_skus)) else 0

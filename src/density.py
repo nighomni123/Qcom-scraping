@@ -24,16 +24,17 @@ neighborhood (they still appear in the table, but contribute no false neighbors)
 """
 from __future__ import annotations
 
+import bisect
 import math
 import time
 from collections import defaultdict
 
 
 def _coord(unit_price, pack_value):
-    """2-D position in (unit_price, pack_value); None if neither is known."""
-    if unit_price is None and pack_value is None:
+    """2-D position in (unit_price, pack_value); None unless BOTH known."""
+    if unit_price is None or pack_value is None:
         return None
-    return (unit_price or 0.0, pack_value or 0.0)
+    return (unit_price, pack_value)
 
 
 def _norm_coords(coords):
@@ -42,6 +43,8 @@ def _norm_coords(coords):
     ys = [c[1] for c in coords if c and c[1] is not None]
     xmax = max(xs) if xs else 1.0
     ymax = max(ys) if ys else 1.0
+    xmax = xmax or 1.0
+    ymax = ymax or 1.0
     out = []
     for c in coords:
         if not c:
@@ -92,16 +95,33 @@ def compute_density(rows, min_n=25, stale_days=21, db=None,
     for cat, gids in cat_groups.items():
         cat_norm[cat] = _norm_coords([meta[g]["coord"] for g in gids])
 
-    # coarse coverage age per category from the latest catalog snapshot overall
+    # coarse coverage age per category: per-category max snapshot ts over the
+    # category's own member sku_keys (single query), so a stale category with
+    # fresh siblings is still flagged.
     cat_age = {}
     if db is not None:
         try:
-            row = db.conn.execute("SELECT MAX(ts) FROM catalog_snapshots").fetchone()
-            last = row[0] if row else None
-            if last:
-                age = (time.time() - last) / 86400.0
-                for cat in cat_groups:
-                    cat_age[cat] = age
+            sku_cat = {}
+            for gid, members in by_group.items():
+                for m in members:
+                    if m.get("sku_key"):
+                        sku_cat[m["sku_key"]] = meta[gid]["category"]
+            skus = list(sku_cat)
+            sku_max = {}
+            if skus:
+                for i in range(0, len(skus), 900):
+                    chunk = skus[i:i + 900]
+                    q = ("SELECT sku_key, MAX(ts) FROM catalog_snapshots"
+                         " WHERE sku_key IN (%s) GROUP BY sku_key"
+                         % ",".join("?" * len(chunk)))
+                    for sku, mts in db.conn.execute(q, chunk):
+                        sku_max[sku] = mts
+            now = time.time()
+            for cat in cat_groups:
+                lasts = [sku_max[s] for s, c in sku_cat.items()
+                         if c == cat and sku_max.get(s)]
+                if lasts:
+                    cat_age[cat] = (now - max(lasts)) / 86400.0
         except Exception:
             pass
 
@@ -117,7 +137,7 @@ def compute_density(rows, min_n=25, stale_days=21, db=None,
             base = {
                 "product_group_id": gid, "category": cat,
                 "coverage_n": coverage_n,
-                "coverage_age_days": round(cat_age[cat], 1) if cat_age.get(cat) else None,
+                "coverage_age_days": round(cat_age[cat], 1) if cat_age.get(cat) is not None else None,
                 "insufficient_coverage": insufficient, "stale_coverage": stale,
             }
             if nc is None or insufficient:
@@ -128,18 +148,33 @@ def compute_density(rows, min_n=25, stale_days=21, db=None,
             best = None
             nb_brands = set()
             nb_count = 0
-            for j, og in enumerate(gids):
-                if j == i:
-                    continue
-                oc = norm[j]
-                if oc is None:
-                    continue
-                d = _dist(nc, oc)
-                if best is None or d < best:
-                    best = d
-                if d <= neighbor_radius:
-                    nb_count += 1
-                    nb_brands |= meta[og]["brands"]
+            # ponytail: sort-by-x prune keeps exact kNN; ceiling is O(k^2)
+            # worst case when points share near-identical x (no early break).
+            # Upgrade: spatial index (kd-tree) if a category exceeds ~10k groups.
+            pts = sorted(((norm[j], gids[j]) for j in range(len(gids))
+                          if j != i and norm[j] is not None),
+                         key=lambda t: t[0][0])
+            xs = [p[0][0] for p in pts]
+            pos = bisect.bisect_left(xs, nc[0])
+            for k in range(max(pos, len(pts) - pos)):
+                done = True
+                # exactness needs every point within best (kNN) AND within
+                # neighbor_radius (count); both are lower-bounded by dx.
+                lim = max(best if best is not None else float("inf"), neighbor_radius)
+                for j in (pos + k, pos - k - 1):
+                    if 0 <= j < len(pts):
+                        oc, og = pts[j]
+                        if abs(oc[0] - nc[0]) <= lim:
+                            done = False
+                            d = _dist(nc, oc)
+                            if best is None or d < best:
+                                best = d
+                                lim = max(best, neighbor_radius)
+                            if d <= neighbor_radius:
+                                nb_count += 1
+                                nb_brands |= meta[og]["brands"]
+                if best is not None and done and k > 0:
+                    break
             results.append({**base,
                             "local_density": round(1.0 / (1.0 + (best or 0.0)), 4),
                             "knn_distance": round(best, 4) if best is not None else None,

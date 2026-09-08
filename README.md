@@ -33,6 +33,10 @@ darkstore, honey pot, WAF…) defined in plain English where it first appears.
     python3 run.py --detect-gaps --csv                  # M5 internal/attribute gaps
     python3 run.py --score-opportunities --persist      # M6 scoring + M7 persist to deals.db
     python3 run.py --opportunity-report --limit 10      # latest persisted opportunity snapshot
+    python3 run.py --temporal-analysis --min-n 25        # temporal signals + category stability report
+    python3 run.py --validate-opportunities --limit 20   # top persisted opportunities for human review
+    python3 run.py --opportunity-pipeline --force        # incremental refresh (full refresh with --force)
+    # --min-n honored by: product-density, detect-gaps, score-opportunities, temporal-analysis (stability)
     python3 run.py --build-watchlist                 # per-store SKU probe set
     python3 run.py --build-watchlist --apps blinkit --store 47578 \
                     --max-per-store 100 --max-queries 10

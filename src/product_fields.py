@@ -152,22 +152,17 @@ def _regex_confidence(name, brand, variant, pack_value):
     # Brand confidence
     if brand:
         # Known multi-word brand matched exactly
-        for b in _MULTIWORD_BRANDS:
-            if b in low:
-                conf += 0.4
-                break
+        if _MULTIWORD_BRAND_RE.search(low):
+            conf += 0.4
         # Heuristic brand (first token) - lower confidence
-        if conf == 0.0:
+        elif conf == 0.0:
             conf += 0.2
     # Pack confidence (strong signal)
     if pack_value is not None:
         conf += 0.3
     # Variant confidence
-    if variant:
-        for v in _VARIANTS:
-            if v in low:
-                conf += 0.2
-                break
+    if variant and _VARIANT_RE.search(low):
+        conf += 0.2
     # Length penalty for very short names (likely ambiguous)
     if len(name) < 15:
         conf -= 0.1
@@ -210,6 +205,17 @@ _MULTIWORD_BRANDS = [
 ]
 # sort longest-first so "baker's loaf" wins over "loaf"
 _MULTIWORD_BRANDS.sort(key=len, reverse=True)
+# One compiled scan instead of a ~170-needle Python loop per name — parse_brand
+# was ~36s of the 167k-row union load. Apostrophes stripped to match the
+# apostrophe-free `low` that parse_brand searches; "mom " (trailing-space quirk
+# in the source list) normalizes to "mom".
+_BN_NEEDLES = [b.replace("'", "").strip() for b in _MULTIWORD_BRANDS]
+_BN_NEEDLES = [b for b in _BN_NEEDLES if b]
+_BN_ALT = "|".join(re.escape(b) for b in _BN_NEEDLES)
+# earliest-in-name wins, then longest needle at that position (alternation is
+# ordered longest-first, mirroring the old list order). `&#` counts as a word
+# boundary: scraped names carry HTML-entity apostrophes ("Haldiram&#39;s").
+_MULTIWORD_BRAND_RE = re.compile(r"(?:^| )(" + _BN_ALT + r")(?= |$|&#)")
 
 _VARIANTS = [
     "full cream", "double toned", "toned", "skimmed", "skim", "low fat",
@@ -221,6 +227,9 @@ _VARIANTS = [
     "butter", "salted", "unsalted", "saffron", "sandalwood", "oily", "dry",
 ]
 _VARIANTS.sort(key=len, reverse=True)
+# One compiled alternation per name — a 63-iteration Python loop per row was
+# ~30% of the whole union-load profile (17.8M `in` scans at 167k rows).
+_VARIANT_RE = re.compile("(?:" + "|".join(re.escape(v) for v in _VARIANTS) + ")")
 
 # words that, when leading, are NOT the brand (generic descriptors / pack words)
 _DESCRIPTOR_STOP = {
@@ -260,6 +269,9 @@ def parse_pack(name):
     low = name.lower()
 
     # multipack: "2 x 500ml", "3 x 1kg", "2 x 6" (count)
+    # pack_value is the TOTAL ("2 x 500ml" -> 1000 ml, is_multipack=True):
+    # price is for the whole bundle, so unit_price = price / (total/1000) is
+    # only correct with the total. (Per-unit 500 halved every derived ₹/L.)
     m = _MULTI_RE.search(name)
     if m:
         n = int(m.group(1))
@@ -267,7 +279,7 @@ def parse_pack(name):
         vm = re.match(r"(\d+(?:\.\d+)?)\s*(ml|l|ltr|g|gm|grm|kg)?", rest, re.I)
         if vm and vm.group(2):
             u, mult = _norm_unit(vm.group(2))
-            return float(vm.group(1)) * mult, u, True
+            return float(vm.group(1)) * mult * n, u, True
         # "2 x" with no trailing unit -> count multipack
         return float(n), "count", True
 
@@ -329,11 +341,10 @@ def parse_brand(name):
     if not name:
         return None
     low = name.lower().replace("'", "").strip()
-    # multi-word brand prefixes (longest first)
-    for b in _MULTIWORD_BRANDS:
-        bn = b.replace("'", "")
-        if low.startswith(bn) or f" {bn} " in f" {low} ":
-            return _brand_span(name, bn)
+    # multi-word brand prefixes (longest first) — single compiled scan
+    m = _MULTIWORD_BRAND_RE.search(" " + low + " ")
+    if m:
+        return _brand_span(name, m.group(1))
     # heuristic: first token if it looks like a brand (Titlecase / ALLCAPS)
     first = name.strip().split()[0] if name.strip() else ""
     if not first:
@@ -349,7 +360,11 @@ def parse_variant(name):
     if not name:
         return None
     low = name.lower()
-    hits = [v for v in _VARIANTS if v in low]
+    # one regex scan for the hits, then emit in _VARIANTS list order — the
+    # joined string is a grouping KEY (variant equality veto), so hit order
+    # must be deterministic by list, not by position in the name
+    seen = set(_VARIANT_RE.findall(low))
+    hits = [v for v in _VARIANTS if v in seen]
     return " ".join(hits) if hits else None
 
 
@@ -376,10 +391,12 @@ def unit_price(price, pack_value, pack_unit):
 # --------------------------------------------------------------------------
 # reference fallback (M2 Step 1): exact/fuzzy match vs reference/ CSV pack GT
 # --------------------------------------------------------------------------
-_REF_INDEX = None  # lazy: list of (norm_name, pack_value, pack_unit, dataset, orig_name)
+_REF_INDEX = None  # lazy: (exact dict: norm_name -> (val, unit, ds, orig), fuzzy list)
 _REF_FILES = (
-    ("reference/BigBasket.csv", "ProductName", "Quantity", "bigbasket"),
-    ("reference/amazon_india_products.csv", "Product Title",
+    (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                  "reference", "BigBasket.csv"), "ProductName", "Quantity", "bigbasket"),
+    (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                  "reference", "amazon_india_products.csv"), "Product Title",
      "Pack Size Or Quantity", "amazon"),
 )
 _REF_GT_RE = re.compile(
@@ -389,22 +406,26 @@ _REF_GT_RE = re.compile(
 
 
 def _ref_gt(qty):
-    """First numeric+unit token of a Quantity string -> (value, unit) or None."""
+    """First numeric+unit token of a Quantity string -> (value, unit) or None.
+    Total pack convention (matches parse_pack): "2 x 500 ml" -> 1000 ml."""
     if not qty:
         return None
     m = _REF_GT_RE.search(qty.replace(",", " "))
     if not m:
         return None
-    num = m.group(2) or m.group(1)
+    num = float(m.group(2)) * float(m.group(1)) if m.group(2) else float(m.group(1))
     u, mult = _norm_unit(m.group(3))
     if u not in ("ml", "g"):
-        return float(num), "count"
-    return float(num) * mult, u
+        return num, "count"
+    return num * mult, u
 
 
 def _build_ref_index():
+    """(exact dict, fuzzy list). Exact lookups must be O(1) — a linear scan
+    over 12k+ entries per no-pack name made load_product_space ~200ms/name
+    (the M12 --score-opportunities timeout root cause)."""
     import csv as _csv
-    idx = []
+    exact, fuzzy = {}, []
     for path, name_col, qty_col, ds in _REF_FILES:
         if not os.path.exists(path):
             continue
@@ -415,16 +436,21 @@ def _build_ref_index():
                     nm = (row.get(name_col) or "").strip()
                     g = _ref_gt(row.get(qty_col) or "")
                     if nm and g:
-                        idx.append((nm.lower(), g[0], g[1], ds, nm))
+                        k = nm.lower()
+                        exact.setdefault(k, (g[0], g[1], ds, nm))
+                        fuzzy.append((k, g[0], g[1], ds, nm))
         except OSError:
             continue
-    return idx
+    return exact, fuzzy
 
 
-def match_reference(name):
+def match_reference(name, fuzzy=False):
     """Match `name` against reference/ pack ground truth.
 
-    Exact normalized lookup first, then difflib fuzzy (ratio >= 0.9).
+    Exact normalized dict lookup (O(1)) by default; the difflib fuzzy pass
+    (ratio >= 0.9) is OPT-IN via fuzzy=True because it scans the whole index
+    per miss (~150ms) — fine for the eval harness, never for the union layer
+    which parses thousands of no-pack names (the M12 pipeline timeout).
     Returns {"pack_value", "pack_unit", "source", "matched_name"} or None
     (None also when reference/ is absent). Pure stdlib; index cached.
     """
@@ -433,17 +459,20 @@ def match_reference(name):
         return None
     if _REF_INDEX is None:
         _REF_INDEX = _build_ref_index()
-    if not _REF_INDEX:
+    exact, fuzzy_idx = _REF_INDEX
+    if not exact:
+        return None
+    low = str(name).strip().lower()
+    hit = exact.get(low)
+    if hit:
+        return {"pack_value": hit[0], "pack_unit": hit[1],
+                "source": f"reference:{hit[2]}",
+                "matched_name": hit[3]}
+    if not fuzzy:
         return None
     import difflib as _dl
-    low = str(name).strip().lower()
-    for key, val, unit, ds, orig in _REF_INDEX:
-        if key == low:
-            return {"pack_value": val, "pack_unit": unit,
-                    "source": f"reference:{ds}",
-                    "matched_name": orig}
     best, best_r = None, 0.0
-    for key, val, unit, ds, orig in _REF_INDEX:
+    for key, val, unit, ds, orig in fuzzy_idx:
         if abs(len(key) - len(low)) > max(len(key), len(low)) // 3:
             continue  # ponytail: cheap length prefilter; difflib is O(n^2)-ish
         r = _dl.SequenceMatcher(None, low, key).ratio()
@@ -460,10 +489,17 @@ def parse_name(name, price=None, category=None, use_llm=True,
                use_reference=True):
     """Single entry point. Returns a dict with parsed grocery fields.
 
+    `category` is an accepted-but-unused forward hook (reserved for
+    LLM-assist on category; callers pass it — don't drop it from the signature).
+
     Hybrid mode (use_llm=True, default): regex parses pack/unit/multipack
     (≥85% accurate, instant), then a local Ollama LLM is consulted ONLY when
     regex confidence is low (< 0.7) to refine brand/variant. If Ollama is
     unavailable or the parse is confident, regex result stands unchanged.
+
+    pack_value is the TOTAL for multipacks ("2 x 500ml" -> 1000 ml,
+    is_multipack=True) — price is for the whole bundle, so unit_price =
+    price/total is correct only with the total convention.
 
     parse_status: 'ok' (pack detected), 'no_pack' (no pack detectable,
     unit_price None), 'unparseable' (empty/garbage input).
@@ -473,6 +509,7 @@ def parse_name(name, price=None, category=None, use_llm=True,
             "brand": None, "pack_value": None, "pack_unit": None,
             "is_multipack": False, "variant": None, "unit_base": None,
             "unit_price": None, "parse_status": "unparseable",
+            "parse_source": "none", "llm_used": False,
         }
     brand = parse_brand(name)
     pack_value, pack_unit, is_mp = parse_pack(name)
@@ -556,7 +593,7 @@ SELFTEST_CASES = [
     ("Bikaji Gulab Jamun 500 g", ("Bikaji", 500.0, "g", False)),
     ("Yoga Bar Power Up 20g Protein Bar", ("Yoga Bar", 20.0, "g", False)),
     ("Mother Dairy Full Cream Milk 500ml", ("Mother Dairy", 500.0, "ml", False)),
-    ("Amul Taaza Toned Milk 2 x 500ml", ("Amul", 500.0, "ml", True)),
+    ("Amul Taaza Toned Milk 2 x 500ml", ("Amul", 1000.0, "ml", True)),
     ("Baker's Loaf Multigrain Bread", ("Bakers Loaf", None, None, False)),  # no pack
     ("Fresh Banana", (None, None, None, False)),  # no brand, no pack
 ]
