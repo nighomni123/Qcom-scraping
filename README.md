@@ -1,6 +1,6 @@
 # qcom-scraping v2 — Glitch & Deal Monitor
 
-Two features in one tool:
+Three features in one tool:
 
 1. **Glitch monitor** — watches Blinkit/Instamart/Zepto across the Mumbai
    corridor (Virar → Andheri) for pricing glitches, upstream of Telegram groups.
@@ -15,6 +15,23 @@ See `ARCHITECTURE.md` for the design and the anti-block strategy.
 First time here? `GUIDE.md` walks you through what to run, in what order,
 and how to interpret every result — with every jargon term (OOS, DPI,
 darkstore, honey pot, WAF…) defined in plain English where it first appears.
+
+## See it work — no live crawling, no secrets needed
+
+```sh
+python3 run.py --demo   # offline end-to-end run against a scratch deals.demo.db:
+                        # injected price glitches + honey-pot validation, real alert
+                        # format, can never touch production data (verified 2026-09-16)
+```
+
+Live output from real captures — open these right in this repo (double-click
+or [htmlpreview](https://htmlpreview.github.io/?https://github.com/nighomni123/Qcom-scraping/blob/main/exports/embedding_map.html)
+for the 4MB atlas):
+
+- `exports/embedding_map.html` — 3D Inventory Atlas: semantic map of the whole
+  product space with price/store/category joins, cluster explorer, click-to-inspect.
+- `exports/` also carries locality JSON + opportunity snapshots (all data here
+  is public catalog data; captured with provenance).
 
 
 ## Demand Radar (phases 0–3 live)
